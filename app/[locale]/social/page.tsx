@@ -9,13 +9,13 @@ import Link from 'next/link'
 import { FiPlus } from 'react-icons/fi'
 
 export default function SocialPage() {
-  const { posts, currentUser } = useSocial()
+  const { posts, currentUser, following } = useSocial()
   const [tab, setTab] = useState<'feed' | 'following'>('feed')
   const locale = useLocale()
   
   const display = tab === 'feed' 
     ? posts 
-    : posts.filter(p => currentUser?.following?.includes(p.author.id)) // Assuming user object has following list, or logic needs adjustment. 
+    : posts.filter(p => following.includes(p.userId)) 
     // For now, let's just filter by something or keep it simple. 
     // Since mock data structure might not support 'following' array on user yet, we might need to adjust.
     // Let's just show all posts for 'following' if logic isn't ready, or filter by a mock logic.
