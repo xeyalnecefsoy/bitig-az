@@ -5,10 +5,13 @@ import type { Book } from '@/lib/data'
 import { BookCard } from '@/components/BookCard'
 import { FiHeadphones, FiSearch } from 'react-icons/fi'
 
+import { useLocale } from '@/context/locale'
+
 export default function BrowsePage() {
   const [q, setQ] = useState('')
   const [genre, setGenre] = useState<string>('all')
   const [minRating, setMinRating] = useState<number>(0)
+  const locale = useLocale()
 
   const genres = useMemo(() => ['all', ...Array.from(new Set(books.map(b => b.genre)))], [])
 
@@ -77,7 +80,7 @@ export default function BrowsePage() {
 
       <div className="grid gap-4 grid-cols-2 sm:gap-6 sm:grid-cols-3 lg:grid-cols-4">
         {filtered.map((b: Book) => (
-          <BookCard key={b.id} book={b} />
+          <BookCard key={b.id} book={b} locale={locale} />
         ))}
       </div>
     </section>
