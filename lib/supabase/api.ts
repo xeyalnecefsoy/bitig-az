@@ -106,6 +106,7 @@ export async function getUser(id: string): Promise<User | null> {
   return {
     id: data.id,
     name: data.username || 'Unknown',
+    username: data.username || 'unknown',
     avatar: data.avatar_url || '',
     bio: data.bio,
     joinedAt: data.updated_at, // or created_at if we had it
