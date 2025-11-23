@@ -1,0 +1,30 @@
+import Link from 'next/link'
+import { t, type Locale } from '@/lib/i18n'
+
+export function Footer({ locale }: { locale: Locale }) {
+  return (
+    <footer className="border-t border-neutral-100 dark:border-neutral-800 mt-16">
+      <div className="container-max py-10 text-sm text-neutral-600 dark:text-neutral-300 grid gap-8 sm:grid-cols-[1fr_auto]">
+        <div className="flex items-center gap-2">
+          <div className="h-5 w-5 rounded bg-brand" />
+          <span className="font-medium">Bitig</span>
+        </div>
+        <div className="grid gap-3 sm:text-right">
+          <div className="font-semibold text-neutral-800 dark:text-neutral-100">{t(locale, 'footer_related')}</div>
+          <nav className="flex sm:justify-end gap-4 text-sm">
+            <Link href={`/${locale}/audiobooks` as any} className="hover:text-brand">{t(locale, 'nav_audiobooks')}</Link>
+            <Link href={`/${locale}/social` as any} className="hover:text-brand">{t(locale, 'nav_social')}</Link>
+            <Link href={`/${locale}/profile` as any} className="hover:text-brand">{t(locale, 'nav_profile')}</Link>
+          </nav>
+          <div className="flex sm:justify-end gap-4 text-xs">
+            <Link href="#" className="hover:text-brand">{t(locale, 'footer_about')}</Link>
+            <Link href="#" className="hover:text-brand">{t(locale, 'footer_help')}</Link>
+            <Link href="#" className="hover:text-brand">{t(locale, 'footer_privacy')}</Link>
+            <Link href="#" className="hover:text-brand">{t(locale, 'footer_terms')}</Link>
+          </div>
+        </div>
+        <div className="sm:col-span-2 text-xs text-neutral-500 dark:text-neutral-400">© {new Date().getFullYear()} Bitig</div>
+      </div>
+    </footer>
+  )
+}
