@@ -43,6 +43,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         const mappedUsers: User[] = profiles.map(p => ({
           id: p.id,
           name: p.username || 'Anonymous',
+          username: p.username || 'anonymous',
           avatar: p.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.id}`,
           bio: p.bio,
           joinedAt: p.updated_at
@@ -62,6 +63,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
                 setCurrentUser({
                   id: myProfile.id,
                   name: myProfile.username || 'Anonymous',
+                  username: myProfile.username || 'anonymous',
                   avatar: myProfile.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${myProfile.id}`,
                   bio: myProfile.bio,
                   joinedAt: myProfile.updated_at
@@ -115,6 +117,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
            setCurrentUser({
              id: data.id,
              name: data.username || 'Anonymous',
+             username: data.username || 'anonymous',
              avatar: data.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${data.id}`,
              bio: data.bio,
              joinedAt: data.updated_at
