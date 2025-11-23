@@ -38,7 +38,7 @@ export default async function HomePage() {
         </div>
         <div className="grid gap-4 grid-cols-2 sm:gap-6 sm:grid-cols-3 lg:grid-cols-4">
           {books.slice(0, 6).map((b: Book) => (
-            <BookCard key={b.id} book={b} />
+            <BookCard key={b.id} book={b} locale="en" />
           ))}
         </div>
       </section>
