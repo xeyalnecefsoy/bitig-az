@@ -137,12 +137,12 @@ export default function AdminDashboard() {
           <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-4">Genre Distribution</h3>
           <div className="space-y-3">
             {Object.entries(stats.genreDistribution).map(([genre, count]) => {
-              const percentage = ((count as number) / stats.totalBooks * 100).toFixed(0)
+              const percentage: string = ((count as number) / stats.totalBooks * 100).toFixed(0)
               return (
                 <div key={genre}>
                   <div className="flex justify-between text-sm mb-1">
                     <span className="text-neutral-700 dark:text-neutral-300">{genre}</span>
-                    <span className="text-neutral-500 dark:text-neutral-400">{count} ({percentage}%)</span>
+                    <span className="text-neutral-500 dark:text-neutral-400">{String(count)} ({percentage}%)</span>
                   </div>
                   <div className="h-2 bg-neutral-100 dark:bg-neutral-800 rounded-full overflow-hidden">
                     <div 
