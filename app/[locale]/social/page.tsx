@@ -9,13 +9,13 @@ import Link from 'next/link'
 import { FiPlus } from 'react-icons/fi'
 
 export default function SocialPage() {
-  const { posts, user } = useSocial()
+  const { posts, currentUser } = useSocial()
   const [tab, setTab] = useState<'feed' | 'following'>('feed')
   const locale = useLocale()
   
   const display = tab === 'feed' 
     ? posts 
-    : posts.filter(p => user?.following?.includes(p.author.id)) // Assuming user object has following list, or logic needs adjustment. 
+    : posts.filter(p => currentUser?.following?.includes(p.author.id)) // Assuming user object has following list, or logic needs adjustment. 
     // For now, let's just filter by something or keep it simple. 
     // Since mock data structure might not support 'following' array on user yet, we might need to adjust.
     // Let's just show all posts for 'following' if logic isn't ready, or filter by a mock logic.
@@ -23,7 +23,7 @@ export default function SocialPage() {
     // But the request was just to HIDE the tab.
     
   // If tab is following but user is guest, switch to feed (though button is hidden, good to be safe)
-  if (tab === 'following' && !user) setTab('feed')
+  if (tab === 'following' && !currentUser) setTab('feed')
 
   return (
     <section className="container-max py-6 sm:py-8 grid gap-6 lg:grid-cols-[2fr_1fr]">
@@ -42,7 +42,7 @@ export default function SocialPage() {
           >
             Community Feed
           </button>
-          {user && (
+          {currentUser && (
             <button
               onClick={() => setTab('following')}
               className={`pb-3 text-sm font-medium transition-colors ${tab === 'following' ? 'border-b-2 border-brand text-brand' : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200'}`}
