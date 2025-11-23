@@ -6,7 +6,7 @@ import { BookCard } from '@/components/BookCard'
 import { HeroCarousel } from '@/components/HeroCarousel'
 
 export default async function HomePage() {
-  const books = await getBooks()
+  const books = await getBooks(6)
   
   return (
     <div>
@@ -37,7 +37,7 @@ export default async function HomePage() {
           <Link href="/browse" className="text-brand hover:underline">See all</Link>
         </div>
         <div className="grid gap-4 grid-cols-2 sm:gap-6 sm:grid-cols-3 lg:grid-cols-4">
-          {books.slice(0, 6).map((b: Book) => (
+          {books.map((b: Book) => (
             <BookCard key={b.id} book={b} locale="en" />
           ))}
         </div>

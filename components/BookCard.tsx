@@ -1,5 +1,6 @@
 "use client"
 import Link from 'next/link'
+import Image from 'next/image'
 import { FiPlay, FiShoppingCart, FiLock } from 'react-icons/fi'
 import { useCart } from '@/context/cart'
 import type { Book } from '@/lib/data'
@@ -12,11 +13,13 @@ export function BookCard({ book, locale, disabled }: { book: any; locale: string
   return (
     <div className={`group relative flex flex-col gap-2 ${disabled ? 'opacity-75' : ''}`}>
       <div className="aspect-[2/3] w-full overflow-hidden rounded-md bg-neutral-100 dark:bg-neutral-800 relative">
-        <Link href={`/${locale}/audiobooks/${book.id}` as any} className="block h-full w-full">
-          <img
+        <Link href={`/${locale}/audiobooks/${book.id}` as any} className="block h-full w-full relative">
+          <Image
             src={book.cover}
             alt={book.title}
-            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            fill
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
           />
         </Link>
         {disabled && (

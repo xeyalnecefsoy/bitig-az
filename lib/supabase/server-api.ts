@@ -2,9 +2,16 @@ import { createClient } from './server'
 import type { Book } from '@/lib/data'
 import type { Post, User } from '@/lib/social'
 
-export async function getBooks(): Promise<Book[]> {
+export async function getBooks(limit?: number): Promise<Book[]> {
   const supabase = await createClient()
-  const { data, error } = await supabase.from('books').select('*')
+  let query = supabase.from('books').select('*')
+  
+  if (limit) {
+    query = query.limit(limit)
+  }
+  
+  const { data, error } = await query
+  
   if (error) {
     console.error('Error fetching books:', error)
     return []
