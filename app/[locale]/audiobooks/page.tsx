@@ -1,5 +1,5 @@
 import { BookCard } from '@/components/BookCard'
-import { t } from '@/lib/i18n'
+import { t, type Locale } from '@/lib/i18n'
 import { books } from '@/lib/data'
 import React from 'react'
 import { createClient } from '@/lib/supabase/server'
@@ -14,7 +14,7 @@ export default async function AudiobooksPage({ params }: { params: Promise<{ loc
   return (
     <section className="container-max py-6 sm:py-8">
       <div className="mb-8 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">{t(locale, 'nav_audiobooks')}</h1>
+        <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">{t(locale as Locale, 'nav_audiobooks')}</h1>
       </div>
 
       {!user && (
