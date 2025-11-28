@@ -107,7 +107,7 @@ export default function NewSponsorPage() {
 
       if (insertError) throw insertError
 
-      router.push(`/${locale}/admin/sponsors`)
+      router.push(`/${locale}/admin/sponsors` as any)
       router.refresh()
     } catch (err: any) {
       setError(err.message || 'Failed to create sponsor')
@@ -122,7 +122,7 @@ export default function NewSponsorPage() {
           <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">Add New Sponsor</h1>
           <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">Create a new advertising campaign</p>
         </div>
-        <Link href={`/${locale}/admin/sponsors`} className="btn btn-outline gap-2">
+        <Link href={`/${locale}/admin/sponsors` as any} className="btn btn-outline gap-2">
           <FiX /> Cancel
         </Link>
       </div>
@@ -332,7 +332,7 @@ export default function NewSponsorPage() {
           >
             <FiSave /> {saving ? 'Creating...' : 'Create Sponsor'}
           </button>
-          <Link href={`/${locale}/admin/sponsors`} className="btn btn-outline py-3">
+          <Link href={`/${locale}/admin/sponsors` as any} className="btn btn-outline py-3">
             Cancel
           </Link>
         </div>

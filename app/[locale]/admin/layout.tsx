@@ -30,7 +30,7 @@ export default function AdminLayout({
   async function checkAuth() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      router.push(`/${locale}/login`)
+      router.push(`/${locale}/login` as any)
       return
     }
 
@@ -41,7 +41,7 @@ export default function AdminLayout({
       .single()
 
     if (!profile || (profile.role !== 'admin' && profile.role !== 'coadmin')) {
-      router.push(`/${locale}`)
+      router.push(`/${locale}` as any)
       return
     }
 
@@ -130,7 +130,7 @@ export default function AdminLayout({
                    onClick={async () => {
                      closeAudio() // Stop audio playback
                      await supabase.auth.signOut()
-                     router.push(`/${locale}`)
+                     router.push(`/${locale}` as any)
                      router.refresh()
                    }}
                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all w-full"

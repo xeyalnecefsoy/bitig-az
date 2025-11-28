@@ -169,7 +169,7 @@ export default function EditBookPage({ params }: { params: Promise<{ locale: str
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div className="flex items-center gap-4">
-        <Link href={`/${locale}/admin/books`} className="btn btn-outline p-2"><FiArrowLeft /></Link>
+        <Link href={`/${locale}/admin/books` as any} className="btn btn-outline p-2"><FiArrowLeft /></Link>
         <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">{t(locale, 'admin_edit_audiobook')}</h1>
       </div>
 

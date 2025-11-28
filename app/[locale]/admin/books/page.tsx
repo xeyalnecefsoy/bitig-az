@@ -95,7 +95,7 @@ export default function AdminBooksPage({ params }: { params: Promise<{ locale: s
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex justify-end gap-2">
                       <Link
-                        href={`/${locale}/admin/books/${book.id}`}
+                        href={`/${locale}/admin/books/${book.id}` as any}
                         className="text-blue-600 hover:text-blue-900 dark:hover:text-blue-400 p-1"
                       >
                         <FiEdit2 />
@@ -139,7 +139,7 @@ export default function AdminBooksPage({ params }: { params: Promise<{ locale: s
               </div>
               <div className="flex gap-2">
                 <Link
-                  href={`/${locale}/admin/books/${book.id}`}
+                  href={`/${locale}/admin/books/${book.id}` as any}
                   className="text-blue-600 hover:text-blue-900 dark:hover:text-blue-400 p-2 h-fit"
                 >
                   <FiEdit2 />

@@ -163,7 +163,7 @@ export default function MyProfilePage() {
   async function handleLogout() {
     closeAudio() // Stop audio playback
     await supabase.auth.signOut()
-    router.push(`/${locale}`)
+    router.push(`/${locale}` as any)
     router.refresh()
   }
 
@@ -181,7 +181,7 @@ export default function MyProfilePage() {
         <div className="card p-8 text-center">
           <h2 className="text-xl font-semibold mb-3">Sign in to view your profile</h2>
           <p className="text-neutral-600 dark:text-neutral-400 mb-4">You need to be signed in to access your profile page.</p>
-          <Link href={`/${locale}/login`} className="btn btn-primary">Sign in</Link>
+          <Link href={`/${locale}/login` as any} className="btn btn-primary">Sign in</Link>
         </div>
       </section>
     )

@@ -37,8 +37,16 @@ export default async function BookDetail({ params }: { params: Promise<{ locale:
         <AddToCart id={book.id} price={book.price} />
         <div className="mt-6">
           <AudioPlayer
-            src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
-            title={`Sample from ${book.title}`}
+            tracks={[
+              {
+                id: book.id,
+                title: `Sample from ${book.title}`,
+                audio_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+                duration: 0,
+              },
+            ]}
+            title={book.title}
+            cover={book.cover}
           />
         </div>
       </div>

@@ -55,7 +55,7 @@ function Add({ id }: { id: string }) {
   const handleAdd = async () => {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) {
-      router.push(`/${locale}/login`)
+      router.push(`/${locale}/login` as any)
       return
     }
     add(id)

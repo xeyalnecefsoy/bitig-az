@@ -68,7 +68,7 @@ export default function SponsorsPage() {
             Manage advertising and sponsorships
           </p>
         </div>
-        <Link href={`/${locale}/admin/sponsors/new`} className="btn btn-primary gap-2">
+        <Link href={`/${locale}/admin/sponsors/new` as any} className="btn btn-primary gap-2">
           <FiPlus /> Add Sponsor
         </Link>
       </div>
@@ -160,7 +160,7 @@ export default function SponsorsPage() {
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <Link 
-                          href={`/${locale}/admin/sponsors/${sponsor.id}`} 
+                          href={`/${locale}/admin/sponsors/${sponsor.id}` as any} 
                           className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
                           title="Edit"
                         >
@@ -209,7 +209,7 @@ export default function SponsorsPage() {
                 </button>
               </div>
               <div className="flex gap-2">
-                <Link href={`/${locale}/admin/sponsors/${sponsor.id}`} className="btn btn-outline flex-1 text-sm py-2">
+                <Link href={`/${locale}/admin/sponsors/${sponsor.id}` as any} className="btn btn-outline flex-1 text-sm py-2">
                   <FiEdit2 /> Edit
                 </Link>
                 <button onClick={() => deleteSponsor(sponsor.id)} className="btn btn-outline text-red-600 flex-1 text-sm py-2">
@@ -223,7 +223,7 @@ export default function SponsorsPage() {
         {sponsors.length === 0 && (
           <div className="p-12 text-center text-neutral-500 dark:text-neutral-400">
             <p className="mb-4">No sponsors yet.</p>
-            <Link href={`/${locale}/admin/sponsors/new`} className="btn btn-primary gap-2">
+            <Link href={`/${locale}/admin/sponsors/new` as any} className="btn btn-primary gap-2">
               <FiPlus /> Add Your First Sponsor
             </Link>
           </div>

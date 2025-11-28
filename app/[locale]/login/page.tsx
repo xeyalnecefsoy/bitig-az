@@ -85,7 +85,7 @@ export default function LoginPage() {
           password,
         })
         if (error) throw error
-        router.push(`/${locale}`)
+        router.push(`/${locale}` as any)
         router.refresh()
       }
     } catch (err: any) {
