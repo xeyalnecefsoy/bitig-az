@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter, usePathname } from 'next/navigation'
 import { FcGoogle } from 'react-icons/fc'
+import { t, type Locale } from '@/lib/i18n'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -16,7 +17,7 @@ export default function LoginPage() {
   const supabase = createClient()
 
   const pathname = usePathname()
-  const locale = pathname.split('/')[1] || 'en'
+  const locale = (pathname.split('/')[1] || 'en') as Locale
 
   const handleGoogleLogin = async () => {
     setLoading(true)
@@ -43,7 +44,7 @@ export default function LoginPage() {
     try {
       if (mode === 'signup') {
         if (parseInt(age) < 13) {
-          setError('You must be at least 13 years old to sign up.')
+          setError(t(locale, 'login_age_error'))
           setLoading(false)
           return
         }
@@ -77,7 +78,7 @@ export default function LoginPage() {
              })
         }
         
-        alert('Check your email for the confirmation link!')
+        alert(t(locale, 'login_check_email'))
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,
@@ -99,15 +100,15 @@ export default function LoginPage() {
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
           <h2 className="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">
-            {mode === 'login' ? 'Sign in to your account' : 'Create an account'}
+            {mode === 'login' ? t(locale, 'login_title') : t(locale, 'signup_title')}
           </h2>
           <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
-            {mode === 'login' ? "Don't have an account? " : "Already have an account? "}
+            {mode === 'login' ? t(locale, 'login_no_account') : t(locale, 'login_have_account')}{' '}
             <button
               onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}
               className="font-medium text-brand hover:text-brand/80"
             >
-              {mode === 'login' ? 'Sign up' : 'Sign in'}
+              {mode === 'login' ? t(locale, 'login_signup_link') : t(locale, 'login_signin_link')}
             </button>
           </p>
         </div>
@@ -119,7 +120,7 @@ export default function LoginPage() {
             className="flex w-full items-center justify-center gap-3 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 shadow-sm hover:bg-neutral-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:opacity-50 dark:bg-neutral-800 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-700"
           >
             <FcGoogle className="h-5 w-5" />
-            Sign in with Google
+            {t(locale, 'login_google')}
           </button>
 
           <div className="relative mt-6">
@@ -127,7 +128,7 @@ export default function LoginPage() {
               <div className="w-full border-t border-neutral-300 dark:border-neutral-700" />
             </div>
             <div className="relative flex justify-center text-sm font-medium leading-6">
-              <span className="bg-white px-6 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-400">Or continue with email</span>
+              <span className="bg-white px-6 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-400">{t(locale, 'login_or_email')}</span>
             </div>
           </div>
 
@@ -140,7 +141,7 @@ export default function LoginPage() {
                       type="text"
                       required
                       className="relative block w-full rounded-t-md border-0 py-1.5 px-3 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:z-10 focus:ring-2 focus:ring-inset focus:ring-brand sm:text-sm sm:leading-6 dark:bg-neutral-900 dark:text-white dark:ring-neutral-700 dark:placeholder:text-neutral-500"
-                      placeholder="Full Name"
+                      placeholder={t(locale, 'login_full_name')}
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
                     />
@@ -149,8 +150,10 @@ export default function LoginPage() {
                     <input
                       type="number"
                       required
+                      min="1"
+                      max="150"
                       className="relative block w-full border-0 py-1.5 px-3 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:z-10 focus:ring-2 focus:ring-inset focus:ring-brand sm:text-sm sm:leading-6 dark:bg-neutral-900 dark:text-white dark:ring-neutral-700 dark:placeholder:text-neutral-500"
-                      placeholder="Age"
+                      placeholder={t(locale, 'login_age')}
                       value={age}
                       onChange={(e) => setAge(e.target.value)}
                     />
@@ -162,7 +165,7 @@ export default function LoginPage() {
                   type="email"
                   required
                   className={`relative block w-full border-0 py-1.5 px-3 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:z-10 focus:ring-2 focus:ring-inset focus:ring-brand sm:text-sm sm:leading-6 dark:bg-neutral-900 dark:text-white dark:ring-neutral-700 dark:placeholder:text-neutral-500 ${mode === 'signup' ? '' : 'rounded-t-md'}`}
-                  placeholder="Email address"
+                  placeholder={t(locale, 'login_email')}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
@@ -172,7 +175,7 @@ export default function LoginPage() {
                   type="password"
                   required
                   className="relative block w-full rounded-b-md border-0 py-1.5 px-3 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:z-10 focus:ring-2 focus:ring-inset focus:ring-brand sm:text-sm sm:leading-6 dark:bg-neutral-900 dark:text-white dark:ring-neutral-700 dark:placeholder:text-neutral-500"
-                  placeholder="Password"
+                  placeholder={t(locale, 'login_password')}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
@@ -187,7 +190,7 @@ export default function LoginPage() {
                 disabled={loading}
                 className="group relative flex w-full justify-center rounded-md bg-brand px-3 py-2 text-sm font-semibold text-white hover:bg-brand/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:opacity-50"
               >
-                {loading ? 'Loading...' : mode === 'login' ? 'Sign in' : 'Sign up'}
+                {loading ? t(locale, 'login_loading') : mode === 'login' ? t(locale, 'login_signin_button') : t(locale, 'login_signup_button')}
               </button>
             </div>
           </form>

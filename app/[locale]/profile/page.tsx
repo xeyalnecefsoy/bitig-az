@@ -6,11 +6,20 @@ import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { FiEdit2, FiSave, FiX, FiLogOut, FiUpload } from 'react-icons/fi'
 import { uploadAvatar } from '@/lib/supabase/storage'
+import { useAudio } from '@/context/audio'
+import { FollowButton } from '@/components/social/FollowButton'
+import { useSocial } from '@/context/social'
 
 export default function MyProfilePage() {
+  const { close: closeAudio } = useAudio()
+  const { currentUser: authUser } = useSocial()
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [posts, setPosts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
+  const [followersCount, setFollowersCount] = useState(0)
+  const [followingCount, setFollowingCount] = useState(0)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [editForm, setEditForm] = useState({ username: '', bio: '' })
@@ -26,32 +35,82 @@ export default function MyProfilePage() {
   }, [])
 
   async function loadProfile() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        setLoading(false)
+        return
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+
+      if (profile) {
+        setCurrentUser(profile)
+        setEditForm({ username: profile.username || '', bio: profile.bio || '' })
+        setAvatarPreview(profile.avatar_url || '')
+
+        // Fetch counts
+        const { count: followers } = await supabase
+          .from('follows')
+          .select('*', { count: 'exact', head: true })
+          .eq('following_id', user.id)
+        
+        const { count: following } = await supabase
+          .from('follows')
+          .select('*', { count: 'exact', head: true })
+          .eq('follower_id', user.id)
+
+        setFollowersCount(followers || 0)
+        setFollowingCount(following || 0)
+      }
+
+      // Load initial 10 posts
+      const { data: userPosts, error: postsError } = await supabase
+        .from('posts')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(10)
+
+      // Don't fail if posts table doesn't exist or query fails
+      if (!postsError && userPosts) {
+        setPosts(userPosts)
+        setHasMore(userPosts.length === 10)
+      } else {
+        setPosts([])
+        setHasMore(false)
+      }
+    } catch (error) {
+      console.error('Error loading profile:', error)
+      setPosts([])
+      setHasMore(false)
+    } finally {
       setLoading(false)
-      return
     }
+  }
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single()
+  async function loadMorePosts() {
+    if (!currentUser || loadingMore) return
+    setLoadingMore(true)
 
-    if (profile) {
-      setCurrentUser(profile)
-      setEditForm({ username: profile.username || '', bio: profile.bio || '' })
-      setAvatarPreview(profile.avatar_url || '')
-    }
-
-    const { data: userPosts } = await supabase
+    const { data: morePosts } = await supabase
       .from('posts')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', currentUser.id)
       .order('created_at', { ascending: false })
+      .range(posts.length, posts.length + 9)
 
-    setPosts(userPosts || [])
-    setLoading(false)
+    if (morePosts && morePosts.length > 0) {
+      setPosts(prev => [...prev, ...morePosts])
+      setHasMore(morePosts.length === 10)
+    } else {
+      setHasMore(false)
+    }
+    setLoadingMore(false)
   }
 
   function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -102,6 +161,7 @@ export default function MyProfilePage() {
   }
 
   async function handleLogout() {
+    closeAudio() // Stop audio playback
     await supabase.auth.signOut()
     router.push(`/${locale}`)
     router.refresh()
@@ -134,7 +194,23 @@ export default function MyProfilePage() {
         {posts.length === 0 ? (
           <div className="card p-6 text-sm text-neutral-600 dark:text-neutral-300">No posts yet.</div>
         ) : (
-          posts.map(p => <SocialPostCard key={p.id} postId={p.id} />)
+          <div className="space-y-6">
+          {posts.map(post => (
+            <SocialPostCard key={post.id} postId={post.id} disableHover={true} />
+          ))}
+          
+          {hasMore && (
+              <div className="flex justify-center py-4">
+                <button 
+                  onClick={loadMorePosts}
+                  disabled={loadingMore}
+                  className="btn btn-outline"
+                >
+                  {loadingMore ? 'Loading...' : 'Load More Posts'}
+                </button>
+              </div>
+            )}
+          </div>
         )}
       </div>
 
@@ -222,11 +298,11 @@ export default function MyProfilePage() {
                 </div>
                 <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 p-3">
                   <div className="text-xs text-neutral-500 dark:text-neutral-400">Following</div>
-                  <div className="font-semibold">0</div>
+                  <div className="font-semibold">{followingCount}</div>
                 </div>
                 <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 p-3">
                   <div className="text-xs text-neutral-500 dark:text-neutral-400">Followers</div>
-                  <div className="font-semibold">0</div>
+                  <div className="font-semibold">{followersCount}</div>
                 </div>
               </div>
 

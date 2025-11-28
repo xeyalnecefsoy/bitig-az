@@ -17,6 +17,12 @@ export function Navbar() {
   const socialHref: string = `/${locale}/social`
   const cartHref: string = `/${locale}/cart`
   const { theme, toggle } = useTheme()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   return (
     <header className="hidden lg:block sticky top-0 z-50 backdrop-blur supports-[backdrop-filter]:bg-white/70 bg-white/90 border-b border-neutral-100 dark:supports-[backdrop-filter]:bg-neutral-950/70 dark:bg-neutral-950/90 dark:border-neutral-800">
       <div className="container-max h-16 flex items-center justify-between">
@@ -38,7 +44,15 @@ export function Navbar() {
             onClick={toggle}
             className="inline-flex items-center gap-2 rounded-md border border-neutral-200 px-2 py-1 text-xs hover:border-neutral-300 text-neutral-700 dark:border-neutral-700 dark:hover:border-neutral-600 dark:text-neutral-100"
           >
-            {theme === 'dark' ? <FiMoon /> : <FiSun />} {theme === 'dark' ? 'Dark' : 'Light'}
+            {mounted ? (
+              <>
+                {theme === 'dark' ? <FiMoon /> : <FiSun />} {theme === 'dark' ? 'Dark' : 'Light'}
+              </>
+            ) : (
+              <>
+                <FiSun /> Light
+              </>
+            )}
           </button>
         </nav>
       </div>
@@ -168,6 +182,11 @@ function LangDropdown({ current }: { current: 'en' | 'az' }) {
 export function MobileHeader() {
   const locale = useLocale()
   const { theme, toggle } = useTheme()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
   
   return (
     <header className="lg:hidden sticky top-0 z-40 border-b border-neutral-100 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70 dark:border-neutral-800 dark:bg-neutral-950/90">
@@ -184,7 +203,11 @@ export function MobileHeader() {
             className="p-2 text-neutral-700 dark:text-neutral-200"
             aria-label="Toggle theme"
           >
-            {theme === 'dark' ? <FiMoon size={18} /> : <FiSun size={18} />}
+            {mounted ? (
+              theme === 'dark' ? <FiMoon size={18} /> : <FiSun size={18} />
+            ) : (
+              <FiSun size={18} />
+            )}
           </button>
         </div>
       </div>

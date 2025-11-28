@@ -1,13 +1,17 @@
 -- Function to check if user is admin (bypassing RLS)
 CREATE OR REPLACE FUNCTION is_admin()
-RETURNS boolean AS $$
+RETURNS boolean 
+LANGUAGE plpgsql 
+SECURITY DEFINER
+SET search_path = public
+AS $$
 BEGIN
   RETURN EXISTS (
     SELECT 1 FROM profiles
     WHERE id = auth.uid() AND role = 'admin'
   );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 -- Enable RLS on books table
 ALTER TABLE books ENABLE ROW LEVEL SECURITY;

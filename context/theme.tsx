@@ -11,17 +11,24 @@ type ThemeState = {
 
 const ThemeCtx = createContext<ThemeState | null>(null)
 
+function getInitialTheme(): Theme {
+  if (typeof window === 'undefined') return 'light'
+  
+  try {
+    const saved = window.localStorage.getItem('bitig_theme') as Theme | null
+    if (saved === 'light' || saved === 'dark') return saved
+  } catch {}
+  
+  // Fallback to system preference
+  if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    return 'dark'
+  }
+  
+  return 'light'
+}
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>('light')
-  // Load preference on mount
-  useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem('bitig_theme') as Theme | null
-      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
-      const initial: Theme = saved ?? (prefersDark ? 'dark' : 'light')
-      setTheme(initial)
-    } catch {}
-  }, [])
+  const [theme, setTheme] = useState<Theme>(getInitialTheme)
 
   // Apply class to <html> and persist
   useEffect(() => {

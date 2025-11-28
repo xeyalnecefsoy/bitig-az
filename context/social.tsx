@@ -16,6 +16,8 @@ export type SocialState = {
   unfollow: (userId: string) => Promise<void>
   isFollowing: (userId: string) => boolean
   loading: boolean
+  loadMorePosts: () => Promise<void>
+  hasMorePosts: boolean
 }
 
 const SocialCtx = createContext<SocialState | null>(null)
@@ -32,13 +34,47 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
   // Fetch initial data
   useEffect(() => {
     async function init() {
-      setLoading(true)
-      
-      // 1. Get Auth User
+      // 1. Get Auth User FIRST (fastest check)
       const { data: { user: authUser } } = await supabase.auth.getUser()
       
-      // 2. Get Profiles (limit to recent/active)
-      const { data: profiles } = await supabase.from('profiles').select('*').limit(50)
+      // 2. If user is authenticated, fetch their profile immediately
+      if (authUser) {
+        const { data: myProfile } = await supabase.from('profiles').select('*').eq('id', authUser.id).single()
+        if (myProfile) {
+          const currentUserData = {
+            id: myProfile.id,
+            name: myProfile.username || 'Anonymous',
+            username: myProfile.username || 'anonymous',
+            avatar: myProfile.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${myProfile.id}`,
+            bio: myProfile.bio,
+            joinedAt: myProfile.updated_at
+          }
+          // Update currentUser, users, and loading in one batch to prevent flash
+          setCurrentUser(currentUserData)
+          setUsers([currentUserData])
+          
+          // Fetch following list
+          const { data: follows } = await supabase
+            .from('follows')
+            .select('following_id')
+            .eq('follower_id', authUser.id)
+            
+          if (follows) {
+            setFollowing(follows.map(f => f.following_id))
+          }
+          
+          setLoading(false)
+        } else {
+          // Profile not found, but user is authenticated
+          setLoading(false)
+        }
+      } else {
+        // No authenticated user
+        setLoading(false)
+      }
+      
+      // 4. Fetch other profiles in background (reduced from 50 to 10 for performance)
+      const { data: profiles } = await supabase.from('profiles').select('*').order('updated_at', { ascending: false }).limit(10)
       if (profiles) {
         const mappedUsers: User[] = profiles.map(p => ({
           id: p.id,
@@ -48,32 +84,16 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
           bio: p.bio,
           joinedAt: p.updated_at
         }))
-        setUsers(mappedUsers)
         
-        if (authUser) {
-          // If current user is not in the top 50, we might need to fetch them separately
-          // But for now, let's check if they are in the list
-          const me = mappedUsers.find(u => u.id === authUser.id)
-          if (me) {
-            setCurrentUser(me)
-          } else {
-             // Fetch current user specifically if not found
-             const { data: myProfile } = await supabase.from('profiles').select('*').eq('id', authUser.id).single()
-             if (myProfile) {
-                setCurrentUser({
-                  id: myProfile.id,
-                  name: myProfile.username || 'Anonymous',
-                  username: myProfile.username || 'anonymous',
-                  avatar: myProfile.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${myProfile.id}`,
-                  bio: myProfile.bio,
-                  joinedAt: myProfile.updated_at
-                })
-             }
-          }
-        }
+        // Merge with current user, avoiding duplicates
+        setUsers(prev => {
+          const currentUserId = prev[0]?.id
+          const filtered = mappedUsers.filter(u => u.id !== currentUserId)
+          return currentUserId ? [prev[0], ...filtered] : mappedUsers
+        })
       }
 
-      // 3. Get Posts (limit to 20)
+      // 5. Get Posts in background (reduced from 20 to 10 for initial load)
       const { data: postsData } = await supabase
         .from('posts')
         .select(`
@@ -84,7 +104,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
           )
         `)
         .order('created_at', { ascending: false })
-        .limit(20)
+        .limit(10)
 
       if (postsData) {
         const mappedPosts: Post[] = postsData.map(p => ({
@@ -103,8 +123,6 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         }))
         setPosts(mappedPosts)
       }
-
-      setLoading(false)
     }
 
     init()
@@ -114,13 +132,22 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         // Refresh user if needed
         const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).single()
         if (data) {
-           setCurrentUser({
+           const userData = {
              id: data.id,
              name: data.username || 'Anonymous',
              username: data.username || 'anonymous',
              avatar: data.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${data.id}`,
              bio: data.bio,
              joinedAt: data.updated_at
+           }
+           setCurrentUser(userData)
+           // Update in users list if exists
+           setUsers(prev => {
+             const exists = prev.find(u => u.id === data.id)
+             if (exists) {
+               return prev.map(u => u.id === data.id ? userData : u)
+             }
+             return [userData, ...prev]
            })
         }
       } else {
@@ -196,14 +223,78 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  const loadMorePosts = async () => {
+    const { data: { user: authUser } } = await supabase.auth.getUser()
+    const { data: postsData } = await supabase
+      .from('posts')
+      .select(`
+        *,
+        likes (user_id),
+        comments (
+          id, user_id, content, created_at
+        )
+      `)
+      .order('created_at', { ascending: false })
+      .range(posts.length, posts.length + 9)
+
+    if (postsData && postsData.length > 0) {
+      const mappedPosts: Post[] = postsData.map(p => ({
+        id: p.id,
+        userId: p.user_id,
+        content: p.content,
+        createdAt: p.created_at,
+        likes: p.likes.length,
+        likedByMe: authUser ? p.likes.some((l: any) => l.user_id === authUser.id) : false,
+        comments: p.comments.map((c: any) => ({
+          id: c.id,
+          userId: c.user_id,
+          content: c.content,
+          createdAt: c.created_at
+        }))
+      }))
+      setPosts(prev => [...prev, ...mappedPosts])
+    }
+  }
+
+  const hasMorePosts = posts.length % 10 === 0 && posts.length > 0
+
   const follow = async (userId: string) => {
-    // Implement follow logic if you have a 'follows' table. 
-    // For now, just local state or mock.
+    if (!currentUser) return
+    
+    // Optimistic update
     setFollowing(prev => [...prev, userId])
+    
+    const { error } = await supabase
+      .from('follows')
+      .insert({
+        follower_id: currentUser.id,
+        following_id: userId
+      })
+      
+    if (error) {
+      // Revert on error
+      setFollowing(prev => prev.filter(id => id !== userId))
+      console.error('Error following user:', error)
+    }
   }
 
   const unfollow = async (userId: string) => {
+    if (!currentUser) return
+
+    // Optimistic update
     setFollowing(prev => prev.filter(id => id !== userId))
+    
+    const { error } = await supabase
+      .from('follows')
+      .delete()
+      .eq('follower_id', currentUser.id)
+      .eq('following_id', userId)
+      
+    if (error) {
+      // Revert on error
+      setFollowing(prev => [...prev, userId])
+      console.error('Error unfollowing user:', error)
+    }
   }
 
   const isFollowing = (userId: string) => following.includes(userId)
@@ -219,7 +310,9 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     follow,
     unfollow,
     isFollowing,
-    loading
+    loading,
+    loadMorePosts,
+    hasMorePosts
   }), [currentUser, users, posts, following, loading])
 
   return <SocialCtx.Provider value={value}>{children}</SocialCtx.Provider>

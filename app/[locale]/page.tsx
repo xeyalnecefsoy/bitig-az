@@ -25,7 +25,6 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
         <div className="container-max py-8 sm:py-10">
           <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr] lg:items-center">
             <div>
-              <span className="badge mb-3">Bitig</span>
               <h1 className="text-3xl sm:text-4xl font-bold leading-tight mb-3">
                 {t(locale as any, 'home_headline')}
               </h1>

@@ -29,6 +29,7 @@ CREATE INDEX IF NOT EXISTS idx_books_author ON books(author);
 -- Profiles table indexes (User lookups)
 CREATE INDEX IF NOT EXISTS idx_profiles_username ON profiles(username);
 CREATE INDEX IF NOT EXISTS idx_profiles_role ON profiles(role);
+CREATE INDEX IF NOT EXISTS idx_profiles_updated_at ON profiles(updated_at DESC);
 
 -- Full-text search indexes (Fast search)
 CREATE INDEX IF NOT EXISTS idx_books_title_search 

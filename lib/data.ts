@@ -8,6 +8,7 @@ export type Book = {
   cover: string;
   description: string;
   genre: string;
+  audioSrc: string;
 };
 
 export const books: Book[] = [
@@ -22,6 +23,7 @@ export const books: Book[] = [
     description:
       "A sweeping epic of politics, religion, and ecology on the desert planet Arrakis.",
     genre: "Sci-Fi",
+    audioSrc: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
   },
   {
     id: "atomic",
@@ -34,6 +36,7 @@ export const books: Book[] = [
     description:
       "Build better habits and systems for continuous improvement with practical strategies.",
     genre: "Nonfiction",
+    audioSrc: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
   },
   {
     id: "hobbit",
@@ -46,6 +49,7 @@ export const books: Book[] = [
     description:
       "Bilbo Baggins embarks on an unexpected journey filled with dragons and dwarves.",
     genre: "Fantasy",
+    audioSrc: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
   },
   {
     id: "martian",
@@ -58,6 +62,7 @@ export const books: Book[] = [
     description:
       "A stranded astronaut fights to survive on Mars using ingenuity and humor.",
     genre: "Sci-Fi",
+    audioSrc: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
   },
   {
     id: "becoming",
@@ -70,6 +75,7 @@ export const books: Book[] = [
     description:
       "An intimate, powerful memoir by the former First Lady of the United States.",
     genre: "Memoir",
+    audioSrc: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3",
   },
   {
     id: "sapiens",
@@ -82,5 +88,6 @@ export const books: Book[] = [
     description:
       "A profound exploration of humanity’s past and our impact on the world.",
     genre: "History",
+    audioSrc: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3",
   },
 ];

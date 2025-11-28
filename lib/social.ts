@@ -5,6 +5,8 @@ export type User = {
   avatar: string;
   bio?: string;
   joinedAt?: string;
+  followers?: number;
+  following?: number;
 };
 
 export type Comment = {

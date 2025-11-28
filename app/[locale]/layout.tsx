@@ -5,11 +5,12 @@ import { Navbar, MobileNav, MobileHeader } from '@/components/Navbar'
 import { Footer } from '@/components/Footer'
 import { CartProvider } from '@/context/cart'
 import { ThemeProvider } from '@/context/theme'
-import { SocialProvider } from '@/context/social'
 import { GuestPopup } from '@/components/GuestPopup'
 import { AudioProvider } from '@/context/audio'
 import { FloatingPlayer } from '@/components/FloatingPlayer'
 import type { Metadata } from 'next'
+
+import { SocialProvider } from '@/context/social'
 
 export default async function LocaleLayout({ children, params }: { children: React.ReactNode; params: Promise<{ locale: string }> }) {
   const { locale } = await params
@@ -18,12 +19,12 @@ export default async function LocaleLayout({ children, params }: { children: Rea
   return (
     <ThemeProvider>
       <AudioProvider>
-        <CartProvider> {/* Added CartProvider */}
-          <SocialProvider> {/* Added SocialProvider */}
-            <LocaleProvider locale={lang}> {/* Retained LocaleProvider */}
+        <CartProvider>
+          <SocialProvider>
+            <LocaleProvider locale={lang}>
               <Navbar />
               <MobileHeader />
-              <main className="min-h-screen pb-20 lg:pb-0"> {/* Modified className */}
+              <main className="min-h-screen pb-20 lg:pb-0">
                 {children}
               </main>
               <Footer locale={lang} />

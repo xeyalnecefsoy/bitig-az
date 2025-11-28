@@ -49,23 +49,31 @@ CREATE INDEX IF NOT EXISTS idx_sponsors_active ON sponsors(active);
 
 -- Function to increment impressions (view count)
 CREATE OR REPLACE FUNCTION increment_impressions(ad_id uuid)
-RETURNS void AS $$
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
 BEGIN
   UPDATE sponsors
   SET impressions = impressions + 1
   WHERE id = ad_id;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 -- Function to increment clicks
 CREATE OR REPLACE FUNCTION increment_clicks(ad_id uuid)
-RETURNS void AS $$
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
 BEGIN
   UPDATE sponsors
   SET clicks = clicks + 1
   WHERE id = ad_id;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 -- Grant execute permissions
 GRANT EXECUTE ON FUNCTION increment_impressions(uuid) TO authenticated, anon;

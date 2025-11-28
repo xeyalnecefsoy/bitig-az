@@ -5,13 +5,14 @@ import type { Post } from '@/lib/social'
 import Link from 'next/link'
 import { FiHeart } from 'react-icons/fi'
 import { useLocale } from '@/context/locale'
+import { t } from '@/lib/i18n'
 
 export function SocialPostFull({ initialPost }: { initialPost: Post }) {
+  const locale = useLocale()
   const { posts, addComment, like, users } = useSocial()
   // Try to find updated post in context, fallback to initial
   const post = posts.find(p => p.id === initialPost.id) || initialPost
   const [comment, setComment] = useState('')
-  const locale = useLocale()
   
   const author = users.find(u => u.id === post.userId) || {
     id: post.userId,
@@ -44,10 +45,10 @@ export function SocialPostFull({ initialPost }: { initialPost: Post }) {
         <input
           value={comment}
           onChange={(e) => setComment(e.target.value)}
-          placeholder="Write a comment"
+          placeholder={t(locale, 'social_write_comment')}
           className="flex-1 rounded-md border border-neutral-200 px-3 py-2 text-sm bg-white text-neutral-900 placeholder-neutral-400 dark:bg-neutral-900 dark:text-neutral-100 dark:border-neutral-700 dark:placeholder-neutral-400"
         />
-        <button className="btn btn-primary text-sm px-3">Post</button>
+        <button className="btn btn-primary text-sm px-3">{t(locale, 'social_post_button')}</button>
       </form>
     </article>
   )

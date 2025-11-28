@@ -5,6 +5,7 @@ import React from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { FiLock } from 'react-icons/fi'
 import Link from 'next/link'
+import { AdBanner } from '@/components/ads/AdBanner'
 
 export default async function AudiobooksPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params
@@ -42,9 +43,7 @@ export default async function AudiobooksPage({ params }: { params: Promise<{ loc
             />
             {(i + 1) % 6 === 0 && (
               <div className="col-span-full py-4">
-                <div className="h-32 w-full rounded-xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-400 text-sm">
-                  Advertisement
-                </div>
+                <AdBanner placement="audiobooks_grid" />
               </div>
             )}
           </React.Fragment>

@@ -9,6 +9,7 @@ export type AudioTrack = {
 type AudioState = {
   track: AudioTrack | null
   playing: boolean
+  ended: boolean
   currentTime: number
   duration: number
   volume: number
@@ -32,6 +33,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const [duration, setDuration] = useState(0)
   const [volume, setVolume] = useState(1)
   const [expanded, setExpanded] = useState(false)
+  const [ended, setEnded] = useState(false)
 
   // Create audio element once
   useEffect(() => {
@@ -40,16 +42,24 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     el.volume = volume
     const onLoaded = () => setDuration(el.duration || 0)
     const onTime = () => setCurrentTime(el.currentTime)
-    const onEnd = () => setPlaying(false)
+    const onEnd = () => {
+      setPlaying(false)
+      setEnded(true)
+    }
+    const onPlay = () => setEnded(false)
+    
     el.addEventListener('loadedmetadata', onLoaded)
     el.addEventListener('timeupdate', onTime)
     el.addEventListener('ended', onEnd)
+    el.addEventListener('play', onPlay)
+    
     audioRef.current = el
     return () => {
       el.pause()
       el.removeEventListener('loadedmetadata', onLoaded)
       el.removeEventListener('timeupdate', onTime)
       el.removeEventListener('ended', onEnd)
+      el.removeEventListener('play', onPlay)
     }
   }, [])
 
@@ -63,6 +73,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     if (!track || track.src !== t.src) {
       el.src = t.src
       setTrack({ src: t.src, title: t.title })
+      setEnded(false)
       // Reset time when new track loads
       try { await el.play(); setPlaying(true) } catch {}
     } else {
@@ -90,6 +101,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     const safe = Math.min(Math.max(0, time), duration || 0)
     el.currentTime = safe
     setCurrentTime(safe)
+    if (safe < duration) setEnded(false)
   }, [duration])
 
   const close = useCallback(() => {
@@ -99,6 +111,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       el.src = ''
     }
     setPlaying(false)
+    setEnded(false)
     setTrack(null)
     setCurrentTime(0)
     setDuration(0)
@@ -108,6 +121,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<AudioState>(() => ({
     track,
     playing,
+    ended,
     currentTime,
     duration,
     volume,
@@ -119,7 +133,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     setVolume,
     setExpanded,
     close,
-  }), [track, playing, currentTime, duration, volume, expanded, play, toggle, pause, seek, close])
+  }), [track, playing, ended, currentTime, duration, volume, expanded, play, toggle, pause, seek, close])
 
   return <AudioCtx.Provider value={value}>{children}</AudioCtx.Provider>
 }

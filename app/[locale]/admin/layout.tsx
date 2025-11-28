@@ -6,12 +6,14 @@ import { FiHome, FiBook, FiUsers, FiPieChart, FiMenu, FiX, FiMessageCircle, FiLo
 import { ThemeProvider } from '@/context/theme'
 import { t, type Locale } from '@/lib/i18n'
 import { useState, useEffect } from 'react'
+import { useAudio } from '@/context/audio'
 
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const { close: closeAudio } = useAudio()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [locale, setLocale] = useState<Locale>('en')
   const [isAuthorized, setIsAuthorized] = useState(false)
@@ -38,7 +40,7 @@ export default function AdminLayout({
       .eq('id', user.id)
       .single()
 
-    if (!profile || profile.role !== 'admin') {
+    if (!profile || (profile.role !== 'admin' && profile.role !== 'coadmin')) {
       router.push(`/${locale}`)
       return
     }
@@ -126,6 +128,7 @@ export default function AdminLayout({
               <div className="pt-4 mt-4 border-t border-neutral-100 dark:border-neutral-800 space-y-1">
                  <button
                    onClick={async () => {
+                     closeAudio() // Stop audio playback
                      await supabase.auth.signOut()
                      router.push(`/${locale}`)
                      router.refresh()

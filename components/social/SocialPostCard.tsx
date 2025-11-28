@@ -5,41 +5,51 @@ import { FiHeart, FiMessageCircle } from 'react-icons/fi'
 import { AiFillHeart } from 'react-icons/ai'
 import Link from 'next/link'
 import { useLocale } from '@/context/locale'
-import { createClient } from '@/lib/supabase/client'
 import { FiMoreHorizontal } from 'react-icons/fi'
 import { ReportModal } from '@/components/ReportModal'
+import { t } from '@/lib/i18n'
+import { UserHoverCard } from './UserHoverCard'
 
-export function SocialPostCard({ postId }: { postId: string }) {
-  const { posts, addComment, like, users } = useSocial()
+export function SocialPostCard({ postId, disableHover = false }: { postId: string, disableHover?: boolean }) {
+  const { posts, addComment, like, users, currentUser } = useSocial()
   const post = posts.find(p => p.id === postId)
   const [comment, setComment] = useState('')
   const [showReport, setShowReport] = useState(false)
   const locale = useLocale()
-  const supabase = createClient()
-  if (!post) return null
   
+  if (!post) return null
+
   const author = users.find(u => u.id === post.userId) || {
     id: post.userId,
     name: 'Unknown',
+    username: 'unknown',
     avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${post.userId}`,
     bio: ''
   }
 
+  const isOwnPost = currentUser?.id === author.id
+  const shouldDisableHover = disableHover || isOwnPost
+
   return (
     <article className="card p-4 sm:p-5">
-      <header className="flex items-center gap-3">
-        <Link href={`/${locale}/social/profile/${author.id}` as any}>
-          <img src={author.avatar} alt={author.name} className="h-10 w-10 rounded-full object-cover" />
-        </Link>
-        <div className="min-w-0 flex-1">
-          <Link href={`/${locale}/social/profile/${author.id}` as any} className="font-medium leading-tight hover:text-brand line-clamp-1">{author.name}</Link>
-          <div className="text-xs text-neutral-500 dark:text-neutral-400">{timeAgo(post.createdAt)}</div>
-        </div>
+      <header className="flex items-start gap-3">
+        <UserHoverCard userId={author.id} disabled={shouldDisableHover} className="flex items-start gap-3 flex-1 min-w-0 relative">
+          <Link href={`/${locale}/social/profile/${author.id}` as any} className="shrink-0">
+            <img src={author.avatar} alt={author.name} className="h-10 w-10 rounded-full object-cover" />
+          </Link>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <Link href={`/${locale}/social/profile/${author.id}` as any} className="font-medium leading-tight hover:text-brand line-clamp-1">
+                {author.name}
+              </Link>
+            </div>
+            <div className="text-xs text-neutral-500 dark:text-neutral-400">{timeAgo(post.createdAt)}</div>
+          </div>
+        </UserHoverCard>
         <div className="relative">
           <button
-            onClick={async () => {
-              const { data: { user } } = await supabase.auth.getUser()
-              if (!user) {
+            onClick={() => {
+              if (!currentUser) {
                 alert('You must be logged in to report.')
                 return
               }
@@ -83,10 +93,10 @@ export function SocialPostCard({ postId }: { postId: string }) {
         <input
           value={comment}
           onChange={(e) => setComment(e.target.value)}
-          placeholder="Write a comment"
+          placeholder={t(locale, 'social_write_comment')}
           className="flex-1 rounded-md border border-neutral-200 px-3 py-2 text-sm bg-white text-neutral-900 placeholder-neutral-400 dark:bg-neutral-900 dark:text-neutral-100 dark:border-neutral-700 dark:placeholder-neutral-400"
         />
-        <button className="btn btn-primary text-sm px-3">Post</button>
+        <button className="btn btn-primary text-sm px-3">{t(locale, 'social_post_button')}</button>
       </form>
     </article>
   )
