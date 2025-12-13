@@ -9,6 +9,7 @@ export function isLocale(s: string): s is Locale {
 export const messages: Record<Locale, Record<string, string>> = {
   en: {
     nav_home: "Home",
+    nav_home_short: "Home",
     nav_audiobooks: "Audiobooks",
     nav_social: "Social",
     nav_cart: "Cart",
@@ -241,6 +242,7 @@ export const messages: Record<Locale, Record<string, string>> = {
   },
   az: {
     nav_home: "Ana səhifə",
+    nav_home_short: "Ev",
     nav_audiobooks: "Kitablar", // Shortened from Səsli Kitablar
     nav_social: "Sosial",
     nav_cart: "Səbət",

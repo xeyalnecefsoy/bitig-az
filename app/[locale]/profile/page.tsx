@@ -32,8 +32,27 @@ export default function MyProfilePage() {
   const locale = (pathname.split('/')[1] || 'en') as Locale
   const supabase = createClient()
 
+  // Timeout constant
+  const AUTH_TIMEOUT = 10000 // 10 seconds max loading
+
   useEffect(() => {
+    // Safety timeout - always break loading after max time
+    const safetyTimeout = setTimeout(() => {
+      setLoading(false)
+    }, AUTH_TIMEOUT)
+
     loadProfile()
+
+    // Auth state listener - breaks loading on any auth event
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      // Re-run loadProfile on auth changes
+      loadProfile()
+    })
+
+    return () => {
+      clearTimeout(safetyTimeout)
+      subscription.unsubscribe()
+    }
   }, [])
 
   async function loadProfile() {

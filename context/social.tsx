@@ -4,6 +4,19 @@ import type { Post, User, Comment } from '@/lib/social'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
+// Timeout helper to prevent infinite loading
+const withTimeout = <T,>(promise: Promise<T>, ms: number, fallback: T): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms))
+  ])
+}
+
+// Constants
+const AUTH_TIMEOUT = 5000 // 5 seconds for auth check
+const DATA_TIMEOUT = 8000 // 8 seconds for data fetching
+const SAFETY_TIMEOUT = 10000 // 10 seconds absolute max
+
 export type SocialState = {
   currentUser: User | null
   users: User[]
@@ -35,9 +48,20 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
 
   // Fetch initial data
   useEffect(() => {
+    // Safety timeout - always break loading after max time
+    const safetyTimeout = setTimeout(() => {
+      setLoading(false)
+    }, SAFETY_TIMEOUT)
+
     async function init() {
-      // 1. Get Auth User FIRST (fastest check)
-      const { data: { user: authUser } } = await supabase.auth.getUser()
+      try {
+        // 1. Get Auth User FIRST with timeout (fastest check)
+        const authResult = await withTimeout(
+          supabase.auth.getUser(),
+          AUTH_TIMEOUT,
+          { data: { user: null as any }, error: null as any }
+        )
+        const authUser = authResult.data?.user
       
       // 2. If user is authenticated, fetch their profile immediately
       if (authUser) {
@@ -153,11 +177,22 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         }))
         setPosts(mappedPosts)
       }
+      } catch (error) {
+        console.error('Error initializing social context:', error)
+      } finally {
+        // Ensure loading is always set to false
+        setLoading(false)
+        clearTimeout(safetyTimeout)
+      }
     }
 
     init()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // CRITICAL: Break loading immediately on any auth state change
+      // This prevents infinite loading when auth is slow or cookies are delayed
+      setLoading(false)
+      
       if (session?.user) {
         // Refresh user if needed
         const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).single()
@@ -186,6 +221,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     })
 
     return () => {
+      clearTimeout(safetyTimeout)
       subscription.unsubscribe()
     }
   }, [])

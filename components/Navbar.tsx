@@ -75,33 +75,33 @@ export function MobileNav() {
       <div className="container-max">
         <ul className="grid grid-cols-5 h-16 text-[11px] sm:text-xs text-neutral-700 dark:text-neutral-200">
           <li className="flex items-center justify-center">
-            <Link href={home as any} className={`flex flex-col items-center gap-1 py-2 px-3 rounded-md ${isActive(home) ? 'text-brand' : ''}`} aria-current={isActive(home) ? 'page' : undefined}>
+            <Link href={home as any} className={`flex flex-col items-center gap-1 py-2 px-1 rounded-md ${isActive(home) ? 'text-brand' : ''}`} aria-current={isActive(home) ? 'page' : undefined}>
               <FiHome className="text-[22px]" />
-              <span>{t(locale, 'nav_home')}</span>
+              <span className="whitespace-nowrap">{t(locale, 'nav_home_short')}</span>
             </Link>
           </li>
           <li className="flex items-center justify-center">
-            <Link href={audiobooks as any} className={`flex flex-col items-center gap-1 py-2 px-3 rounded-md ${isActive(audiobooks) ? 'text-brand' : ''}`} aria-current={isActive(audiobooks) ? 'page' : undefined}>
+            <Link href={audiobooks as any} className={`flex flex-col items-center gap-1 py-2 px-1 rounded-md ${isActive(audiobooks) ? 'text-brand' : ''}`} aria-current={isActive(audiobooks) ? 'page' : undefined}>
               <FiHeadphones className="text-[22px]" />
-              <span>{t(locale, 'nav_audiobooks')}</span>
+              <span className="whitespace-nowrap">{t(locale, 'nav_audiobooks')}</span>
             </Link>
           </li>
           <li className="flex items-center justify-center">
-            <Link href={social as any} className={`flex flex-col items-center gap-1 py-2 px-3 rounded-md ${isActive(social) ? 'text-brand' : ''}`} aria-current={isActive(social) ? 'page' : undefined}>
+            <Link href={social as any} className={`flex flex-col items-center gap-1 py-2 px-1 rounded-md ${isActive(social) ? 'text-brand' : ''}`} aria-current={isActive(social) ? 'page' : undefined}>
               <FiMessageCircle className="text-[22px]" />
-              <span>{t(locale, 'nav_social')}</span>
+              <span className="whitespace-nowrap">{t(locale, 'nav_social')}</span>
             </Link>
           </li>
           <li className="flex items-center justify-center">
-            <Link href={profile as any} className={`flex flex-col items-center gap-1 py-2 px-3 rounded-md ${isActive(profile) ? 'text-brand' : ''}`} aria-current={isActive(profile) ? 'page' : undefined}>
+            <Link href={profile as any} className={`flex flex-col items-center gap-1 py-2 px-1 rounded-md ${isActive(profile) ? 'text-brand' : ''}`} aria-current={isActive(profile) ? 'page' : undefined}>
               <FiUser className="text-[22px]" />
-              <span>{t(locale, 'nav_profile')}</span>
+              <span className="whitespace-nowrap">{t(locale, 'nav_profile')}</span>
             </Link>
           </li>
           <li className="flex items-center justify-center">
-            <Link href={cart as any} className={`relative flex flex-col items-center gap-1 py-2 px-3 rounded-md ${isActive(cart) ? 'text-brand' : ''}`} aria-current={isActive(cart) ? 'page' : undefined}>
+            <Link href={cart as any} className={`relative flex flex-col items-center gap-1 py-2 px-1 rounded-md ${isActive(cart) ? 'text-brand' : ''}`} aria-current={isActive(cart) ? 'page' : undefined}>
               <FiShoppingCart className="text-[22px]" />
-              <span>{t(locale, 'nav_cart')}</span>
+              <span className="whitespace-nowrap">{t(locale, 'nav_cart')}</span>
               {count > 0 && (
                 <span className="absolute -top-1.5 left-1/2 translate-x-2 rounded-full bg-brand text-white text-[10px] px-1">
                   {count}
