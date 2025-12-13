@@ -7,8 +7,19 @@ import Image from 'next/image'
 type Track = {
   id: string
   title: string
-  audio_url: string
+  audio_url?: string | null
+  r2_key?: string | null
   duration?: number
+}
+
+// Helper to get the correct audio URL for a track
+function getAudioUrl(track: Track): string {
+  if (track.r2_key) {
+    // Use R2 stream API for tracks with r2_key
+    return `/api/audio/stream/${track.id}`
+  }
+  // Fallback to legacy audio_url
+  return track.audio_url || ''
 }
 
 export function AudioPlayer({ tracks, title, cover }: { tracks: Track[]; title: string; cover: string }) {
@@ -17,7 +28,8 @@ export function AudioPlayer({ tracks, title, cover }: { tracks: Track[]; title: 
   const [showPlaylist, setShowPlaylist] = useState(true)
 
   const currentTrack = tracks[currentTrackIndex]
-  const isCurrentTrackLoaded = track?.src === currentTrack?.audio_url
+  const currentTrackUrl = currentTrack ? getAudioUrl(currentTrack) : ''
+  const isCurrentTrackLoaded = track?.src === currentTrackUrl
 
   // Auto-play next track
   useEffect(() => {
@@ -43,7 +55,8 @@ export function AudioPlayer({ tracks, title, cover }: { tracks: Track[]; title: 
     const t = tracks[index]
     if (!t) return
     setCurrentTrackIndex(index)
-    await play({ src: t.audio_url, title: t.title })
+    const audioUrl = getAudioUrl(t)
+    await play({ src: audioUrl, title: t.title })
     setExpanded(false)
   }
 
