@@ -10,7 +10,9 @@ export type SocialState = {
   posts: Post[]
   like: (postId: string) => Promise<void>
   addComment: (postId: string, content: string) => Promise<void>
-  createPost: (content: string) => Promise<void>
+  createPost: (content: string, mentionedBookId?: string) => Promise<void>
+  deletePost: (postId: string) => Promise<void>
+  deleteComment: (commentId: string, postId: string) => Promise<void>
   following: string[]
   follow: (userId: string) => Promise<void>
   unfollow: (userId: string) => Promise<void>
@@ -107,6 +109,27 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         .limit(10)
 
       if (postsData) {
+        // Fetch mentioned books manually if needed, or we could join if we relate text to id, but here it's text ID
+        // Since mentioned_book_id is text, we need to fetch the book details
+        // Collect all book IDs
+        const bookIds = postsData
+          .filter(p => p.mentioned_book_id)
+          .map(p => p.mentioned_book_id)
+
+        let booksMap: Record<string, any> = {}
+        if (bookIds.length > 0) {
+          const { data: books } = await supabase
+            .from('books')
+            .select('*')
+            .in('id', bookIds)
+          
+          if (books) {
+            books.forEach(b => {
+              booksMap[b.id] = b
+            })
+          }
+        }
+
         const mappedPosts: Post[] = postsData.map(p => ({
           id: p.id,
           userId: p.user_id,
@@ -119,7 +142,14 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
             userId: c.user_id,
             content: c.content,
             createdAt: c.created_at
-          }))
+          })),
+          mentionedBookId: p.mentioned_book_id,
+          mentionedBook: p.mentioned_book_id && booksMap[p.mentioned_book_id] ? {
+             id: booksMap[p.mentioned_book_id].id,
+             title: booksMap[p.mentioned_book_id].title,
+             coverUrl: booksMap[p.mentioned_book_id].cover || booksMap[p.mentioned_book_id].cover_url,
+             author: booksMap[p.mentioned_book_id].author
+          } : undefined
         }))
         setPosts(mappedPosts)
       }
@@ -201,15 +231,29 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const createPost = async (content: string) => {
+  const createPost = async (content: string, mentionedBookId?: string) => {
     if (!currentUser) return
 
     const { data, error } = await supabase.from('posts').insert({
       user_id: currentUser.id,
-      content
+      content,
+      mentioned_book_id: mentionedBookId
     }).select().single()
 
     if (!error && data) {
+      let mentionedBookDetails = undefined
+      if (mentionedBookId) {
+         const { data: b } = await supabase.from('books').select('*').eq('id', mentionedBookId).single()
+         if (b) {
+            mentionedBookDetails = {
+              id: b.id,
+              title: b.title,
+              coverUrl: b.cover || b.cover_url,
+              author: b.author
+            }
+         }
+      }
+
       const newPost: Post = {
         id: data.id,
         userId: data.user_id,
@@ -217,9 +261,55 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         createdAt: data.created_at,
         likes: 0,
         likedByMe: false,
-        comments: []
+        comments: [],
+        mentionedBookId: data.mentioned_book_id,
+        mentionedBook: mentionedBookDetails
       }
       setPosts(prev => [newPost, ...prev])
+    }
+  }
+
+  const deletePost = async (postId: string) => {
+    if (!currentUser) return
+    
+    // Optimistic update
+    setPosts(prev => prev.filter(p => p.id !== postId))
+
+    const { error } = await supabase
+      .from('posts')
+      .delete()
+      .eq('id', postId)
+      .eq('user_id', currentUser.id)
+
+    if (error) {
+      // Revert if error (fetching posts again is safer than keeping snapshot)
+      console.error('Error deleting post:', error)
+      // Ideally we would revert state, but for simplicty we just reload or show error.
+      // Re-fetching this page of posts would be best but let's just log for now.
+    }
+  }
+
+  const deleteComment = async (commentId: string, postId: string) => {
+    if (!currentUser) return
+
+    setPosts(prev => prev.map(p => {
+      if (p.id === postId) {
+        return {
+          ...p,
+          comments: p.comments.filter(c => c.id !== commentId)
+        }
+      }
+      return p
+    }))
+
+    const { error } = await supabase
+      .from('comments')
+      .delete()
+      .eq('id', commentId)
+      .eq('user_id', currentUser.id)
+
+    if (error) {
+      console.error('Error deleting comment:', error)
     }
   }
 
@@ -238,6 +328,25 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
       .range(posts.length, posts.length + 9)
 
     if (postsData && postsData.length > 0) {
+      // Fetch mentioned books for new batch
+      const bookIds = postsData
+        .filter(p => p.mentioned_book_id)
+        .map(p => p.mentioned_book_id)
+
+      let booksMap: Record<string, any> = {}
+      if (bookIds.length > 0) {
+        const { data: books } = await supabase
+          .from('books')
+          .select('*')
+          .in('id', bookIds)
+        
+        if (books) {
+          books.forEach(b => {
+            booksMap[b.id] = b
+          })
+        }
+      }
+
       const mappedPosts: Post[] = postsData.map(p => ({
         id: p.id,
         userId: p.user_id,
@@ -250,7 +359,14 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
           userId: c.user_id,
           content: c.content,
           createdAt: c.created_at
-        }))
+        })),
+        mentionedBookId: p.mentioned_book_id,
+        mentionedBook: p.mentioned_book_id && booksMap[p.mentioned_book_id] ? {
+            id: booksMap[p.mentioned_book_id].id,
+            title: booksMap[p.mentioned_book_id].title,
+            coverUrl: booksMap[p.mentioned_book_id].cover || booksMap[p.mentioned_book_id].cover_url,
+            author: booksMap[p.mentioned_book_id].author
+        } : undefined
       }))
       setPosts(prev => [...prev, ...mappedPosts])
     }
@@ -306,6 +422,8 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     like,
     addComment,
     createPost,
+    deletePost,
+    deleteComment,
     following,
     follow,
     unfollow,

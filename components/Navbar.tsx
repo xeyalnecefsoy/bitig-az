@@ -46,11 +46,11 @@ export function Navbar() {
           >
             {mounted ? (
               <>
-                {theme === 'dark' ? <FiMoon /> : <FiSun />} {theme === 'dark' ? 'Dark' : 'Light'}
+                {theme === 'dark' ? <FiMoon /> : <FiSun />} {theme === 'dark' ? t(locale, 'theme_dark') : t(locale, 'theme_light')}
               </>
             ) : (
               <>
-                <FiSun /> Light
+                <FiSun /> {t(locale, 'theme_light')}
               </>
             )}
           </button>

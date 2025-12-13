@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { SocialPostCard } from '@/components/social/SocialPostCard'
 import Link from 'next/link'
 import { FiUser, FiLock } from 'react-icons/fi'
+import { t, type Locale } from '@/lib/i18n'
+import { RankBadge } from '@/components/RankBadge'
 
 export default async function SocialProfilePage({ params }: { params: Promise<{ locale: string; id: string }> }) {
   const { id, locale } = await params
@@ -37,9 +39,12 @@ export default async function SocialProfilePage({ params }: { params: Promise<{ 
             className="h-20 w-20 sm:h-24 sm:w-24 rounded-full object-cover border-4 border-white dark:border-neutral-800 shadow-sm"
           />
           <div className="flex-1 min-w-0">
-            <h1 className="text-2xl font-bold text-neutral-900 dark:text-white truncate">
-              {profile.username || 'Anonymous'}
-            </h1>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-2xl font-bold text-neutral-900 dark:text-white truncate">
+                {profile.username || t(locale as Locale, 'profile_anonymous')}
+              </h1>
+              <RankBadge rank={profile.rank || 'novice'} locale={locale as Locale} size="md" />
+            </div>
             {profile.full_name && (
               <p className="text-neutral-600 dark:text-neutral-400 font-medium">{profile.full_name}</p>
             )}
@@ -48,16 +53,20 @@ export default async function SocialProfilePage({ params }: { params: Promise<{ 
                 {profile.bio}
               </p>
             )}
-            <div className="mt-3 flex items-center gap-4 text-sm text-neutral-500 dark:text-neutral-400">
-              <span>{posts?.length || 0} posts</span>
-              <span>Joined {new Date(profile.created_at).toLocaleDateString()}</span>
+            <div className="mt-3 flex items-center gap-4 text-sm text-neutral-500 dark:text-neutral-400 flex-wrap">
+              <span>📚 {profile.books_read || 0} {t(locale as Locale, 'books_read')}</span>
+              <span>✍️ {profile.reviews_count || 0} {t(locale as Locale, 'reviews_written')}</span>
+              <span>{posts?.length || 0} {t(locale as Locale, 'posts')}</span>
+            </div>
+            <div className="mt-1 text-xs text-neutral-400">
+              {t(locale as Locale, 'profile_joined')} {new Date(profile.created_at).toLocaleDateString()}
             </div>
           </div>
         </div>
       </div>
 
       <div className="space-y-4 sm:space-y-5">
-        <h2 className="text-xl font-bold text-neutral-900 dark:text-white px-1">Posts</h2>
+        <h2 className="text-xl font-bold text-neutral-900 dark:text-white px-1">{t(locale as any, 'posts')}</h2>
         
         {isGuest ? (
           <div className="relative">
@@ -87,23 +96,23 @@ export default async function SocialProfilePage({ params }: { params: Promise<{ 
                   <FiLock size={24} />
                 </div>
                 <h3 className="text-xl font-bold text-neutral-900 dark:text-white mb-2">
-                  Sign in to see full profile
+                  {t(locale as any, 'profile_sign_in_title')}
                 </h3>
                 <p className="text-neutral-600 dark:text-neutral-400 mb-6">
-                  Join our community to view posts, follow users, and interact with content.
+                  {t(locale as any, 'profile_sign_in_desc')}
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3 justify-center">
                   <Link 
                     href={`/${locale}/login` as any} 
                     className="btn btn-primary w-full sm:w-auto"
                   >
-                    Sign In
+                    {t(locale as any, 'sign_in')}
                   </Link>
                   <Link 
                     href={`/${locale}/login` as any} 
                     className="btn btn-outline w-full sm:w-auto"
                   >
-                    Create Account
+                    {t(locale as any, 'profile_create_account')}
                   </Link>
                 </div>
               </div>
@@ -112,7 +121,7 @@ export default async function SocialProfilePage({ params }: { params: Promise<{ 
         ) : (
           posts?.length === 0 ? (
             <div className="card p-8 text-center text-neutral-500 dark:text-neutral-400">
-              No posts yet.
+              {t(locale as any, 'profile_no_posts')}
             </div>
           ) : (
             posts?.map(post => (
@@ -124,3 +133,4 @@ export default async function SocialProfilePage({ params }: { params: Promise<{ 
     </section>
   )
 }
+

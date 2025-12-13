@@ -9,6 +9,8 @@ import { uploadAvatar } from '@/lib/supabase/storage'
 import { useAudio } from '@/context/audio'
 import { FollowButton } from '@/components/social/FollowButton'
 import { useSocial } from '@/context/social'
+import { t, type Locale } from '@/lib/i18n'
+import { RankBadge } from '@/components/RankBadge'
 
 export default function MyProfilePage() {
   const { close: closeAudio } = useAudio()
@@ -27,7 +29,7 @@ export default function MyProfilePage() {
   const [avatarPreview, setAvatarPreview] = useState<string>('')
   const router = useRouter()
   const pathname = usePathname()
-  const locale = pathname.split('/')[1] || 'en'
+  const locale = (pathname.split('/')[1] || 'en') as Locale
   const supabase = createClient()
 
   useEffect(() => {
@@ -179,9 +181,9 @@ export default function MyProfilePage() {
     return (
       <section className="container-max py-6 sm:py-8">
         <div className="card p-8 text-center">
-          <h2 className="text-xl font-semibold mb-3">Sign in to view your profile</h2>
-          <p className="text-neutral-600 dark:text-neutral-400 mb-4">You need to be signed in to access your profile page.</p>
-          <Link href={`/${locale}/login` as any} className="btn btn-primary">Sign in</Link>
+          <h2 className="text-xl font-semibold mb-3">{t(locale, 'profile_sign_in_required')}</h2>
+          <p className="text-neutral-600 dark:text-neutral-400 mb-4">{t(locale, 'profile_sign_in_required_desc')}</p>
+          <Link href={`/${locale}/login` as any} className="btn btn-primary">{t(locale, 'sign_in')}</Link>
         </div>
       </section>
     )
@@ -190,9 +192,9 @@ export default function MyProfilePage() {
   return (
     <section className="container-max py-6 sm:py-8 grid gap-6 lg:grid-cols-[2fr_1fr]">
       <div className="space-y-4 sm:space-y-5">
-        <h2 className="text-xl font-bold text-neutral-900 dark:text-white">My Posts</h2>
+        <h2 className="text-xl font-bold text-neutral-900 dark:text-white">{t(locale, 'my_posts')}</h2>
         {posts.length === 0 ? (
-          <div className="card p-6 text-sm text-neutral-600 dark:text-neutral-300">No posts yet.</div>
+          <div className="card p-6 text-sm text-neutral-600 dark:text-neutral-300">{t(locale, 'profile_no_posts')}</div>
         ) : (
           <div className="space-y-6">
           {posts.map(post => (
@@ -206,7 +208,7 @@ export default function MyProfilePage() {
                   disabled={loadingMore}
                   className="btn btn-outline"
                 >
-                  {loadingMore ? 'Loading...' : 'Load More Posts'}
+                  {loadingMore ? t(locale, 'loading') : t(locale, 'load_more')}
                 </button>
               </div>
             )}
@@ -220,7 +222,7 @@ export default function MyProfilePage() {
             // Edit Mode
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-lg">Edit Profile</h3>
+                <h3 className="font-semibold text-lg">{t(locale, 'edit_profile')}</h3>
                 <button onClick={() => setEditing(false)} className="p-1 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded">
                   <FiX />
                 </button>
@@ -244,30 +246,30 @@ export default function MyProfilePage() {
                     />
                   </label>
                 </div>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400">Click icon to change avatar</p>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400">{t(locale, 'change_avatar_tip')}</p>
               </div>
 
               {/* Username */}
               <div>
-                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Username</label>
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">{t(locale, 'username')}</label>
                 <input
                   type="text"
                   value={editForm.username}
                   onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
                   className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-sm"
-                  placeholder="Your username"
+                  placeholder={t(locale, 'username_placeholder')}
                 />
               </div>
 
               {/* Bio */}
               <div>
-                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Bio</label>
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">{t(locale, 'bio')}</label>
                 <textarea
                   value={editForm.bio}
                   onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
                   rows={3}
                   className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-sm resize-none"
-                  placeholder="Tell us about yourself..."
+                  placeholder={t(locale, 'bio_placeholder')}
                 />
               </div>
 
@@ -277,7 +279,7 @@ export default function MyProfilePage() {
                 disabled={saving}
                 className="btn btn-primary w-full gap-2"
               >
-                <FiSave /> {saving ? 'Saving...' : 'Save Changes'}
+                <FiSave /> {saving ? t(locale, 'saving') : t(locale, 'save_changes')}
               </button>
             </div>
           ) : (
@@ -286,38 +288,58 @@ export default function MyProfilePage() {
               <div className="flex items-center gap-4">
                 <img src={currentUser.avatar_url} alt={currentUser.username} className="h-16 w-16 rounded-full object-cover" />
                 <div className="flex-1 min-w-0">
-                  <h1 className="text-lg font-semibold truncate">{currentUser.username || 'Anonymous'}</h1>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h1 className="text-lg font-semibold truncate">{currentUser.username || t(locale, 'profile_anonymous')}</h1>
+                    <RankBadge rank={currentUser.rank || 'novice'} locale={locale} size="sm" />
+                  </div>
                   {currentUser.bio && <p className="text-sm text-neutral-600 dark:text-neutral-300 line-clamp-2">{currentUser.bio}</p>}
                 </div>
               </div>
 
-              <div className="mt-4 grid grid-cols-3 gap-3 text-center">
+              {/* Reputation Stats */}
+              <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+                <div className="rounded-lg bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 p-3">
+                  <div className="text-xs text-blue-600 dark:text-blue-400 font-medium">{t(locale, 'books_read')}</div>
+                  <div className="font-bold text-blue-700 dark:text-blue-300">{currentUser.books_read || 0}</div>
+                </div>
+                <div className="rounded-lg bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 p-3">
+                  <div className="text-xs text-green-600 dark:text-green-400 font-medium">{t(locale, 'reviews_written')}</div>
+                  <div className="font-bold text-green-700 dark:text-green-300">{currentUser.reviews_count || 0}</div>
+                </div>
+                <div className="rounded-lg bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-800/20 p-3">
+                  <div className="text-xs text-amber-600 dark:text-amber-400 font-medium">{t(locale, 'review_likes')}</div>
+                  <div className="font-bold text-amber-700 dark:text-amber-300">{currentUser.review_likes_received || 0}</div>
+                </div>
+              </div>
+
+              {/* Social Stats */}
+              <div className="mt-3 grid grid-cols-3 gap-3 text-center">
                 <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 p-3">
-                  <div className="text-xs text-neutral-500 dark:text-neutral-400">Posts</div>
+                  <div className="text-xs text-neutral-500 dark:text-neutral-400">{t(locale, 'posts')}</div>
                   <div className="font-semibold">{posts.length}</div>
                 </div>
                 <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 p-3">
-                  <div className="text-xs text-neutral-500 dark:text-neutral-400">Following</div>
+                  <div className="text-xs text-neutral-500 dark:text-neutral-400">{t(locale, 'following')}</div>
                   <div className="font-semibold">{followingCount}</div>
                 </div>
                 <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 p-3">
-                  <div className="text-xs text-neutral-500 dark:text-neutral-400">Followers</div>
+                  <div className="text-xs text-neutral-500 dark:text-neutral-400">{t(locale, 'followers')}</div>
                   <div className="font-semibold">{followersCount}</div>
                 </div>
               </div>
 
               {currentUser.created_at && (
                 <div className="mt-3 text-xs text-neutral-500 dark:text-neutral-400">
-                  Joined {new Date(currentUser.created_at).toLocaleDateString()}
+                  {t(locale, 'profile_joined')} {new Date(currentUser.created_at).toLocaleDateString()}
                 </div>
               )}
 
               <div className="mt-4 space-y-2">
                 <button onClick={() => setEditing(true)} className="btn btn-outline w-full gap-2">
-                  <FiEdit2 /> Edit Profile
+                  <FiEdit2 /> {t(locale, 'edit_profile')}
                 </button>
                 <button onClick={handleLogout} className="btn btn-outline w-full gap-2 text-red-600 hover:text-red-700 hover:border-red-600">
-                  <FiLogOut /> Logout
+                  <FiLogOut /> {t(locale, 'logout')}
                 </button>
               </div>
             </>
@@ -327,3 +349,4 @@ export default function MyProfilePage() {
     </section>
   )
 }
+

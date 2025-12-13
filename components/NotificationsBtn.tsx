@@ -3,7 +3,9 @@ import { useState, useEffect, useRef } from 'react'
 import { FiBell } from 'react-icons/fi'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
+import type { Route } from 'next'
 import { useLocale } from '@/context/locale'
+import { t, type Locale } from '@/lib/i18n'
 
 type Notification = {
   id: string
@@ -102,6 +104,16 @@ export function NotificationsBtn() {
     setIsOpen(!isOpen)
   }
 
+  function getNotificationText(type: string) {
+    switch (type) {
+      case 'like': return t(locale as Locale, 'notif_liked')
+      case 'comment': return t(locale as Locale, 'notif_commented')
+      case 'follow': return t(locale as Locale, 'notif_followed')
+      case 'system': return t(locale as Locale, 'notif_message')
+      default: return t(locale as Locale, 'notif_interacted')
+    }
+  }
+
   return (
     <div className="relative" ref={dropdownRef}>
       <button
@@ -117,18 +129,18 @@ export function NotificationsBtn() {
       {isOpen && (
         <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-neutral-900 rounded-xl shadow-lg border border-neutral-100 dark:border-neutral-800 py-2 z-50">
           <div className="px-4 py-2 border-b border-neutral-100 dark:border-neutral-800">
-            <h3 className="font-semibold">Notifications</h3>
+            <h3 className="font-semibold">{t(locale as Locale, 'notifications')}</h3>
           </div>
           <div className="max-h-[400px] overflow-y-auto">
             {notifications.length === 0 ? (
               <div className="p-4 text-center text-sm text-neutral-500">
-                No notifications yet
+                {t(locale as Locale, 'no_notifications')}
               </div>
             ) : (
               notifications.map(n => (
                 <Link
                   key={n.id}
-                  href={getNotificationLink(n, locale)}
+                  href={getNotificationLink(n, locale) as Route}
                   className={`flex items-start gap-3 px-4 py-3 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors ${!n.read ? 'bg-brand/5 dark:bg-brand/10' : ''}`}
                   onClick={() => setIsOpen(false)}
                 >
@@ -139,7 +151,7 @@ export function NotificationsBtn() {
                   />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-neutral-900 dark:text-neutral-100">
-                      <span className="font-medium">{n.actor?.username || 'Someone'}</span>
+                      <span className="font-medium">{n.actor?.username || t(locale as Locale, 'someone')}</span>
                       {' '}
                       {getNotificationText(n.type)}
                     </p>
@@ -157,16 +169,6 @@ export function NotificationsBtn() {
   )
 }
 
-function getNotificationText(type: string) {
-  switch (type) {
-    case 'like': return 'liked your post'
-    case 'comment': return 'commented on your post'
-    case 'follow': return 'started following you'
-    case 'system': return 'sent you a message'
-    default: return 'interacted with you'
-  }
-}
-
 function getNotificationLink(n: Notification, locale: string) {
   switch (n.type) {
     case 'like':
@@ -178,3 +180,4 @@ function getNotificationLink(n: Notification, locale: string) {
       return `/${locale}/social`
   }
 }
+

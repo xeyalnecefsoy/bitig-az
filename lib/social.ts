@@ -24,6 +24,13 @@ export type Post = {
   likes: number
   likedByMe?: boolean
   comments: Comment[]
+  mentionedBookId?: string
+  mentionedBook?: {
+    id: string
+    title: string
+    coverUrl?: string
+    author?: string
+  }
 }
 
 export const users: User[] = [

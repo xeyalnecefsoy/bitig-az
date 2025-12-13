@@ -24,11 +24,11 @@ export default async function AudiobooksPage({ params }: { params: Promise<{ loc
             <FiLock size={24} />
           </div>
           <div className="flex-1">
-            <h3 className="font-semibold text-neutral-900 dark:text-white">Sign in to listen</h3>
-            <p className="text-sm text-neutral-600 dark:text-neutral-400">You need an account to listen to full audiobooks.</p>
+            <h3 className="font-semibold text-neutral-900 dark:text-white">{t(locale as Locale, 'audiobooks_sign_in_title')}</h3>
+            <p className="text-sm text-neutral-600 dark:text-neutral-400">{t(locale as Locale, 'audiobooks_sign_in_desc')}</p>
           </div>
           <Link href={`/${locale}/login` as any} className="btn btn-primary whitespace-nowrap">
-            Sign In
+            {t(locale as Locale, 'sign_in')}
           </Link>
         </div>
       )}
@@ -52,7 +52,7 @@ export default async function AudiobooksPage({ params }: { params: Promise<{ loc
       
       {books.length === 0 && (
         <div className="text-center py-12">
-          <p className="text-neutral-500 dark:text-neutral-400">No audiobooks found.</p>
+          <p className="text-neutral-500 dark:text-neutral-400">{t(locale as Locale, 'audiobooks_empty')}</p>
         </div>
       )}
     </section>
