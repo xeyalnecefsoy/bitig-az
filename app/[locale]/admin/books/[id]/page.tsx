@@ -61,16 +61,31 @@ export default function EditBookPage({ params }: { params: Promise<{ locale: str
     setUploadingTrack(true)
     
     try {
-      // Upload audio file
-      const { url, error: uploadError, duration } = await uploadAudioTrack(newTrackFile)
-      if (uploadError) throw new Error(uploadError)
+      // Upload audio file to R2 via API
+      const formData = new FormData()
+      formData.append('file', newTrackFile)
+      formData.append('bookId', bookId)
+      formData.append('trackTitle', newTrackTitle)
 
-      // Create track record
+      const uploadResponse = await fetch('/api/audio/upload', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const uploadResult = await uploadResponse.json()
+
+      if (!uploadResponse.ok) {
+        throw new Error(uploadResult.error || 'Upload failed')
+      }
+
+      // Create track record with r2_key
       const { error: dbError } = await supabase.from('book_tracks').insert({
         book_id: bookId,
         title: newTrackTitle,
-        audio_url: url,
-        duration: duration || 0,
+        r2_key: uploadResult.r2Key,
+        format: uploadResult.format || 'opus',
+        file_size: uploadResult.size,
+        duration: 0,
         position: tracks.length // Append to end
       })
 
@@ -87,12 +102,17 @@ export default function EditBookPage({ params }: { params: Promise<{ locale: str
     }
   }
 
-  async function handleDeleteTrack(trackId: string, audioUrl: string) {
+  async function handleDeleteTrack(trackId: string, r2Key: string | null, audioUrl: string | null) {
     if (!confirm(t(locale, 'admin_confirm_delete_track'))) return
 
     try {
-      // Delete from storage
-      await deleteAudioTrack(audioUrl)
+      // Delete from R2 if r2_key exists, otherwise from legacy storage
+      if (r2Key) {
+        // R2 deletion will be handled by the stream API or a separate delete endpoint
+        // For now, just delete from database (R2 files can be cleaned up later)
+      } else if (audioUrl) {
+        await deleteAudioTrack(audioUrl)
+      }
       
       // Delete from database
       const { error } = await supabase.from('book_tracks').delete().eq('id', trackId)
@@ -253,12 +273,14 @@ export default function EditBookPage({ params }: { params: Promise<{ locale: str
                     </div>
                     <div>
                       <h3 className="font-medium text-neutral-900 dark:text-white">{track.title}</h3>
-                      <p className="text-xs text-neutral-500 truncate max-w-[200px]">{track.audio_url.split('/').pop()}</p>
+                      <p className="text-xs text-neutral-500 truncate max-w-[200px]">
+                        {track.r2_key ? `${track.format?.toUpperCase() || 'OPUS'} • R2` : track.audio_url?.split('/').pop() || 'Unknown'}
+                      </p>
                     </div>
                   </div>
                   <button
                     type="button"
-                    onClick={() => handleDeleteTrack(track.id, track.audio_url)}
+                    onClick={() => handleDeleteTrack(track.id, track.r2_key, track.audio_url)}
                     className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                     title={t(locale, 'admin_delete_track')}
                   >
