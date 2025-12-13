@@ -374,7 +374,7 @@ export const messages: Record<Locale, Record<string, string>> = {
     social_share_label: "Nə dinlədiyinizi paylaşın",
     social_write_placeholder: "Paylaşım yazın...",
     social_post_button: "Paylaş",
-    social_sign_in_prompt: "Fikirlə rinizi paylaşmaq üçün daxil olun",
+    social_sign_in_prompt: "Fikirlərinizi paylaşmaq üçün daxil olun",
     social_load_more: "Daha Çox Yüklə",
     social_loading: "Yüklənir...",
     social_write_comment: "Şərh yazın",
