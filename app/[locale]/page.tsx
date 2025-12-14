@@ -93,7 +93,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
                 </div>
                 <div>
                   <h3 className="text-white font-semibold mb-1">{t(locale as Locale, 'social_feature_discuss')}</h3>
-                  <p className="text-sm text-neutral-400">Fikirlərini paylaş</p>
+                  <p className="text-sm text-neutral-400">{t(locale as Locale, 'social_feature_discuss_desc')}</p>
                 </div>
               </div>
               
@@ -103,7 +103,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
                 </div>
                 <div>
                   <h3 className="text-white font-semibold mb-1">{t(locale as Locale, 'social_feature_discover')}</h3>
-                  <p className="text-sm text-neutral-400">Yeni dünyalar</p>
+                  <p className="text-sm text-neutral-400">{t(locale as Locale, 'social_feature_discover_desc')}</p>
                 </div>
               </div>
 
@@ -113,7 +113,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
                 </div>
                 <div>
                   <h3 className="text-white font-semibold mb-1">{t(locale as Locale, 'social_feature_connect')}</h3>
-                  <p className="text-sm text-neutral-400">Həmfikir insanlar</p>
+                  <p className="text-sm text-neutral-400">{t(locale as Locale, 'social_feature_connect_desc')}</p>
                 </div>
               </div>
             </div>

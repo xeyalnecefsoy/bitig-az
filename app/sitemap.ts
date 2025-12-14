@@ -14,6 +14,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     '/social',
     '/cart',
     '/login',
+    '/contact',
+    '/terms',
+    '/privacy',
+    '/refund',
   ]
 
   // Generate static page entries for all locales

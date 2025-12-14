@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useCart } from '@/context/cart'
 import { useLocale } from '@/context/locale'
 import { t } from '@/lib/i18n'
@@ -27,7 +28,7 @@ export function Navbar() {
     <header className="hidden lg:block sticky top-0 z-50 backdrop-blur supports-[backdrop-filter]:bg-white/70 bg-white/90 border-b border-neutral-100 dark:supports-[backdrop-filter]:bg-neutral-950/70 dark:bg-neutral-950/90 dark:border-neutral-800">
       <div className="container-max h-16 flex items-center justify-between">
         <Link href={homeHref as any} className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-md bg-brand" />
+          <Image src="/logo.png" alt="Bitig Logo" width={32} height={32} />
           <span className="font-semibold text-lg">Bitig</span>
         </Link>
         <nav className="flex items-center gap-4 sm:gap-6 text-sm text-neutral-800 dark:text-neutral-100">
@@ -192,7 +193,7 @@ export function MobileHeader() {
     <header className="lg:hidden sticky top-0 z-40 border-b border-neutral-100 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70 dark:border-neutral-800 dark:bg-neutral-950/90">
       <div className="container-max h-14 flex items-center justify-between">
         <Link href={`/${locale}` as any} className="flex items-center gap-2">
-          <div className="h-7 w-7 rounded-md bg-brand" />
+          <Image src="/logo.png" alt="Bitig Logo" width={28} height={28} />
           <span className="font-semibold text-base">Bitig</span>
         </Link>
         <div className="flex items-center gap-3">

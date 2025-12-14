@@ -31,6 +31,8 @@ export const messages: Record<Locale, Record<string, string>> = {
     footer_help: "Help Center",
     footer_privacy: "Privacy",
     footer_terms: "Terms",
+    footer_refund: "Refund Policy",
+    footer_contact: "Contact",
     // Admin Panel
     admin_title: "Bitig Admin",
     admin_dashboard: "Dashboard",
@@ -222,8 +224,11 @@ export const messages: Record<Locale, Record<string, string>> = {
     social_banner_desc: "Share thoughts about books, discover new reads, and connect with fellow book lovers.",
     social_banner_cta: "Explore Community",
     social_feature_discuss: "Discuss books",
+    social_feature_discuss_desc: "Share your ideas",
     social_feature_connect: "Make connections",
+    social_feature_connect_desc: "Like-minded people",
     social_feature_discover: "Discover reads",
+    social_feature_discover_desc: "New worlds",
     // Book Mentions
     attach_book: "Attach Book",
     search_books: "Search audiobooks...",
@@ -264,6 +269,8 @@ export const messages: Record<Locale, Record<string, string>> = {
     footer_help: "Kömək Mərkəzi",
     footer_privacy: "Məxfilik",
     footer_terms: "Şərtlər",
+    footer_refund: "Geri Qaytarma Şərtləri",
+    footer_contact: "Əlaqə",
     // Admin Panel
     admin_title: "Bitig Admin",
     admin_dashboard: "İdarə Paneli",
@@ -455,8 +462,11 @@ export const messages: Record<Locale, Record<string, string>> = {
     social_banner_desc: "Kitablar haqqında fikirlərinizi bölüşün, yeni kitablar kəşf edin və dəyərli oxucularla tanış olun.",
     social_banner_cta: "İcmanı Kəşf Et",
     social_feature_discuss: "Kitabları müzakirə et",
+    social_feature_discuss_desc: "Fikirlərini paylaş",
     social_feature_connect: "İnsanlarla tanış ol",
+    social_feature_connect_desc: "Həmfikir insanlar",
     social_feature_discover: "Yeni kitablar tap",
+    social_feature_discover_desc: "Yeni dünyalar",
     // Book Mentions
     attach_book: "Kitab əlavə et",
     search_books: "Səsli kitabları axtar...",
