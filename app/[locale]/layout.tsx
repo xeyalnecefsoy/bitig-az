@@ -12,6 +12,31 @@ import type { Metadata } from 'next'
 
 import { SocialProvider } from '@/context/social'
 
+// Localized metadata content
+const localeMetadata = {
+  az: {
+    title: 'Bitig — Azərbaycan Səsli Kitab Platforması',
+    titleTemplate: '%s | Bitig',
+    description: 'Bitig — Azərbaycanın ən yaxşı səsli kitab platforması. Səsli kitabları kəşf edin, dinləyin və kitab həvəskarları ilə əlaqə qurun. Audiokitablar, pulsuz səsli kitablar.',
+    keywords: [
+      'Bitig', 'bitig', 'bitig.az', 'bitiq', 'bitik',
+      'səsli kitab', 'səsli kitablar', 'audiokitab', 'audiokitablar',
+      'Azərbaycan səsli kitab', 'kitab dinlə', 'pulsuz səsli kitab',
+      'Azərbaycan dilində kitablar', 'online kitab', 'kitabxana',
+    ],
+  },
+  en: {
+    title: 'Bitig — Azerbaijani Audiobooks Platform',
+    titleTemplate: '%s | Bitig',
+    description: 'Bitig — The best Azerbaijani audiobooks platform. Discover, listen, and connect with book lovers. Audiobooks, free audiobooks, and more.',
+    keywords: [
+      'Bitig', 'bitig', 'bitig.az',
+      'audiobook', 'audiobooks', 'Azerbaijan audiobooks',
+      'Azerbaijani audiobooks', 'listen to books', 'free audiobooks',
+    ],
+  },
+}
+
 export default async function LocaleLayout({ children, params }: { children: React.ReactNode; params: Promise<{ locale: string }> }) {
   const { locale } = await params
   if (!isLocale(locale)) return notFound()
@@ -42,34 +67,49 @@ export default async function LocaleLayout({ children, params }: { children: Rea
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
   const { locale } = await params
   if (!isLocale(locale)) return {}
+  
+  const meta = localeMetadata[locale as keyof typeof localeMetadata] || localeMetadata.az
   const siteName = 'Bitig'
-  const title = {
-    default: 'Bitig — Audiobooks platform',
-    template: '%s · Bitig',
-  }
-  const description = 'Discover and listen to curated audiobooks. Social engagement, playlists, and more.'
+  const baseUrl = 'https://bitig.az'
+  
   return {
-    title,
-    description,
+    title: {
+      default: meta.title,
+      template: meta.titleTemplate,
+    },
+    description: meta.description,
+    keywords: meta.keywords,
     alternates: {
+      canonical: `${baseUrl}/${locale}`,
       languages: {
-        en: '/en',
-        az: '/az',
+        az: `${baseUrl}/az`,
+        en: `${baseUrl}/en`,
       },
     },
     openGraph: {
       siteName,
-      title: title.default,
-      description,
-      locale,
+      title: meta.title,
+      description: meta.description,
+      locale: locale === 'az' ? 'az_AZ' : 'en_US',
       type: 'website',
-      images: [{ url: '/og.png', width: 1200, height: 630, alt: siteName }],
+      url: `${baseUrl}/${locale}`,
+      images: [
+        { 
+          url: `${baseUrl}/og.png`, 
+          width: 1200, 
+          height: 630, 
+          alt: meta.title 
+        }
+      ],
     },
     twitter: {
       card: 'summary_large_image',
-      title: title.default,
-      description,
-      images: ['/og.png'],
+      title: meta.title,
+      description: meta.description,
+      images: [`${baseUrl}/og.png`],
+      creator: '@bitigaz',
+      site: '@bitigaz',
     },
   }
 }
+

@@ -6,6 +6,54 @@ import { t, type Locale } from '@/lib/i18n'
 import { createClient } from '@/lib/supabase/server'
 import { AdBanner } from '@/components/ads/AdBanner'
 import { FiMessageCircle, FiUsers, FiBookOpen, FiArrowRight } from 'react-icons/fi'
+import type { Metadata } from 'next'
+
+const homeMetadata = {
+  az: {
+    title: 'Bitig — Azərbaycan Səsli Kitab Platforması',
+    description: 'Bitig ilə Azərbaycan dilində səsli kitabları kəşf edin, dinləyin və kitab həvəskarları ilə əlaqə qurun. Pulsuz audiokitablar, yeni nəşrlər və daha çoxu.',
+    keywords: ['Bitig', 'səsli kitab', 'audiokitab', 'Azərbaycan', 'kitab dinlə', 'pulsuz səsli kitab'],
+  },
+  en: {
+    title: 'Bitig — Azerbaijani Audiobooks Platform',
+    description: 'Discover and listen to Azerbaijani audiobooks with Bitig. Connect with book lovers. Free audiobooks, new releases and more.',
+    keywords: ['Bitig', 'audiobook', 'audiobooks', 'Azerbaijan', 'listen to books', 'free audiobooks'],
+  },
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
+  const { locale } = await params
+  const meta = homeMetadata[locale as keyof typeof homeMetadata] || homeMetadata.az
+  const baseUrl = 'https://bitig.az'
+  
+  return {
+    title: meta.title,
+    description: meta.description,
+    keywords: meta.keywords,
+    alternates: {
+      canonical: `${baseUrl}/${locale}`,
+      languages: {
+        az: `${baseUrl}/az`,
+        en: `${baseUrl}/en`,
+      },
+    },
+    openGraph: {
+      title: meta.title,
+      description: meta.description,
+      url: `${baseUrl}/${locale}`,
+      siteName: 'Bitig',
+      images: [{ url: `${baseUrl}/og.png`, width: 1200, height: 630, alt: meta.title }],
+      locale: locale === 'az' ? 'az_AZ' : 'en_US',
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: meta.title,
+      description: meta.description,
+      images: [`${baseUrl}/og.png`],
+    },
+  }
+}
 
 export default async function HomePage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params

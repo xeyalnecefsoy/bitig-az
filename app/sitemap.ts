@@ -6,8 +6,8 @@ const BASE_URL = 'https://bitig.az'
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const supabase = await createClient()
 
-  // Static pages for both locales
-  const locales = ['en', 'az']
+  // Prioritize Azerbaijani locale (listed first for SEO)
+  const locales = ['az', 'en']
   const staticPages = [
     '',           // Home page
     '/audiobooks',
@@ -21,12 +21,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ]
 
   // Generate static page entries for all locales
+  // Give higher priority to 'az' locale
   const staticEntries: MetadataRoute.Sitemap = locales.flatMap((locale) =>
     staticPages.map((page) => ({
       url: `${BASE_URL}/${locale}${page}`,
       lastModified: new Date(),
       changeFrequency: page === '' ? 'daily' : 'weekly' as const,
-      priority: page === '' ? 1.0 : 0.8,
+      priority: page === '' 
+        ? (locale === 'az' ? 1.0 : 0.9) 
+        : (locale === 'az' ? 0.8 : 0.7),
     }))
   )
 

@@ -6,6 +6,35 @@ import { createClient } from '@/lib/supabase/server'
 import { FiLock } from 'react-icons/fi'
 import Link from 'next/link'
 import { AdBanner } from '@/components/ads/AdBanner'
+import type { Metadata } from 'next'
+
+const pageMetadata = {
+  az: {
+    title: 'Səsli Kitablar',
+    description: 'Azərbaycan dilində səsli kitabları kəşf edin və dinləyin. Ən yaxşı audiokitablar, yeni nəşrlər və populyar əsərlər.',
+  },
+  en: {
+    title: 'Audiobooks',
+    description: 'Discover and listen to Azerbaijani audiobooks. Best audiobooks, new releases and popular works.',
+  },
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
+  const { locale } = await params
+  const meta = pageMetadata[locale as keyof typeof pageMetadata] || pageMetadata.az
+  const baseUrl = 'https://bitig.az'
+  
+  return {
+    title: meta.title,
+    description: meta.description,
+    openGraph: {
+      title: `${meta.title} | Bitig`,
+      description: meta.description,
+      url: `${baseUrl}/${locale}/audiobooks`,
+      images: [{ url: `${baseUrl}/og.png`, width: 1200, height: 630, alt: meta.title }],
+    },
+  }
+}
 
 export default async function AudiobooksPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params
