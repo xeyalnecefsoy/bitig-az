@@ -48,8 +48,10 @@ export function HeroCarousel() {
           alt={current.title} 
           fill 
           priority 
+          fetchPriority="high"
           className="object-cover"
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 600px"
+          quality={85}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-black/0" />
         <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 lg:bottom-6 lg:left-6">

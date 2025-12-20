@@ -67,7 +67,21 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
     .limit(6)
   
   return (
-    <div>
+    <>
+      {/* Preload LCP image for faster rendering */}
+      <link 
+        rel="preload" 
+        as="image" 
+        href="https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=1600&h=900&fit=crop&q=80"
+        imageSrcSet="https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=640&h=360&fit=crop&q=80 640w, https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=1200&h=675&fit=crop&q=80 1200w, https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=1600&h=900&fit=crop&q=80 1600w"
+        fetchPriority="high"
+      />
+      
+      {/* Resource hints for external domains */}
+      <link rel="preconnect" href="https://images.unsplash.com" />
+      <link rel="dns-prefetch" href="https://api.dicebear.com" />
+      
+      <div>
       <section className="bg-gradient-to-b from-brand/10 to-transparent">
         <div className="container-max py-8 sm:py-10">
           <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr] lg:items-center">
@@ -169,6 +183,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
         </div>
       </section>
     </div>
+    </>
   )
 }
 
