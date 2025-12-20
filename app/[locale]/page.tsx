@@ -72,8 +72,8 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
       <link 
         rel="preload" 
         as="image" 
-        href="https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=1600&h=900&fit=crop&q=80"
-        imageSrcSet="https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=640&h=360&fit=crop&q=80 640w, https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=1200&h=675&fit=crop&q=80 1200w, https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=1600&h=900&fit=crop&q=80 1600w"
+        href="https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=800&h=450&fit=crop&q=80"
+        imageSrcSet="https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=640&h=360&fit=crop&q=80 640w, https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=800&h=450&fit=crop&q=80 800w, https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=1600&h=900&fit=crop&q=80 1600w"
         fetchPriority="high"
       />
       

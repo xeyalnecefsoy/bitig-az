@@ -10,19 +10,22 @@ const getSlides = (locale: Locale) => [
     id: 'curated',
     title: t(locale, 'hero_slide1_title'),
     subtitle: t(locale, 'hero_slide1_subtitle'),
-    img: 'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=1600&h=900&fit=crop&q=80', // Books on shelf
+    img: 'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=800&h=450&fit=crop&q=80', // Optimized for mobile
+    imgLarge: 'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=1600&h=900&fit=crop&q=80',
   },
   {
     id: 'discover',
     title: t(locale, 'hero_slide2_title'),
     subtitle: t(locale, 'hero_slide2_subtitle'),
-    img: 'https://images.unsplash.com/photo-1589998059171-988d887df646?w=1600&h=900&fit=crop&q=80', // Headphones and books
+    img: 'https://images.unsplash.com/photo-1589998059171-988d887df646?w=800&h=450&fit=crop&q=80',
+    imgLarge: 'https://images.unsplash.com/photo-1589998059171-988d887df646?w=1600&h=900&fit=crop&q=80',
   },
   {
     id: 'listen',
     title: t(locale, 'hero_slide3_title'),
     subtitle: t(locale, 'hero_slide3_subtitle'),
-    img: 'https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=1600&h=900&fit=crop&q=80', // Library/reading
+    img: 'https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=800&h=450&fit=crop&q=80',
+    imgLarge: 'https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=1600&h=900&fit=crop&q=80',
   },
 ]
 
@@ -31,9 +34,17 @@ export function HeroCarousel() {
   const locale = (pathname?.split('/')[1] || 'en') as Locale
   const slides = useMemo(() => getSlides(locale), [locale])
   const [index, setIndex] = useState(0)
+  const [isMobile, setIsMobile] = useState(false)
   const count = slides.length
   const go = (dir: -1 | 1) => setIndex((i) => (i + dir + count) % count)
   const current = useMemo(() => slides[index], [index, slides])
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768)
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   useEffect(() => {
     const t = setInterval(() => setIndex((i) => (i + 1) % count), 5000)
@@ -44,7 +55,7 @@ export function HeroCarousel() {
     <div className="relative overflow-hidden rounded-2xl border border-neutral-100">
       <div className="relative w-full aspect-video">
         <Image 
-          src={current.img} 
+          src={isMobile ? current.img : (current.imgLarge || current.img)}
           alt={current.title} 
           fill 
           priority 
