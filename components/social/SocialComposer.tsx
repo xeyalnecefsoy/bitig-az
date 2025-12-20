@@ -138,6 +138,7 @@ export function SocialComposer() {
                 onClick={() => setSelectedBook(null)}
                 className="p-1 text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full"
                 title={t(locale, 'remove_book')}
+                aria-label={t(locale, 'remove_book')}
               >
                 <FiX size={16} />
               </button>
@@ -181,6 +182,7 @@ export function SocialComposer() {
                 <button 
                   type="button"
                   className="flex items-center gap-1.5 text-neutral-500 hover:text-brand transition-colors text-xs font-medium"
+                  aria-label={t(locale, 'attach_book')}
                 >
                   <FiBook className="w-3.5 h-3.5" />
                   {t(locale, 'attach_book')}

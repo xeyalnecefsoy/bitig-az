@@ -56,6 +56,7 @@ export function SocialPostCard({ postId, disableHover = false }: { postId: strin
                disabled={isDeleting}
                className="p-1 text-neutral-400 hover:text-red-500 transition-colors disabled:opacity-50"
                title={t(locale, 'delete_post')}
+               aria-label={t(locale, 'delete_post')}
              >
                <FiTrash2 />
              </button>
@@ -70,6 +71,7 @@ export function SocialPostCard({ postId, disableHover = false }: { postId: strin
             }}
             className="p-1 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200"
             title="Report Post"
+            aria-label="Report Post"
           >
             <FiMoreHorizontal />
           </button>
@@ -135,6 +137,7 @@ export function SocialPostCard({ postId, disableHover = false }: { postId: strin
           onClick={() => like(post.id)}
           className="inline-flex items-center gap-2 text-neutral-700 dark:text-neutral-300 hover:text-brand"
           aria-pressed={post.likedByMe ? 'true' : 'false'}
+          aria-label={post.likedByMe ? t(locale, 'unlike_post') : t(locale, 'like_post')}
         >
           {post.likedByMe ? <AiFillHeart className="text-brand" /> : <FiHeart />} {post.likes}
         </button>
@@ -202,6 +205,7 @@ function CommentItem({ id, postId, userId, content, createdAt }: { id: string; p
                 disabled={isDeleting}
                 className="text-neutral-400 hover:text-red-500 ml-auto p-0.5 disabled:opacity-50"
                 title={t(locale, 'delete_comment')}
+                aria-label={t(locale, 'delete_comment')}
               >
                 <FiTrash2 size={12} />
               </button>

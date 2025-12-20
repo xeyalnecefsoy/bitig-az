@@ -7,7 +7,12 @@ import { ThemeProvider } from '@/context/theme'
 import { AudioProvider } from '@/context/audio'
 import { SocialProvider } from '@/context/social'
 
-const inter = Inter({ subsets: ['latin', 'cyrillic'] })
+const inter = Inter({ 
+  subsets: ['latin', 'cyrillic'],
+  display: 'swap',
+  preload: true,
+  fallback: ['system-ui', 'arial'],
+})
 
 export const metadata: Metadata = {
   title: {

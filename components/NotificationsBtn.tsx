@@ -119,6 +119,7 @@ export function NotificationsBtn() {
       <button
         onClick={toggleOpen}
         className="relative p-2 text-neutral-600 hover:bg-neutral-100 rounded-full dark:text-neutral-300 dark:hover:bg-neutral-800 transition-colors"
+        aria-label={t(locale as Locale, 'notifications')}
       >
         <FiBell size={20} />
         {unreadCount > 0 && (

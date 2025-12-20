@@ -244,6 +244,8 @@ export const messages: Record<Locale, Record<string, string>> = {
     confirm_delete_comment_desc: "This action cannot be undone.",
     confirm_btn: "Delete",
     cancel_btn: "Cancel",
+    like_post: "Like post",
+    unlike_post: "Unlike post",
   },
   az: {
     nav_home: "Ana səhifə",
@@ -482,6 +484,8 @@ export const messages: Record<Locale, Record<string, string>> = {
     confirm_delete_comment_desc: "Bu əməliyyat geri qaytarıla bilməz.",
     confirm_btn: "Sil",
     cancel_btn: "Ləğv et",
+    like_post: "Paylaşımı bəyən",
+    unlike_post: "Bəyənməni geri al",
   },
 };
 
