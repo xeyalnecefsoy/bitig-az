@@ -55,8 +55,26 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
 
     async function init() {
       try {
-        // 1. Get Auth User FIRST (fastest check)
-        const { data: { user: authUser } } = await supabase.auth.getUser()
+        // 1. Get Auth User FIRST (fastest check) with RETRY mechanism
+        let { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
+        
+        // Retry logic: If no user found initially, wait and try again (fixes Vercel timing issues)
+        if (!authUser && !authError) {
+           console.log("No user found initially, retrying...")
+           await new Promise(r => setTimeout(r, 500))
+           const retry1 = await supabase.auth.getUser()
+           if (retry1.data.user) {
+              console.log("User found on retry 1")
+              authUser = retry1.data.user
+           } else {
+              await new Promise(r => setTimeout(r, 1000))
+              const retry2 = await supabase.auth.getUser()
+              if (retry2.data.user) {
+                 console.log("User found on retry 2")
+                 authUser = retry2.data.user
+              }
+           }
+        }
       
         // 2. If user is authenticated, fetch their profile immediately
         // 2. If user is authenticated, fetch their profile immediately
