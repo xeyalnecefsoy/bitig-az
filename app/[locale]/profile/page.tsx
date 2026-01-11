@@ -196,12 +196,11 @@ export default function MyProfilePage() {
       setVerifyingSession(true)
       supabase.auth.getSession().then(({ data }) => {
         if (data.session) {
-          // If we have a session but Context missed it, reload to fix state
-          window.location.reload()
-        } else {
-          // Confirmed logged out
-          setVerifyingSession(false)
-        }
+          // Found session! Self-heal instead of reloading.
+          console.log("Context missed user, self-healing...")
+          loadProfile(data.session.user.id)
+        } 
+        setVerifyingSession(false)
       })
     }
   }, [globalLoading, globalUser, currentUser, loading])
