@@ -59,11 +59,14 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         const { data: { user: authUser } } = await supabase.auth.getUser()
       
         // 2. If user is authenticated, fetch their profile immediately
+        // 2. If user is authenticated, fetch their profile immediately
         if (authUser) {
           const { data: myProfile } = await supabase.from('profiles').select('*').eq('id', authUser.id).single()
           
+          let currentUserData: User;
+
           if (myProfile) {
-            const currentUserData = {
+            currentUserData = {
               id: myProfile.id,
               name: myProfile.username || 'Anonymous',
               username: myProfile.username || 'anonymous',
@@ -71,19 +74,30 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
               bio: myProfile.bio,
               joinedAt: myProfile.updated_at
             }
-            // Update currentUser immediately
-            setCurrentUser(currentUserData)
-            setUsers([currentUserData])
-            
-            // Fetch following list
-            const { data: follows } = await supabase
-              .from('follows')
-              .select('following_id')
-              .eq('follower_id', authUser.id)
-            
-            if (follows) {
-              setFollowing(follows.map(f => f.following_id))
-            }
+          } else {
+             // Fallback if profile doesn't exist yet (race condition with trigger)
+             currentUserData = {
+               id: authUser.id,
+               name: authUser.user_metadata?.full_name || authUser.user_metadata?.name || 'User',
+               username: authUser.user_metadata?.username || authUser.email?.split('@')[0] || 'user',
+               avatar: authUser.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${authUser.id}`,
+               bio: '',
+               joinedAt: authUser.created_at
+             }
+          }
+          
+          // Update currentUser immediately
+          setCurrentUser(currentUserData)
+          setUsers([currentUserData])
+          
+          // Fetch following list
+          const { data: follows } = await supabase
+            .from('follows')
+            .select('following_id')
+            .eq('follower_id', authUser.id)
+          
+          if (follows) {
+            setFollowing(follows.map(f => f.following_id))
           }
         }
         
