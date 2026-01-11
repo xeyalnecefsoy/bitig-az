@@ -15,7 +15,7 @@ export function BookCard({ book, locale, disabled }: { book: any; locale: string
       <div className="aspect-[2/3] w-full overflow-hidden rounded-md bg-neutral-100 dark:bg-neutral-800 relative">
         <Link href={`/${locale}/audiobooks/${book.id}` as any} className="block h-full w-full relative">
           <Image
-            src={book.cover}
+            src={book.cover || book.cover_url || '/placeholder.jpg'}
             alt={book.title}
             fill
             loading="lazy"

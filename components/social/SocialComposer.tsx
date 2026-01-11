@@ -82,12 +82,7 @@ export function SocialComposer() {
   }
 
   if (!currentUser) {
-    return (
-      <div className="card p-4 sm:p-5 text-center">
-        <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-3">{t(locale, 'social_sign_in_prompt')}</p>
-        <a href={`/${locale}/login`} className="btn btn-primary text-sm">{t(locale, 'sign_in')}</a>
-      </div>
-    )
+    return null
   }
 
   const handleSubmit = (e: React.FormEvent) => {

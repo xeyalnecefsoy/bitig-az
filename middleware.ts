@@ -3,12 +3,13 @@ import type { NextRequest } from 'next/server'
 import { defaultLocale, isLocale } from './lib/i18n'
 import { updateSession } from './lib/supabase/middleware'
 
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   // Ignore assets and API
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api') ||
+    pathname.startsWith('/auth') ||
     pathname.includes('.')
   ) {
     return NextResponse.next()
@@ -27,5 +28,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next|.*\..*|api).*)'],
+  matcher: ['/((?!_next|.*\\..*|api).*)'],
 }

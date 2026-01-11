@@ -55,134 +55,122 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
 
     async function init() {
       try {
-        // 1. Get Auth User FIRST with timeout (fastest check)
-        const authResult = await withTimeout(
-          supabase.auth.getUser(),
-          AUTH_TIMEOUT,
-          { data: { user: null as any }, error: null as any }
-        )
-        const authUser = authResult.data?.user
+        // 1. Get Auth User FIRST (fastest check)
+        const { data: { user: authUser } } = await supabase.auth.getUser()
       
-      // 2. If user is authenticated, fetch their profile immediately
-      if (authUser) {
-        const { data: myProfile } = await supabase.from('profiles').select('*').eq('id', authUser.id).single()
-        if (myProfile) {
-          const currentUserData = {
-            id: myProfile.id,
-            name: myProfile.username || 'Anonymous',
-            username: myProfile.username || 'anonymous',
-            avatar: myProfile.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${myProfile.id}`,
-            bio: myProfile.bio,
-            joinedAt: myProfile.updated_at
-          }
-          // Update currentUser, users, and loading in one batch to prevent flash
-          setCurrentUser(currentUserData)
-          setUsers([currentUserData])
+        // 2. If user is authenticated, fetch their profile immediately
+        if (authUser) {
+          const { data: myProfile } = await supabase.from('profiles').select('*').eq('id', authUser.id).single()
           
-          // Fetch following list
-          const { data: follows } = await supabase
-            .from('follows')
-            .select('following_id')
-            .eq('follower_id', authUser.id)
+          if (myProfile) {
+            const currentUserData = {
+              id: myProfile.id,
+              name: myProfile.username || 'Anonymous',
+              username: myProfile.username || 'anonymous',
+              avatar: myProfile.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${myProfile.id}`,
+              bio: myProfile.bio,
+              joinedAt: myProfile.updated_at
+            }
+            // Update currentUser immediately
+            setCurrentUser(currentUserData)
+            setUsers([currentUserData])
             
-          if (follows) {
-            setFollowing(follows.map(f => f.following_id))
+            // Fetch following list
+            const { data: follows } = await supabase
+              .from('follows')
+              .select('following_id')
+              .eq('follower_id', authUser.id)
+            
+            if (follows) {
+              setFollowing(follows.map(f => f.following_id))
+            }
           }
-          
-          setLoading(false)
-        } else {
-          // Profile not found, but user is authenticated
-          setLoading(false)
         }
-      } else {
-        // No authenticated user
-        setLoading(false)
-      }
-      
-      // 4. Fetch other profiles in background (reduced from 50 to 10 for performance)
-      const { data: profiles } = await supabase.from('profiles').select('*').order('updated_at', { ascending: false }).limit(10)
-      if (profiles) {
-        const mappedUsers: User[] = profiles.map(p => ({
-          id: p.id,
-          name: p.username || 'Anonymous',
-          username: p.username || 'anonymous',
-          avatar: p.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.id}`,
-          bio: p.bio,
-          joinedAt: p.updated_at
-        }))
         
-        // Merge with current user, avoiding duplicates
-        setUsers(prev => {
-          const currentUserId = prev[0]?.id
-          const filtered = mappedUsers.filter(u => u.id !== currentUserId)
-          return currentUserId ? [prev[0], ...filtered] : mappedUsers
-        })
-      }
-
-      // 5. Get Posts in background (reduced from 20 to 10 for initial load)
-      const { data: postsData } = await supabase
-        .from('posts')
-        .select(`
-          *,
-          likes (user_id),
-          comments (
-            id, user_id, content, created_at
-          )
-        `)
-        .order('created_at', { ascending: false })
-        .limit(10)
-
-      if (postsData) {
-        // Fetch mentioned books manually if needed, or we could join if we relate text to id, but here it's text ID
-        // Since mentioned_book_id is text, we need to fetch the book details
-        // Collect all book IDs
-        const bookIds = postsData
-          .filter(p => p.mentioned_book_id)
-          .map(p => p.mentioned_book_id)
-
-        let booksMap: Record<string, any> = {}
-        if (bookIds.length > 0) {
-          const { data: books } = await supabase
-            .from('books')
-            .select('*')
-            .in('id', bookIds)
-          
-          if (books) {
-            books.forEach(b => {
-              booksMap[b.id] = b
-            })
-          }
-        }
-
-        const mappedPosts: Post[] = postsData.map(p => ({
-          id: p.id,
-          userId: p.user_id,
-          content: p.content,
-          createdAt: p.created_at,
-          likes: p.likes.length,
-          likedByMe: authUser ? p.likes.some((l: any) => l.user_id === authUser.id) : false,
-          comments: p.comments.map((c: any) => ({
-            id: c.id,
-            userId: c.user_id,
-            content: c.content,
-            createdAt: c.created_at
-          })),
-          mentionedBookId: p.mentioned_book_id,
-          mentionedBook: p.mentioned_book_id && booksMap[p.mentioned_book_id] ? {
-             id: booksMap[p.mentioned_book_id].id,
-             title: booksMap[p.mentioned_book_id].title,
-             coverUrl: booksMap[p.mentioned_book_id].cover || booksMap[p.mentioned_book_id].cover_url,
-             author: booksMap[p.mentioned_book_id].author
-          } : undefined
-        }))
-        setPosts(mappedPosts)
-      }
-      } catch (error) {
-        console.error('Error initializing social context:', error)
-      } finally {
-        // Ensure loading is always set to false
+        // CRITICAL: Stop loading HERE so the UI becomes interactive
         setLoading(false)
         clearTimeout(safetyTimeout)
+
+        // 3. Background: Fetch other profiles
+        supabase.from('profiles').select('*').order('updated_at', { ascending: false }).limit(10)
+          .then(({ data: profiles }) => {
+            if (profiles) {
+              const mappedUsers: User[] = profiles.map(p => ({
+                id: p.id,
+                name: p.username || 'Anonymous',
+                username: p.username || 'anonymous',
+                avatar: p.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.id}`,
+                bio: p.bio,
+                joinedAt: p.updated_at
+              }))
+              
+              setUsers(prev => {
+                const currentUserId = prev[0]?.id
+                const filtered = mappedUsers.filter(u => u.id !== currentUserId)
+                return currentUserId ? [prev[0], ...filtered] : mappedUsers
+              })
+            }
+          })
+
+        // 4. Background: Get Posts
+        const { data: postsData } = await supabase
+          .from('posts')
+          .select(`
+            *,
+            likes (user_id),
+            comments (
+              id, user_id, content, created_at
+            )
+          `)
+          .order('created_at', { ascending: false })
+          .limit(10)
+
+        if (postsData && postsData.length > 0) {
+          // Process posts in background
+          const bookIds = postsData
+            .filter(p => p.mentioned_book_id)
+            .map(p => p.mentioned_book_id)
+
+          let booksMap: Record<string, any> = {}
+          if (bookIds.length > 0) {
+            const { data: books } = await supabase
+              .from('books')
+              .select('*')
+              .in('id', bookIds)
+            
+            if (books) {
+              books.forEach(b => {
+                booksMap[b.id] = b
+              })
+            }
+          }
+
+          const mappedPosts: Post[] = postsData.map(p => ({
+            id: p.id,
+            userId: p.user_id,
+            content: p.content,
+            createdAt: p.created_at,
+            likes: p.likes.length,
+            likedByMe: authUser ? p.likes.some((l: any) => l.user_id === authUser.id) : false,
+            comments: p.comments.map((c: any) => ({
+              id: c.id,
+              userId: c.user_id,
+              content: c.content,
+              createdAt: c.created_at
+            })),
+            mentionedBookId: p.mentioned_book_id,
+            mentionedBook: p.mentioned_book_id && booksMap[p.mentioned_book_id] ? {
+               id: booksMap[p.mentioned_book_id].id,
+               title: booksMap[p.mentioned_book_id].title,
+               coverUrl: booksMap[p.mentioned_book_id].cover || booksMap[p.mentioned_book_id].cover_url,
+               author: booksMap[p.mentioned_book_id].author
+            } : undefined
+          }))
+          setPosts(mappedPosts)
+        }
+      } catch (error) {
+        console.error('Error initializing social context:', error)
+        setLoading(false)
       }
     }
 
