@@ -14,7 +14,7 @@ import { RankBadge } from '@/components/RankBadge'
 
 export default function MyProfilePage() {
   const { close: closeAudio } = useAudio()
-  const { currentUser: authUser } = useSocial()
+  const { currentUser: globalUser, loading: globalLoading } = useSocial()
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [posts, setPosts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -188,9 +188,19 @@ export default function MyProfilePage() {
     router.refresh()
   }
 
-  if (loading) {
+  if (loading || globalLoading) {
     return (
       <section className="container-max py-12 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand"></div>
+      </section>
+    )
+  }
+
+  // If we have a global user but no local profile yet, it means we are still fetching. 
+  // Show spinner instead of Sign In to prevent flickering.
+  if (globalUser && !currentUser) {
+    return (
+       <section className="container-max py-12 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand"></div>
       </section>
     )
