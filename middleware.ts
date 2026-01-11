@@ -5,7 +5,8 @@ import { updateSession } from './lib/supabase/middleware'
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
-  // Ignore assets and API only
+  
+  // Ignore static assets and API
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api') ||
@@ -14,9 +15,15 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // Handle /auth routes: update session but DON'T redirect to locale
+  if (pathname.startsWith('/auth')) {
+    return await updateSession(request)
+  }
+
   const segments = pathname.split('/').filter(Boolean)
   const maybeLocale = segments[0]
 
+  // Redirect to default locale if no valid locale in path
   if (!maybeLocale || !isLocale(maybeLocale)) {
     const url = request.nextUrl.clone()
     url.pathname = `/${defaultLocale}${pathname}`

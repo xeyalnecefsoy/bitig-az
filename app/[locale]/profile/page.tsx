@@ -194,43 +194,19 @@ export default function MyProfilePage() {
     router.refresh()
   }
 
-  const [verifyingSession, setVerifyingSession] = useState(false)
-  const [timedOut, setTimedOut] = useState(false)
-  const hasAttemptedRecovery = useRef(false)
-
-  // Timeout: If nothing loads in 5 seconds, stop loading to prevent infinite spinner
+  // Simple approach: wait at least 2 seconds before showing "Sign In"
+  // This gives time for auth to initialize properly
+  const [minLoadingPassed, setMinLoadingPassed] = useState(false)
+  
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (loading || globalLoading || verifyingSession) {
-        console.log("Profile page timeout - stopping loading")
-        setTimedOut(true)
-        setLoading(false)
-        setVerifyingSession(false)
-      }
-    }, 5000)
-    return () => clearTimeout(timeout)
+    const timer = setTimeout(() => {
+      setMinLoadingPassed(true)
+    }, 2000)
+    return () => clearTimeout(timer)
   }, [])
 
-  // Double-check session if context thinks we are logged out (fixes false positives on Vercel)
-  // Only attempts ONCE to prevent infinite loops
-  useEffect(() => {
-    if (!globalLoading && !globalUser && !currentUser && !loading && !hasAttemptedRecovery.current && !timedOut) {
-      hasAttemptedRecovery.current = true
-      setVerifyingSession(true)
-      supabase.auth.getSession().then(({ data }) => {
-        if (data.session) {
-          // Found session! Self-heal instead of reloading.
-          console.log("Context missed user, self-healing...")
-          loadProfile(data.session.user)
-        } 
-        setVerifyingSession(false)
-      }).catch(() => {
-        setVerifyingSession(false)
-      })
-    }
-  }, [globalLoading, globalUser, currentUser, loading, timedOut])
-
-  if ((loading || globalLoading || verifyingSession) && !timedOut) {
+  // Show loading while any auth check is in progress OR minimum time hasn't passed
+  if (loading || globalLoading || !minLoadingPassed) {
     return (
       <section className="container-max py-12 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand"></div>
@@ -238,8 +214,7 @@ export default function MyProfilePage() {
     )
   }
 
-  // If we have a global user but no local profile yet, it means we are still fetching. 
-  // Show spinner instead of Sign In to prevent flickering.
+  // If we have a global user but no local profile yet, keep loading
   if (globalUser && !currentUser) {
     return (
        <section className="container-max py-12 flex items-center justify-center">
