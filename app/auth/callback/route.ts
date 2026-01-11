@@ -10,7 +10,7 @@ export async function GET(request: Request) {
   if (code) {
     const cookieStore = await cookies()
     
-    // Determine redirect URL first
+    // Determine redirect URL
     const forwardedHost = request.headers.get('x-forwarded-host')
     const isLocalEnv = process.env.NODE_ENV === 'development'
     let redirectTo: string
@@ -23,9 +23,6 @@ export async function GET(request: Request) {
       redirectTo = `${origin}${next}`
     }
 
-    // Create the redirect response FIRST so we can add cookies to it
-    const response = NextResponse.redirect(redirectTo)
-    
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -35,11 +32,8 @@ export async function GET(request: Request) {
             return cookieStore.getAll()
           },
           setAll(cookiesToSet) {
-            // Set cookies on BOTH the cookie store AND the response
             cookiesToSet.forEach(({ name, value, options }) => {
               cookieStore.set(name, value, options)
-              // Also set on the redirect response - this is critical!
-              response.cookies.set(name, value, options)
             })
           },
         },
@@ -49,7 +43,33 @@ export async function GET(request: Request) {
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     
     if (!error) {
-      return response
+      // Instead of redirect, return HTML that redirects via JavaScript
+      // This gives the browser time to properly process and store the cookies
+      const html = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <title>Redirecting...</title>
+          </head>
+          <body>
+            <p>Logging you in...</p>
+            <script>
+              // Small delay to ensure cookies are properly stored
+              setTimeout(function() {
+                window.location.href = "${redirectTo}";
+              }, 100);
+            </script>
+          </body>
+        </html>
+      `
+      
+      return new NextResponse(html, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/html',
+        },
+      })
     } else {
       console.error('Auth callback error:', error.message)
     }
