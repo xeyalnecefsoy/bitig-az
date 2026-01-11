@@ -55,9 +55,15 @@ export default function MyProfilePage() {
     }
   }, [])
 
-  async function loadProfile() {
+  async function loadProfile(overrideUser?: any) {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      let user = overrideUser
+      
+      if (!user) {
+        const { data } = await supabase.auth.getUser()
+        user = data.user
+      }
+
       if (!user) {
         setLoading(false)
         return
@@ -198,7 +204,7 @@ export default function MyProfilePage() {
         if (data.session) {
           // Found session! Self-heal instead of reloading.
           console.log("Context missed user, self-healing...")
-          loadProfile(data.session.user.id)
+          loadProfile(data.session.user)
         } 
         setVerifyingSession(false)
       })
