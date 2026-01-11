@@ -195,12 +195,26 @@ export default function MyProfilePage() {
   }
 
   const [verifyingSession, setVerifyingSession] = useState(false)
+  const [timedOut, setTimedOut] = useState(false)
   const hasAttemptedRecovery = useRef(false)
+
+  // Timeout: If nothing loads in 5 seconds, stop loading to prevent infinite spinner
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (loading || globalLoading || verifyingSession) {
+        console.log("Profile page timeout - stopping loading")
+        setTimedOut(true)
+        setLoading(false)
+        setVerifyingSession(false)
+      }
+    }, 5000)
+    return () => clearTimeout(timeout)
+  }, [])
 
   // Double-check session if context thinks we are logged out (fixes false positives on Vercel)
   // Only attempts ONCE to prevent infinite loops
   useEffect(() => {
-    if (!globalLoading && !globalUser && !currentUser && !loading && !hasAttemptedRecovery.current) {
+    if (!globalLoading && !globalUser && !currentUser && !loading && !hasAttemptedRecovery.current && !timedOut) {
       hasAttemptedRecovery.current = true
       setVerifyingSession(true)
       supabase.auth.getSession().then(({ data }) => {
@@ -210,11 +224,13 @@ export default function MyProfilePage() {
           loadProfile(data.session.user)
         } 
         setVerifyingSession(false)
+      }).catch(() => {
+        setVerifyingSession(false)
       })
     }
-  }, [globalLoading, globalUser, currentUser, loading])
+  }, [globalLoading, globalUser, currentUser, loading, timedOut])
 
-  if (loading || globalLoading || verifyingSession) {
+  if ((loading || globalLoading || verifyingSession) && !timedOut) {
     return (
       <section className="container-max py-12 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand"></div>
