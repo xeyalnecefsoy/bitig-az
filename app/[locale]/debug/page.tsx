@@ -20,9 +20,12 @@ export default function DebugPage() {
         if (sessionError) throw sessionError
         setSession(session)
 
-        const { data: { user }, error: userError } = await supabase.auth.getUser()
-        if (userError) throw userError
-        setUser(user)
+        // Only call getUser if we have a session
+        if (session) {
+          const { data: { user }, error: userError } = await supabase.auth.getUser()
+          if (userError) throw userError
+          setUser(user)
+        }
 
       } catch (err: any) {
         setError(err.message || 'Unknown error')

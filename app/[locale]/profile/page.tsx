@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { SocialPostCard } from '@/components/social/SocialPostCard'
 import Link from 'next/link'
@@ -195,10 +195,13 @@ export default function MyProfilePage() {
   }
 
   const [verifyingSession, setVerifyingSession] = useState(false)
+  const hasAttemptedRecovery = useRef(false)
 
   // Double-check session if context thinks we are logged out (fixes false positives on Vercel)
+  // Only attempts ONCE to prevent infinite loops
   useEffect(() => {
-    if (!globalLoading && !globalUser && !currentUser && !loading) {
+    if (!globalLoading && !globalUser && !currentUser && !loading && !hasAttemptedRecovery.current) {
+      hasAttemptedRecovery.current = true
       setVerifyingSession(true)
       supabase.auth.getSession().then(({ data }) => {
         if (data.session) {
