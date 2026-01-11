@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
+import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 
 export async function GET(request: Request) {
@@ -10,6 +10,22 @@ export async function GET(request: Request) {
   if (code) {
     const cookieStore = await cookies()
     
+    // Determine redirect URL first
+    const forwardedHost = request.headers.get('x-forwarded-host')
+    const isLocalEnv = process.env.NODE_ENV === 'development'
+    let redirectTo: string
+    
+    if (isLocalEnv) {
+      redirectTo = `${origin}${next}`
+    } else if (forwardedHost) {
+      redirectTo = `https://${forwardedHost}${next}`
+    } else {
+      redirectTo = `${origin}${next}`
+    }
+
+    // Create the redirect response FIRST so we can add cookies to it
+    const response = NextResponse.redirect(redirectTo)
+    
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -19,8 +35,11 @@ export async function GET(request: Request) {
             return cookieStore.getAll()
           },
           setAll(cookiesToSet) {
+            // Set cookies on BOTH the cookie store AND the response
             cookiesToSet.forEach(({ name, value, options }) => {
               cookieStore.set(name, value, options)
+              // Also set on the redirect response - this is critical!
+              response.cookies.set(name, value, options)
             })
           },
         },
@@ -30,16 +49,7 @@ export async function GET(request: Request) {
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     
     if (!error) {
-      const forwardedHost = request.headers.get('x-forwarded-host')
-      const isLocalEnv = process.env.NODE_ENV === 'development'
-      
-      if (isLocalEnv) {
-        return NextResponse.redirect(`${origin}${next}`)
-      } else if (forwardedHost) {
-        return NextResponse.redirect(`https://${forwardedHost}${next}`)
-      } else {
-        return NextResponse.redirect(`${origin}${next}`)
-      }
+      return response
     } else {
       console.error('Auth callback error:', error.message)
     }
