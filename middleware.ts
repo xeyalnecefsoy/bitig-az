@@ -5,11 +5,10 @@ import { updateSession } from './lib/supabase/middleware'
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
-  // Ignore assets and API
+  // Ignore assets and API only
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api') ||
-    pathname.startsWith('/auth') ||
     pathname.includes('.')
   ) {
     return NextResponse.next()
