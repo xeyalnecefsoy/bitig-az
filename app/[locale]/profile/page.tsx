@@ -188,7 +188,25 @@ export default function MyProfilePage() {
     router.refresh()
   }
 
-  if (loading || globalLoading) {
+  const [verifyingSession, setVerifyingSession] = useState(false)
+
+  // Double-check session if context thinks we are logged out (fixes false positives on Vercel)
+  useEffect(() => {
+    if (!globalLoading && !globalUser && !currentUser && !loading) {
+      setVerifyingSession(true)
+      supabase.auth.getSession().then(({ data }) => {
+        if (data.session) {
+          // If we have a session but Context missed it, reload to fix state
+          window.location.reload()
+        } else {
+          // Confirmed logged out
+          setVerifyingSession(false)
+        }
+      })
+    }
+  }, [globalLoading, globalUser, currentUser, loading])
+
+  if (loading || globalLoading || verifyingSession) {
     return (
       <section className="container-max py-12 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand"></div>
