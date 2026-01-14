@@ -23,7 +23,7 @@ export type SocialState = {
   posts: Post[]
   like: (postId: string) => Promise<void>
   addComment: (postId: string, content: string) => Promise<void>
-  createPost: (content: string, mentionedBookId?: string) => Promise<void>
+  createPost: (content: string, mentionedBookId?: string, groupId?: string) => Promise<void>
   deletePost: (postId: string) => Promise<void>
   deleteComment: (commentId: string, postId: string) => Promise<void>
   following: string[]
@@ -196,7 +196,8 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
                title: booksMap[p.mentioned_book_id].title,
                coverUrl: booksMap[p.mentioned_book_id].cover || booksMap[p.mentioned_book_id].cover_url,
                author: booksMap[p.mentioned_book_id].author
-            } : undefined
+            } : undefined,
+            groupId: p.group_id
           }))
           setPosts(mappedPosts)
         }
@@ -287,13 +288,14 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const createPost = async (content: string, mentionedBookId?: string) => {
+  const createPost = async (content: string, mentionedBookId?: string, groupId?: string) => {
     if (!currentUser) return
 
     const { data, error } = await supabase.from('posts').insert({
       user_id: currentUser.id,
       content,
-      mentioned_book_id: mentionedBookId
+      mentioned_book_id: mentionedBookId,
+      group_id: groupId
     }).select().single()
 
     if (!error && data) {
@@ -319,7 +321,8 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         likedByMe: false,
         comments: [],
         mentionedBookId: data.mentioned_book_id,
-        mentionedBook: mentionedBookDetails
+        mentionedBook: mentionedBookDetails,
+        groupId: data.group_id
       }
       setPosts(prev => [newPost, ...prev])
     }
@@ -422,7 +425,8 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
             title: booksMap[p.mentioned_book_id].title,
             coverUrl: booksMap[p.mentioned_book_id].cover || booksMap[p.mentioned_book_id].cover_url,
             author: booksMap[p.mentioned_book_id].author
-        } : undefined
+        } : undefined,
+        groupId: p.group_id
       }))
       setPosts(prev => [...prev, ...mappedPosts])
     }

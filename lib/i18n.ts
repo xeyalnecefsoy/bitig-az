@@ -1,6 +1,6 @@
-export const locales = ["en", "az"] as const;
+export const locales = ["az", "en"] as const;
 export type Locale = (typeof locales)[number];
-export const defaultLocale: Locale = "en";
+export const defaultLocale: Locale = "az";
 
 export function isLocale(s: string): s is Locale {
   return (locales as readonly string[]).includes(s);
@@ -246,6 +246,35 @@ export const messages: Record<Locale, Record<string, string>> = {
     cancel_btn: "Cancel",
     like_post: "Like post",
     unlike_post: "Unlike post",
+    // Groups
+    groups_title: "Communities",
+    groups_desc: "Join groups based on your interests and meet like-minded people.",
+    group_members_count: "members",
+    social_stat_posts: "posts",
+    group_join: "Join",
+    group_joined: "Joined",
+    // Search & Filters
+    search_posts_placeholder: "Search posts...",
+    search_groups_placeholder: "Search groups...",
+    sort_newest: "Newest",
+    sort_oldest: "Oldest",
+    sort_popular: "Most popular",
+    sort_alphabetical: "Alphabetical",
+    search_results_count: "results found for",
+    search_groups_results: "groups found for",
+    no_search_results: "No results found for your search.",
+    no_groups_found: "No groups found.",
+    no_posts_yet: "No posts yet.",
+    // Group Detail
+    group_about: "About",
+    group_members_label: "Members",
+    group_posts_label: "Posts",
+    group_members_modal_title: "Group Members",
+    group_no_members: "No members yet",
+    group_role_admin: "Admin",
+    group_role_moderator: "Moderator",
+    group_empty_member: "Be the first to post in this group!",
+    group_join_to_view: "Join to see posts in this group.",
   },
   az: {
     nav_home: "Ana səhifə",
@@ -486,6 +515,35 @@ export const messages: Record<Locale, Record<string, string>> = {
     cancel_btn: "Ləğv et",
     like_post: "Paylaşımı bəyən",
     unlike_post: "Bəyənməni geri al",
+    // Groups
+    groups_title: "İcmalar",
+    groups_desc: "Maraqlarınıza uyğun qruplara qoşulun və həmfikir insanlarla tanış olun.",
+    group_members_count: "üzv",
+    social_stat_posts: "paylaşım",
+    group_join: "Qoşul",
+    group_joined: "Üzvüsünüz",
+    // Search & Filters
+    search_posts_placeholder: "Paylaşımlarda axtar...",
+    search_groups_placeholder: "Qrup axtar...",
+    sort_newest: "Ən yeni",
+    sort_oldest: "Ən köhnə",
+    sort_popular: "Ən populyar",
+    sort_alphabetical: "Əlifba sırası",
+    search_results_count: "nəticə tapıldı",
+    search_groups_results: "qrup tapıldı",
+    no_search_results: "Axtarışınıza uyğun nəticə tapılmadı.",
+    no_groups_found: "Hələ heç bir qrup yoxdur.",
+    no_posts_yet: "Hələ heç bir paylaşım yoxdur.",
+    // Group Detail
+    group_about: "Haqqında",
+    group_members_label: "Üzvlər",
+    group_posts_label: "Paylaşımlar",
+    group_members_modal_title: "Qrup Üzvləri",
+    group_no_members: "Hələ üzv yoxdur",
+    group_role_admin: "Admin",
+    group_role_moderator: "Moderator",
+    group_empty_member: "Bu qrupda hələ heç bir paylaşım yoxdur. İlk paylaşımı siz edin!",
+    group_join_to_view: "Bu qrupun paylaşımlarını görmək üçün qoşulun.",
   },
 };
 

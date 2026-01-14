@@ -1,29 +1,51 @@
 "use client"
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useSocial } from '@/context/social'
 import { SocialPostCard } from '@/components/social/SocialPostCard'
 import { SocialComposer } from '@/components/social/SocialComposer'
 import { useLocale } from '@/context/locale'
 import { t } from '@/lib/i18n'
 import Link from 'next/link'
-import { FiPlus } from 'react-icons/fi'
+import { FiSearch, FiChevronDown, FiX } from 'react-icons/fi'
+
+type SortOption = 'newest' | 'oldest' | 'popular'
 
 export default function SocialPage() {
   const { posts, currentUser, following, loadMorePosts, hasMorePosts } = useSocial()
   const [tab, setTab] = useState<'feed' | 'following'>('feed')
   const [loadingMore, setLoadingMore] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [sortBy, setSortBy] = useState<SortOption>('newest')
   const locale = useLocale()
   
-  const display = tab === 'feed' 
-    ? posts 
-    : posts.filter(p => following.includes(p.userId)) 
-    // For now, let's just filter by something or keep it simple. 
-    // Since mock data structure might not support 'following' array on user yet, we might need to adjust.
-    // Let's just show all posts for 'following' if logic isn't ready, or filter by a mock logic.
-    // Actually, let's just rely on the 'posts' for now as the 'following' logic might be complex to mock perfectly without backend.
-    // But the request was just to HIDE the tab.
+  // Filter and sort posts
+  const filteredPosts = useMemo(() => {
+    let result = tab === 'feed' 
+      ? posts 
+      : posts.filter(p => following.includes(p.userId))
     
-  // If tab is following but user is guest, switch to feed (though button is hidden, good to be safe)
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      result = result.filter(p => 
+        p.content.toLowerCase().includes(query)
+      )
+    }
+    
+    // Sort
+    switch (sortBy) {
+      case 'newest':
+        return result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      case 'oldest':
+        return result.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+      case 'popular':
+        return result.sort((a, b) => b.likes - a.likes)
+      default:
+        return result
+    }
+  }, [posts, tab, following, searchQuery, sortBy])
+    
+  // If tab is following but user is guest, switch to feed
   if (tab === 'following' && !currentUser) setTab('feed')
 
   const handleLoadMore = async () => {
@@ -54,12 +76,76 @@ export default function SocialPage() {
               {t(locale, 'following_tab')}
             </button>
           )}
+          <Link
+            href={`/${locale}/social/groups` as any}
+            className="pb-3 text-sm font-medium transition-colors text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 ml-auto flex items-center gap-1"
+          >
+            {t(locale, 'groups_title')}
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+            </svg>
+          </Link>
         </div>
+
+        {/* Search and Filter Bar */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          {/* Search Input */}
+          <div className="relative flex-1">
+            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={t(locale, 'search_posts_placeholder')}
+              className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand text-sm"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200"
+              >
+                <FiX className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Sort Dropdown */}
+          <div className="relative">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortOption)}
+              className="appearance-none w-full sm:w-auto bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-xl px-4 py-2.5 pr-10 text-sm text-neutral-700 dark:text-neutral-300 focus:outline-none focus:ring-2 focus:ring-brand/50 cursor-pointer"
+            >
+              <option value="newest">{t(locale, 'sort_newest')}</option>
+              <option value="oldest">{t(locale, 'sort_oldest')}</option>
+              <option value="popular">{t(locale, 'sort_popular')}</option>
+            </select>
+            <FiChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />
+          </div>
+        </div>
+
+        {/* Search Results Info */}
+        {searchQuery && (
+          <div className="text-sm text-neutral-500 dark:text-neutral-400">
+            {filteredPosts.length} {t(locale, 'search_results_count')} "{searchQuery}"
+          </div>
+        )}
+
         <SocialComposer />
-        {display.map((p) => (
-          <SocialPostCard key={p.id} postId={p.id} />
-        ))}
-        {hasMorePosts && (
+        
+        {filteredPosts.length > 0 ? (
+          filteredPosts.map((p) => (
+            <SocialPostCard key={p.id} postId={p.id} />
+          ))
+        ) : (
+          <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">
+            {searchQuery 
+              ? t(locale, 'no_search_results')
+              : t(locale, 'no_posts_yet')}
+          </div>
+        )}
+        
+        {hasMorePosts && !searchQuery && (
           <div className="flex justify-center py-4">
             <button 
               onClick={handleLoadMore}
@@ -72,9 +158,19 @@ export default function SocialPage() {
         )}
       </div>
       <aside className="hidden lg:block">
-        <div className="card p-5 sticky top-24">
-          <h2 className="font-semibold mb-2">{t(locale, 'social_what_is_title')}</h2>
-          <p className="text-sm text-neutral-600 dark:text-neutral-400">{t(locale, 'social_what_is_desc')}</p>
+        <div className="sticky top-24 space-y-4">
+          <div className="card p-5">
+            <h2 className="font-semibold mb-2">{t(locale, 'social_what_is_title')}</h2>
+            <p className="text-sm text-neutral-600 dark:text-neutral-400">{t(locale, 'social_what_is_desc')}</p>
+          </div>
+          
+          <div className="card p-5">
+            <h2 className="font-semibold mb-2">{t(locale, 'groups_title')}</h2>
+            <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-4">{t(locale, 'groups_desc')}</p>
+            <Link href={`/${locale}/social/groups` as any} className="btn btn-outline w-full justify-center text-sm">
+              {t(locale, 'view_all')}
+            </Link>
+          </div>
         </div>
       </aside>
     </section>

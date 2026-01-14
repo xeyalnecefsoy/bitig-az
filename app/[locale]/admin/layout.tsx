@@ -125,6 +125,12 @@ export default function AdminLayout({
                 label={t(locale, 'admin_social')}
                 onClick={() => setSidebarOpen(false)}
               />
+              <NavLink 
+                href={`/${locale}/admin/groups`} 
+                icon={<FiUsers />} 
+                label={t(locale, 'groups_title')}
+                onClick={() => setSidebarOpen(false)}
+              />
               <div className="pt-4 mt-4 border-t border-neutral-100 dark:border-neutral-800 space-y-1">
                  <button
                    onClick={async () => {

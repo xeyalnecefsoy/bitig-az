@@ -9,7 +9,7 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: '/az',
     display: 'standalone',
     background_color: '#ffffff',
-    theme_color: '#6366f1', // Brand color (indigo)
+    theme_color: '#4AD860', // Brand color (green)
     lang: 'az',
     icons: [
       {

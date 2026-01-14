@@ -20,7 +20,7 @@ function countEmojis(text: string): number {
   return matches ? matches.length : 0
 }
 
-export function SocialComposer() {
+export function SocialComposer({ groupId }: { groupId?: string }) {
   const locale = useLocale()
   const { createPost, currentUser, loading } = useSocial()
   const [value, setValue] = useState('')
@@ -89,7 +89,7 @@ export function SocialComposer() {
     e.preventDefault()
     const text = value.trim()
     if (!text || !validation.isValid) return
-    createPost(text, selectedBook?.id)
+    createPost(text, selectedBook?.id, groupId)
     setValue('')
     setSelectedBook(null)
   }

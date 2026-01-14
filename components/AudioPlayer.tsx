@@ -74,7 +74,13 @@ export function AudioPlayer({ tracks, title, cover }: { tracks: Track[]; title: 
       <div className="w-full rounded-xl border border-neutral-200 bg-white p-4 shadow-soft dark:border-neutral-800 dark:bg-neutral-900">
         <div className="flex items-center gap-4 mb-4">
           <div className="relative h-16 w-12 shrink-0 overflow-hidden rounded-md bg-neutral-100 dark:bg-neutral-800">
-            <Image src={cover} alt={title} fill className="object-cover" />
+            {cover ? (
+              <Image src={cover} alt={title} fill className="object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-neutral-400">
+                <FiVolume2 size={20} />
+              </div>
+            )}
           </div>
           <div className="min-w-0 flex-1">
             <h3 className="font-semibold text-neutral-900 dark:text-white truncate">{title}</h3>

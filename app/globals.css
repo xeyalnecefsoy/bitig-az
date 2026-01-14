@@ -6,6 +6,21 @@
   --brand: #4AD860;
 }
 
+/* Prevent theme flash - set background color before JS loads */
+html {
+  background-color: #fff;
+}
+
+@media (prefers-color-scheme: dark) {
+  html:not(.light) {
+    background-color: #0a0a0a;
+  }
+}
+
+html.dark {
+  background-color: #0a0a0a;
+}
+
 html, body, #__next {
   height: 100%;
 }

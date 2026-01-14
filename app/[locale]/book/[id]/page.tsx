@@ -6,6 +6,7 @@ import { AddToCart } from '@/components/AddToCart'
 import type { Metadata } from 'next'
 import { isLocale, t, type Locale } from '@/lib/i18n'
 import { AudioPlayer } from '@/components/AudioPlayer'
+import { BookStatusButton } from '@/components/BookStatusButton'
 
 export default async function BookDetail({ params }: { params: Promise<{ locale: string; id: string }> }) {
   const { id, locale } = await params
@@ -34,7 +35,13 @@ export default async function BookDetail({ params }: { params: Promise<{ locale:
           <span className="text-sm text-neutral-600 dark:text-neutral-300">{book.length}</span>
         </div>
         <p className="mb-6 text-neutral-800 dark:text-neutral-100">{book.description}</p>
-        <AddToCart id={book.id} price={book.price} />
+        
+        {/* Reading Status & Cart */}
+        <div className="flex flex-wrap items-center gap-3 mb-6">
+          <BookStatusButton bookId={book.id} locale={locale} />
+          <AddToCart id={book.id} price={book.price} />
+        </div>
+        
         <div className="mt-6">
           <AudioPlayer
             tracks={[

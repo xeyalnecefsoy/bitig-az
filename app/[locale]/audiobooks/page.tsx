@@ -1,6 +1,5 @@
 import { BookCard } from '@/components/BookCard'
 import { t, type Locale } from '@/lib/i18n'
-import { books } from '@/lib/data'
 import React from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { FiLock } from 'react-icons/fi'
@@ -41,6 +40,14 @@ export default async function AudiobooksPage({ params }: { params: Promise<{ loc
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
+  // Fetch books from Supabase
+  const { data: books } = await supabase
+    .from('books')
+    .select('*')
+    .order('created_at', { ascending: false })
+
+  const booksList = books || []
+
   return (
     <section className="container-max py-6 sm:py-8">
       <div className="mb-8 flex items-center justify-between">
@@ -63,7 +70,7 @@ export default async function AudiobooksPage({ params }: { params: Promise<{ loc
       )}
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-        {books.map((book, i) => (
+        {booksList.map((book, i) => (
           <React.Fragment key={book.id}>
             <BookCard 
               book={book} 
@@ -79,7 +86,7 @@ export default async function AudiobooksPage({ params }: { params: Promise<{ loc
         ))}
       </div>
       
-      {books.length === 0 && (
+      {booksList.length === 0 && (
         <div className="text-center py-12">
           <p className="text-neutral-500 dark:text-neutral-400">{t(locale as Locale, 'audiobooks_empty')}</p>
         </div>

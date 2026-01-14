@@ -16,6 +16,20 @@ export type Comment = {
   createdAt: string
 }
 
+export type Group = {
+  id: string
+  name: string
+  slug: string
+  description?: string
+  icon_url?: string
+  cover_url?: string
+  is_official: boolean
+  members_count: number
+  posts_count: number
+  created_at: string
+  is_member?: boolean // For UI logic
+}
+
 export type Post = {
   id: string
   userId: string
@@ -30,6 +44,13 @@ export type Post = {
     title: string
     coverUrl?: string
     author?: string
+  }
+  groupId?: string
+  group?: {
+    id: string
+    name: string
+    slug: string
+    icon_url?: string
   }
 }
 
