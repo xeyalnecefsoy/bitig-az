@@ -43,6 +43,19 @@ export async function GET(request: Request) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
     
     if (!error && data.session) {
+      // Create hash for client-side hydration - this ensures immediate session availability
+      const { access_token, refresh_token } = data.session
+      const expires_at = Math.floor(Date.now() / 1000) + (data.session.expires_in || 3600)
+      
+      const hash = `access_token=${access_token}&refresh_token=${refresh_token}&expires_at=${expires_at}&expires_in=${data.session.expires_in}&token_type=bearer&type=recovery` // 'type=recovery' helps trigger some auto-detection logic safely
+      // Note: We use type=recovery to force the client to process it, but standard hash might work too. 
+      // Actually standard implicit flow is just access_token=...
+      // Let's use the standard format Supabase expects.
+      const standardHash = `access_token=${access_token}&refresh_token=${refresh_token}&expires_in=${data.session.expires_in}&token_type=bearer&type=signup` 
+      // Using type=signup or recovery forces event emission. Let's try standard first.
+      
+      const destination = `${redirectTo}#${standardHash}`
+
       // Return HTML that:
       // 1. Sets localStorage flag to signal fresh login
       // 2. Uses window.location.replace for clean navigation history
@@ -91,10 +104,10 @@ export async function GET(request: Request) {
       sessionStorage.setItem('bitig_auth_session_ready', 'true');
     } catch(e) {}
     
-    // Small delay to ensure cookies are processed, then redirect
+    // Redirect with tokens in hash
     setTimeout(function() {
-      window.location.replace("${redirectTo}");
-    }, 200);
+      window.location.replace("${destination}");
+    }, 100);
   </script>
 </body>
 </html>`
