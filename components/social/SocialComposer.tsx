@@ -7,6 +7,7 @@ import { t } from '@/lib/i18n'
 import * as Popover from '@radix-ui/react-popover'
 import { createClient } from '@/lib/supabase/client'
 import { useDebounce } from 'use-debounce'
+import { Skeleton } from '@/components/ui/Skeleton'
 
 // Content quality constants
 const MIN_CHARS = 100
@@ -75,8 +76,16 @@ export function SocialComposer({ groupId }: { groupId?: string }) {
   // Show loading state while checking auth
   if (loading) {
     return (
-      <div className="card p-4 sm:p-5 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand"></div>
+      <div className="card p-4 sm:p-5 space-y-3">
+        <Skeleton className="h-4 w-32 mb-2" />
+        <Skeleton className="h-24 w-full rounded-md" />
+        <div className="flex justify-between items-center">
+          <div className="flex gap-2">
+            <Skeleton className="h-4 w-16" />
+            <Skeleton className="h-4 w-12" />
+          </div>
+          <Skeleton className="h-9 w-20 rounded-md" />
+        </div>
       </div>
     )
   }

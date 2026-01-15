@@ -6,6 +6,7 @@ import { t } from '@/lib/i18n'
 import Link from 'next/link'
 import { FollowButton } from './FollowButton'
 import { User } from '@/lib/social'
+import { Skeleton } from '@/components/ui/Skeleton'
 
 interface UserHoverCardProps {
   userId: string
@@ -94,8 +95,20 @@ export function UserHoverCard({ userId, children, disabled = false, className = 
           style={{ transformOrigin: 'top left' }}
         >
           {loading && !user ? (
-            <div className="flex justify-center py-4">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-brand"></div>
+            <div className="space-y-3">
+              <div className="flex justify-between items-start">
+                <Skeleton variant="circular" className="h-14 w-14" />
+                <Skeleton className="h-8 w-20 rounded-full" />
+              </div>
+              <div className="space-y-1.5">
+                <Skeleton className="h-5 w-28" />
+                <Skeleton className="h-4 w-20" />
+              </div>
+              <Skeleton className="h-12 w-full" />
+              <div className="flex gap-4 pt-2">
+                <Skeleton className="h-4 w-16" />
+                <Skeleton className="h-4 w-16" />
+              </div>
             </div>
           ) : user ? (
             <div className="space-y-3">

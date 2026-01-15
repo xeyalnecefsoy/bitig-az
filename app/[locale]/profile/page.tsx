@@ -11,6 +11,7 @@ import { FollowButton } from '@/components/social/FollowButton'
 import { useSocial } from '@/context/social'
 import { t, type Locale } from '@/lib/i18n'
 import { RankBadge } from '@/components/RankBadge'
+import { ProfileSkeleton } from '@/components/ui/Skeleton'
 
 export default function MyProfilePage() {
   const { close: closeAudio } = useAudio()
@@ -18,6 +19,7 @@ export default function MyProfilePage() {
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [posts, setPosts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [authChecked, setAuthChecked] = useState(false) // NEW: Track if auth check is complete
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
   const [followersCount, setFollowersCount] = useState(0)
@@ -32,21 +34,24 @@ export default function MyProfilePage() {
   const locale = (pathname.split('/')[1] || 'en') as Locale
   const supabase = createClient()
 
-  // Timeout constant
-  const AUTH_TIMEOUT = 10000 // 10 seconds max loading
+  // Extended timeout for Vercel cold starts
+  const AUTH_TIMEOUT = 15000 // 15 seconds max loading (increased for slow networks)
 
   useEffect(() => {
     // Safety timeout - always break loading after max time
     const safetyTimeout = setTimeout(() => {
+      console.log('[Profile] Safety timeout reached, stopping loading')
       setLoading(false)
+      setAuthChecked(true)
     }, AUTH_TIMEOUT)
 
     loadProfile()
 
     // Auth state listener - breaks loading on any auth event
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('[Profile] Auth state changed:', event)
       // Re-run loadProfile on auth changes
-      loadProfile()
+      loadProfile(session?.user)
     })
 
     return () => {
@@ -60,14 +65,37 @@ export default function MyProfilePage() {
       let user = overrideUser
       
       if (!user) {
+        // First attempt
         const { data } = await supabase.auth.getUser()
         user = data.user
+        
+        // Aggressive retry for Vercel cold starts
+        // Retry up to 4 times with increasing delays (total ~5 seconds)
+        const retryDelays = [300, 700, 1200, 2000]
+        
+        for (let i = 0; i < retryDelays.length && !user; i++) {
+          console.log(`[Profile] Auth retry ${i + 1}/${retryDelays.length} after ${retryDelays[i]}ms...`)
+          await new Promise(r => setTimeout(r, retryDelays[i]))
+          
+          const retryResult = await supabase.auth.getUser()
+          if (retryResult.data.user) {
+            console.log(`[Profile] User found on retry ${i + 1}`)
+            user = retryResult.data.user
+            break
+          }
+        }
       }
 
+      // Mark auth as checked after all retries
+      setAuthChecked(true)
+
       if (!user) {
+        console.log('[Profile] No user found after all retries')
         setLoading(false)
         return
       }
+
+      console.log('[Profile] User authenticated, loading profile...')
 
       const { data: profile } = await supabase
         .from('profiles')
@@ -115,6 +143,7 @@ export default function MyProfilePage() {
       console.error('Error loading profile:', error)
       setPosts([])
       setHasMore(false)
+      setAuthChecked(true)
     } finally {
       setLoading(false)
     }
@@ -194,33 +223,17 @@ export default function MyProfilePage() {
     router.refresh()
   }
 
-  // Simple approach: wait at least 2 seconds before showing "Sign In"
-  // This gives time for auth to initialize properly
-  const [minLoadingPassed, setMinLoadingPassed] = useState(false)
-  
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setMinLoadingPassed(true)
-    }, 2000)
-    return () => clearTimeout(timer)
-  }, [])
-
-  // Show loading while any auth check is in progress OR minimum time hasn't passed
-  if (loading || globalLoading || !minLoadingPassed) {
-    return (
-      <section className="container-max py-12 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand"></div>
-      </section>
-    )
+  // Show skeleton while:
+  // 1. Local loading is in progress
+  // 2. Global social context is still loading
+  // 3. Auth check has not fully completed (including retries)
+  if (loading || globalLoading || !authChecked) {
+    return <ProfileSkeleton />
   }
 
   // If we have a global user but no local profile yet, keep loading
   if (globalUser && !currentUser) {
-    return (
-       <section className="container-max py-12 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand"></div>
-      </section>
-    )
+    return <ProfileSkeleton />
   }
 
   if (!currentUser) {
