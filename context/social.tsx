@@ -156,6 +156,21 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true
 
+    // 0. AUTH CODE TRAP: Handle misconfigured OAuth redirects
+    // If user lands on home page with ?code=..., send them to callback handler
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      const code = params.get('code')
+      // Only redirect if we have a code and are not already on the callback page
+      if (code && !window.location.pathname.includes('/auth/callback')) {
+         console.log('[Social] Auth code detected via client trap, redirecting to handler...')
+         // Default to profile page
+         const locale = window.location.pathname.split('/')[1] || 'az'
+         window.location.href = `${window.location.origin}/auth/callback?code=${code}&next=/${locale}/profile`
+         return
+      }
+    }
+
     // CRITICAL: Check for fresh login flag first
     const checkFreshLogin = () => {
       if (typeof window === 'undefined') return false
