@@ -1,4 +1,3 @@
-import { useTranslations } from 'next-intl'
 import Link from 'next/link'
 
 export default function AuthCodeErrorPage() {
@@ -16,7 +15,7 @@ export default function AuthCodeErrorPage() {
           Ana Səhifə
         </Link>
         <Link 
-          href="/az/login"
+          href={'/az/login' as any}
           className="rounded-md bg-green-600 px-6 py-2 font-semibold transition hover:bg-green-500"
         >
           Yenidən Giriş et
