@@ -224,11 +224,9 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     const hasHashToken = typeof window !== 'undefined' && window.location.hash.includes('access_token')
 
     async function init() {
-      // If we have a hash token, DO NOT manually check session yet.
-      // Wait for Supabase to process the hash and trigger onAuthStateChange
+      // Log presence but do not block init
       if (hasHashToken) {
-        console.log('[Social] Access token in hash, waiting for hydration event...')
-        return
+        console.log('[Social] Access token in hash, proceeding cautiously...')
       }
 
       try {
@@ -268,12 +266,18 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
                  return
                }
              }
+             // CRITICAL FIX: If hash token is present, keep loading true
+             if (hasHashToken) {
+                console.log('[Social] Hash token present, deferring loading state update...')
+                return
+             }
+             
              // Only set loading false if we are sure there is no user and no hash token processing
              setLoading(false)
           }
         }
         
-        clearTimeout(safetyTimeout)
+        if (!hasHashToken) clearTimeout(safetyTimeout)
 
         // Load other profiles in background
         supabase.from('profiles').select('*').order('updated_at', { ascending: false }).limit(10)
