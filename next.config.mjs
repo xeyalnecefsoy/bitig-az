@@ -24,7 +24,12 @@ const nextConfig = {
     // removeConsole: process.env.NODE_ENV === 'production',
   },
   experimental: {
-    optimizePackageImports: ['react-icons'],
+    optimizePackageImports: ['react-icons', '@supabase/supabase-js'],
+    // Reduce client-side navigation time
+    staleTimes: {
+      dynamic: 30, // Cache dynamic routes for 30 seconds
+      static: 180, // Cache static routes for 3 minutes
+    },
   },
   // Target modern browsers to reduce polyfills
   webpack: (config, { isServer }) => {

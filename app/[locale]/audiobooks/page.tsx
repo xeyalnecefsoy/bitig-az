@@ -7,6 +7,9 @@ import Link from 'next/link'
 import { AdBanner } from '@/components/ads/AdBanner'
 import type { Metadata } from 'next'
 
+// Revalidate every 60 seconds for faster TTFB
+export const revalidate = 60
+
 const pageMetadata = {
   az: {
     title: 'Səsli Kitablar',

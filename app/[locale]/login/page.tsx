@@ -1,5 +1,5 @@
 "use client"
-import { useState } from 'react'
+import { useState, useTransition, useMemo, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter, usePathname } from 'next/navigation'
 import { FcGoogle } from 'react-icons/fc'
@@ -13,8 +13,11 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [mode, setMode] = useState<'login' | 'signup'>('login')
+  const [isPending, startTransition] = useTransition()
   const router = useRouter()
-  const supabase = createClient()
+  
+  // Lazy initialize supabase client
+  const supabase = useMemo(() => createClient(), [])
 
   const pathname = usePathname()
   const locale = (pathname.split('/')[1] || 'en') as Locale

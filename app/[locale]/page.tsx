@@ -8,6 +8,9 @@ import { AdBanner } from '@/components/ads/AdBanner'
 import { FiMessageCircle, FiUsers, FiBookOpen, FiArrowRight } from 'react-icons/fi'
 import type { Metadata } from 'next'
 
+// Revalidate the page every 60 seconds for faster TTFB
+export const revalidate = 60
+
 const homeMetadata = {
   az: {
     title: 'Bitig — Azərbaycan Səsli Kitab Platforması',
