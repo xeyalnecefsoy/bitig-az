@@ -37,17 +37,35 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   // Load user profile helper
-  const loadUserProfile = useCallback(async (userId: string) => {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
+  const loadUserProfile = useCallback(async (userId: string, userMetadata?: any) => {
+    let profile = null
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
+      profile = data
+    } catch (e) {
+      console.warn('Error fetching profile:', e)
+    }
+
+    // Fallback to metadata if profile missing but we have auth data (prevents false "Sign In" state)
+    if (!profile && userMetadata) {
+      console.log('[Social] Profile missing in DB, using metadata fallback')
+      profile = {
+        id: userId,
+        username: userMetadata.username || userMetadata.name || userMetadata.full_name || 'Anonymous',
+        avatar_url: userMetadata.avatar_url || userMetadata.picture,
+        bio: '',
+        updated_at: new Date().toISOString()
+      }
+    }
 
     if (profile) {
       const userData: User = {
         id: profile.id,
-        name: profile.username || 'Anonymous',
+        name: profile.username || profile.full_name || 'Anonymous',
         username: profile.username || 'anonymous',
         avatar: profile.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.id}`,
         bio: profile.bio,
@@ -181,7 +199,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
 
         if (session?.user) {
           console.log('[Social] Session found via getSession')
-          await loadUserProfile(session.user.id)
+          await loadUserProfile(session.user.id, session.user.user_metadata)
           loadPosts(session.user.id)
         } else {
           // 2. Fallback to getUser (slower, checks server/cookies)
@@ -192,7 +210,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
           if (user) {
             console.log('[Social] User found via getUser (cookie auth)')
             // Manually set session if possible or just proceed with user
-            await loadUserProfile(user.id)
+            await loadUserProfile(user.id, user.user_metadata)
             loadPosts(user.id)
           } else {
              console.log('[Social] No user found on server either')
@@ -248,7 +266,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
       // Handle all sign-in related events
       if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') && session?.user) {
         console.log('[Social] Loading profile for:', session.user.email)
-        await loadUserProfile(session.user.id)
+        await loadUserProfile(session.user.id, session.user.user_metadata)
         loadPosts(session.user.id)
         setLoading(false)
       } else if (event === 'SIGNED_OUT') {
