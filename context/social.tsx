@@ -240,13 +240,16 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
       }
     })
 
-    // Check for hash tokens (Client-side hydration from URL)
+    // Check for hash tokens or auth code
     const hasHashToken = typeof window !== 'undefined' && window.location.hash.includes('access_token')
+    const hasAuthCode = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('code')
 
     async function init() {
-      // Log presence but do not block init
-      if (hasHashToken) {
-        console.log('[Social] Access token in hash, proceeding cautiously...')
+      // BLOCKING: If we have an auth code or hash token, create a session FIRST.
+      // Do not run standard init check which would fail and show "Sign In"
+      if (hasAuthCode || hasHashToken) {
+        console.log('[Social] Auth in progress (code/hash detected), pausing init...')
+        return
       }
 
       try {
