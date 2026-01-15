@@ -62,7 +62,22 @@ export async function GET(request: Request) {
       const standardHash = `access_token=${access_token}&refresh_token=${refresh_token}&expires_in=${data.session.expires_in}&token_type=bearer&type=signup` 
       // Using type=signup or recovery forces event emission. Let's try standard first.
       
-      const destination = `${redirectTo}#${standardHash}`
+      // 3. Force redirect to Profile page to detect session immediately
+      // Extract locale from 'next' param or default to 'az'
+      const localeMatch = next.match(/^\/([a-z]{2})/)
+      const locale = localeMatch ? localeMatch[1] : 'az'
+      
+      // CRITICAL: Always go to profile, never home page
+      // We rely on origin from request to build absolute URL
+      // If we are on localhost, origin is localhost:3000
+      // If Vercel, it is the Vercel URL
+      
+      let baseUrl = origin
+      if (!isLocalEnv && forwardedHost) {
+        baseUrl = `https://${forwardedHost}`
+      }
+      
+      const destination = `${baseUrl}/${locale}/profile#${standardHash}`
 
       // Return HTML that:
       // 1. Sets localStorage flag to signal fresh login
