@@ -138,6 +138,27 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true
 
+    // CRITICAL: Check for fresh login flag first
+    const checkFreshLogin = () => {
+      if (typeof window === 'undefined') return false
+      
+      const justLoggedIn = localStorage.getItem('bitig_auth_just_logged_in')
+      if (justLoggedIn) {
+        const loginTime = parseInt(justLoggedIn)
+        const now = Date.now()
+        // Only valid if within last 10 seconds
+        if (now - loginTime < 10000) {
+          console.log('[Social] Fresh login detected, will refresh session')
+          localStorage.removeItem('bitig_auth_just_logged_in')
+          return true
+        }
+        localStorage.removeItem('bitig_auth_just_logged_in')
+      }
+      return false
+    }
+
+    const isFreshLogin = checkFreshLogin()
+
     // Safety timeout - always break loading after max time
     const safetyTimeout = setTimeout(() => {
       if (mounted) {
@@ -148,22 +169,44 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
 
     async function init() {
       try {
-        // FAST: Use getSession (reads from local storage/cookie cache) instead of getUser (server call)
+        // If fresh login, wait a tiny bit for cookies to be fully set
+        if (isFreshLogin) {
+          await new Promise(r => setTimeout(r, 100))
+        }
+
+        // Get session - this should now find the session after fresh login
         const { data: { session } } = await supabase.auth.getSession()
         
         if (!mounted) return
 
+        console.log('[Social] Session check:', session ? 'Found user' : 'No session')
+
         if (session?.user) {
           // User is logged in - load profile
           await loadUserProfile(session.user.id)
+          loadPosts(session.user.id)
+        } else if (isFreshLogin) {
+          // Fresh login but no session yet - try getUser as fallback
+          console.log('[Social] Fresh login but no session, trying getUser...')
+          const { data: { user } } = await supabase.auth.getUser()
+          if (user) {
+            console.log('[Social] User found via getUser')
+            await loadUserProfile(user.id)
+            loadPosts(user.id)
+          } else {
+            // Still no user - force page reload as last resort
+            console.log('[Social] Still no user, forcing reload...')
+            if (mounted) {
+              setLoading(false)
+              window.location.reload()
+              return
+            }
+          }
         }
         
-        // Stop loading immediately after session check
+        // Stop loading
         setLoading(false)
         clearTimeout(safetyTimeout)
-
-        // Load posts in background
-        loadPosts(session?.user?.id)
 
         // Load other profiles in background
         supabase.from('profiles').select('*').order('updated_at', { ascending: false }).limit(10)
@@ -197,19 +240,19 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return
       
-      console.log('[Social] Auth event:', event)
+      console.log('[Social] Auth event:', event, session?.user?.id)
       
-      if (event === 'SIGNED_IN' && session?.user) {
-        // User just logged in
+      // Handle all sign-in related events
+      if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') && session?.user) {
+        console.log('[Social] Loading profile for:', session.user.email)
         await loadUserProfile(session.user.id)
         loadPosts(session.user.id)
+        setLoading(false)
       } else if (event === 'SIGNED_OUT') {
         setCurrentUser(null)
         setFollowing([])
+        setPosts([])
       }
-      
-      // Always ensure loading is false after auth event
-      setLoading(false)
     })
 
     return () => {
