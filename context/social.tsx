@@ -200,14 +200,45 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
       }
     }, SAFETY_TIMEOUT)
 
+    // Auth state listener - REGISTER FIRST to catch all events
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return
+      
+      console.log('[Social] Auth event:', event, session?.user?.id)
+      
+      // Handle all sign-in related events
+      if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') && session?.user) {
+        console.log('[Social] Auth event detected user, loading profile...')
+        await loadUserProfile(session.user.id, session.user.user_metadata)
+        loadPosts(session.user.id)
+        setLoading(false)
+      } else if (event === 'SIGNED_OUT') {
+        setCurrentUser(null)
+        setFollowing([])
+        setPosts([])
+        setLoading(false)
+      }
+    })
+
+    // Check for hash tokens (Client-side hydration from URL)
+    const hasHashToken = typeof window !== 'undefined' && window.location.hash.includes('access_token')
+
     async function init() {
+      // If we have a hash token, DO NOT manually check session yet.
+      // Wait for Supabase to process the hash and trigger onAuthStateChange
+      if (hasHashToken) {
+        console.log('[Social] Access token in hash, waiting for hydration event...')
+        return
+      }
+
       try {
+        // ... Normal init logic ...
         // If fresh login, wait a tiny bit for cookies to be fully set
         if (isFreshLogin) {
-          await new Promise(r => setTimeout(r, 500)) // Increased wait time
+          await new Promise(r => setTimeout(r, 500)) 
         }
 
-        // 1. Try getSession first (fastest, checks local storage)
+        // 1. Try getSession first
         const { data: { session } } = await supabase.auth.getSession()
         
         if (!mounted) return
@@ -216,32 +247,32 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
           console.log('[Social] Session found via getSession')
           await loadUserProfile(session.user.id, session.user.user_metadata)
           loadPosts(session.user.id)
+          // Ensure loading is false if we found a user
+          setLoading(false)
         } else {
-          // 2. Fallback to getUser (slower, checks server/cookies)
-          // This is critical for fresh logins where localStorage might be empty but cookies are set
+          // 2. Fallback to getUser
           console.log('[Social] No session in cache, checking server (getUser)...')
-          const { data: { user }, error } = await supabase.auth.getUser()
+          const { data: { user } } = await supabase.auth.getUser()
           
           if (user) {
-            console.log('[Social] User found via getUser (cookie auth)')
-            // Manually set session if possible or just proceed with user
+            console.log('[Social] User found via getUser')
             await loadUserProfile(user.id, user.user_metadata)
             loadPosts(user.id)
+            setLoading(false)
           } else {
-             console.log('[Social] No user found on server either')
+             console.log('[Social] No user found')
              if (isFreshLogin) {
-               console.log('[Social] Fresh login flag present but no user - forcing reload')
+               console.log('[Social] Fresh login flag but no user - forcing reload')
                if (mounted) {
-                 setLoading(false)
                  window.location.reload()
                  return
                }
              }
+             // Only set loading false if we are sure there is no user and no hash token processing
+             setLoading(false)
           }
         }
         
-        // Stop loading
-        setLoading(false)
         clearTimeout(safetyTimeout)
 
         // Load other profiles in background
@@ -271,25 +302,6 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     }
 
     init()
-
-    // Auth state listener - REACTIVE approach (handles login/logout)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!mounted) return
-      
-      console.log('[Social] Auth event:', event, session?.user?.id)
-      
-      // Handle all sign-in related events
-      if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') && session?.user) {
-        console.log('[Social] Loading profile for:', session.user.email)
-        await loadUserProfile(session.user.id, session.user.user_metadata)
-        loadPosts(session.user.id)
-        setLoading(false)
-      } else if (event === 'SIGNED_OUT') {
-        setCurrentUser(null)
-        setFollowing([])
-        setPosts([])
-      }
-    })
 
     return () => {
       mounted = false
