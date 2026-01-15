@@ -1,21 +1,11 @@
 "use client"
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react'
 import type { Post, User, Comment } from '@/lib/social'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
-// Timeout helper to prevent infinite loading
-const withTimeout = <T,>(promise: Promise<T>, ms: number, fallback: T): Promise<T> => {
-  return Promise.race([
-    promise,
-    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms))
-  ])
-}
-
-// Constants
-const AUTH_TIMEOUT = 5000 // 5 seconds for auth check
-const DATA_TIMEOUT = 8000 // 8 seconds for data fetching
-const SAFETY_TIMEOUT = 10000 // 10 seconds absolute max
+// Constants - much shorter timeouts
+const SAFETY_TIMEOUT = 3000 // 3 seconds max for initial load
 
 export type SocialState = {
   currentUser: User | null
@@ -38,7 +28,7 @@ export type SocialState = {
 const SocialCtx = createContext<SocialState | null>(null)
 
 export function SocialProvider({ children }: { children: React.ReactNode }) {
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const router = useRouter()
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [users, setUsers] = useState<User[]>([])
@@ -46,90 +36,139 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
   const [following, setFollowing] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Fetch initial data
+  // Load user profile helper
+  const loadUserProfile = useCallback(async (userId: string) => {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single()
+
+    if (profile) {
+      const userData: User = {
+        id: profile.id,
+        name: profile.username || 'Anonymous',
+        username: profile.username || 'anonymous',
+        avatar: profile.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.id}`,
+        bio: profile.bio,
+        joinedAt: profile.updated_at
+      }
+      setCurrentUser(userData)
+      setUsers(prev => {
+        const filtered = prev.filter(u => u.id !== userData.id)
+        return [userData, ...filtered]
+      })
+
+      // Load following list in background
+      supabase
+        .from('follows')
+        .select('following_id')
+        .eq('follower_id', userId)
+        .then(({ data: follows }) => {
+          if (follows) {
+            setFollowing(follows.map(f => f.following_id))
+          }
+        })
+
+      return userData
+    }
+    return null
+  }, [supabase])
+
+  // Load posts helper
+  const loadPosts = useCallback(async (authUserId?: string) => {
+    const { data: postsData } = await supabase
+      .from('posts')
+      .select(`
+        *,
+        likes (user_id),
+        comments (
+          id, user_id, content, created_at
+        )
+      `)
+      .order('created_at', { ascending: false })
+      .limit(10)
+
+    if (postsData && postsData.length > 0) {
+      const bookIds = postsData
+        .filter(p => p.mentioned_book_id)
+        .map(p => p.mentioned_book_id)
+
+      let booksMap: Record<string, any> = {}
+      if (bookIds.length > 0) {
+        const { data: books } = await supabase
+          .from('books')
+          .select('*')
+          .in('id', bookIds)
+        
+        if (books) {
+          books.forEach(b => {
+            booksMap[b.id] = b
+          })
+        }
+      }
+
+      const mappedPosts: Post[] = postsData.map(p => ({
+        id: p.id,
+        userId: p.user_id,
+        content: p.content,
+        createdAt: p.created_at,
+        likes: p.likes.length,
+        likedByMe: authUserId ? p.likes.some((l: any) => l.user_id === authUserId) : false,
+        comments: p.comments.map((c: any) => ({
+          id: c.id,
+          userId: c.user_id,
+          content: c.content,
+          createdAt: c.created_at
+        })),
+        mentionedBookId: p.mentioned_book_id,
+        mentionedBook: p.mentioned_book_id && booksMap[p.mentioned_book_id] ? {
+           id: booksMap[p.mentioned_book_id].id,
+           title: booksMap[p.mentioned_book_id].title,
+           coverUrl: booksMap[p.mentioned_book_id].cover || booksMap[p.mentioned_book_id].cover_url,
+           author: booksMap[p.mentioned_book_id].author
+        } : undefined,
+        groupId: p.group_id
+      }))
+      setPosts(mappedPosts)
+    }
+  }, [supabase])
+
+  // Main initialization
   useEffect(() => {
+    let mounted = true
+
     // Safety timeout - always break loading after max time
     const safetyTimeout = setTimeout(() => {
-      setLoading(false)
+      if (mounted) {
+        console.log('[Social] Safety timeout reached')
+        setLoading(false)
+      }
     }, SAFETY_TIMEOUT)
 
     async function init() {
       try {
-        // 1. Get Auth User FIRST (fastest check) with AGGRESSIVE RETRY mechanism for Vercel
-        let { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
+        // FAST: Use getSession (reads from local storage/cookie cache) instead of getUser (server call)
+        const { data: { session } } = await supabase.auth.getSession()
         
-        // Aggressive retry logic: Vercel edge functions can be slow on cold starts
-        // Retry up to 4 times with increasing delays (total ~5 seconds wait)
-        const retryDelays = [300, 700, 1200, 2000] // Progressive delays
-        
-        for (let i = 0; i < retryDelays.length && !authUser && !authError; i++) {
-          console.log(`[Auth] No user found, retry ${i + 1}/${retryDelays.length} after ${retryDelays[i]}ms...`)
-          await new Promise(r => setTimeout(r, retryDelays[i]))
-          
-          const retryResult = await supabase.auth.getUser()
-          if (retryResult.data.user) {
-            console.log(`[Auth] User found on retry ${i + 1}`)
-            authUser = retryResult.data.user
-            break
-          }
-          authError = retryResult.error
-        }
-        
-        if (!authUser) {
-          console.log('[Auth] No user found after all retries')
-        }
-      
-        // 2. If user is authenticated, fetch their profile immediately
-        // 2. If user is authenticated, fetch their profile immediately
-        if (authUser) {
-          const { data: myProfile } = await supabase.from('profiles').select('*').eq('id', authUser.id).single()
-          
-          let currentUserData: User;
+        if (!mounted) return
 
-          if (myProfile) {
-            currentUserData = {
-              id: myProfile.id,
-              name: myProfile.username || 'Anonymous',
-              username: myProfile.username || 'anonymous',
-              avatar: myProfile.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${myProfile.id}`,
-              bio: myProfile.bio,
-              joinedAt: myProfile.updated_at
-            }
-          } else {
-             // Fallback if profile doesn't exist yet (race condition with trigger)
-             currentUserData = {
-               id: authUser.id,
-               name: authUser.user_metadata?.full_name || authUser.user_metadata?.name || 'User',
-               username: authUser.user_metadata?.username || authUser.email?.split('@')[0] || 'user',
-               avatar: authUser.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${authUser.id}`,
-               bio: '',
-               joinedAt: authUser.created_at
-             }
-          }
-          
-          // Update currentUser immediately
-          setCurrentUser(currentUserData)
-          setUsers([currentUserData])
-          
-          // Fetch following list
-          const { data: follows } = await supabase
-            .from('follows')
-            .select('following_id')
-            .eq('follower_id', authUser.id)
-          
-          if (follows) {
-            setFollowing(follows.map(f => f.following_id))
-          }
+        if (session?.user) {
+          // User is logged in - load profile
+          await loadUserProfile(session.user.id)
         }
         
-        // CRITICAL: Stop loading HERE so the UI becomes interactive
+        // Stop loading immediately after session check
         setLoading(false)
         clearTimeout(safetyTimeout)
 
-        // 3. Background: Fetch other profiles
+        // Load posts in background
+        loadPosts(session?.user?.id)
+
+        // Load other profiles in background
         supabase.from('profiles').select('*').order('updated_at', { ascending: false }).limit(10)
           .then(({ data: profiles }) => {
-            if (profiles) {
+            if (profiles && mounted) {
               const mappedUsers: User[] = profiles.map(p => ({
                 id: p.id,
                 name: p.username || 'Anonymous',
@@ -146,109 +185,39 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
               })
             }
           })
-
-        // 4. Background: Get Posts
-        const { data: postsData } = await supabase
-          .from('posts')
-          .select(`
-            *,
-            likes (user_id),
-            comments (
-              id, user_id, content, created_at
-            )
-          `)
-          .order('created_at', { ascending: false })
-          .limit(10)
-
-        if (postsData && postsData.length > 0) {
-          // Process posts in background
-          const bookIds = postsData
-            .filter(p => p.mentioned_book_id)
-            .map(p => p.mentioned_book_id)
-
-          let booksMap: Record<string, any> = {}
-          if (bookIds.length > 0) {
-            const { data: books } = await supabase
-              .from('books')
-              .select('*')
-              .in('id', bookIds)
-            
-            if (books) {
-              books.forEach(b => {
-                booksMap[b.id] = b
-              })
-            }
-          }
-
-          const mappedPosts: Post[] = postsData.map(p => ({
-            id: p.id,
-            userId: p.user_id,
-            content: p.content,
-            createdAt: p.created_at,
-            likes: p.likes.length,
-            likedByMe: authUser ? p.likes.some((l: any) => l.user_id === authUser.id) : false,
-            comments: p.comments.map((c: any) => ({
-              id: c.id,
-              userId: c.user_id,
-              content: c.content,
-              createdAt: c.created_at
-            })),
-            mentionedBookId: p.mentioned_book_id,
-            mentionedBook: p.mentioned_book_id && booksMap[p.mentioned_book_id] ? {
-               id: booksMap[p.mentioned_book_id].id,
-               title: booksMap[p.mentioned_book_id].title,
-               coverUrl: booksMap[p.mentioned_book_id].cover || booksMap[p.mentioned_book_id].cover_url,
-               author: booksMap[p.mentioned_book_id].author
-            } : undefined,
-            groupId: p.group_id
-          }))
-          setPosts(mappedPosts)
-        }
       } catch (error) {
         console.error('Error initializing social context:', error)
-        setLoading(false)
+        if (mounted) setLoading(false)
       }
     }
 
     init()
 
+    // Auth state listener - REACTIVE approach (handles login/logout)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      // CRITICAL: Break loading immediately on any auth state change
-      // This prevents infinite loading when auth is slow or cookies are delayed
-      setLoading(false)
+      if (!mounted) return
       
-      if (session?.user) {
-        // Refresh user if needed
-        const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).single()
-        if (data) {
-           const userData = {
-             id: data.id,
-             name: data.username || 'Anonymous',
-             username: data.username || 'anonymous',
-             avatar: data.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${data.id}`,
-             bio: data.bio,
-             joinedAt: data.updated_at
-           }
-           setCurrentUser(userData)
-           // Update in users list if exists
-           setUsers(prev => {
-             const exists = prev.find(u => u.id === data.id)
-             if (exists) {
-               return prev.map(u => u.id === data.id ? userData : u)
-             }
-             return [userData, ...prev]
-           })
-        }
-      } else {
+      console.log('[Social] Auth event:', event)
+      
+      if (event === 'SIGNED_IN' && session?.user) {
+        // User just logged in
+        await loadUserProfile(session.user.id)
+        loadPosts(session.user.id)
+      } else if (event === 'SIGNED_OUT') {
         setCurrentUser(null)
+        setFollowing([])
       }
+      
+      // Always ensure loading is false after auth event
+      setLoading(false)
     })
 
     return () => {
+      mounted = false
       clearTimeout(safetyTimeout)
       subscription.unsubscribe()
     }
-  }, [])
+  }, [supabase, loadUserProfile, loadPosts])
 
   const like = async (postId: string) => {
     if (!currentUser) return
@@ -344,10 +313,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
       .eq('user_id', currentUser.id)
 
     if (error) {
-      // Revert if error (fetching posts again is safer than keeping snapshot)
       console.error('Error deleting post:', error)
-      // Ideally we would revert state, but for simplicty we just reload or show error.
-      // Re-fetching this page of posts would be best but let's just log for now.
     }
   }
 

@@ -19,7 +19,6 @@ export default function MyProfilePage() {
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [posts, setPosts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [authChecked, setAuthChecked] = useState(false) // NEW: Track if auth check is complete
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
   const [followersCount, setFollowersCount] = useState(0)
@@ -32,75 +31,36 @@ export default function MyProfilePage() {
   const router = useRouter()
   const pathname = usePathname()
   const locale = (pathname.split('/')[1] || 'en') as Locale
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
-  // Extended timeout for Vercel cold starts
-  const AUTH_TIMEOUT = 15000 // 15 seconds max loading (increased for slow networks)
+  // Short timeout - rely on SocialProvider for auth
+  const AUTH_TIMEOUT = 3000 // 3 seconds max
 
   useEffect(() => {
-    // Safety timeout - always break loading after max time
+    // Safety timeout
     const safetyTimeout = setTimeout(() => {
-      console.log('[Profile] Safety timeout reached, stopping loading')
       setLoading(false)
-      setAuthChecked(true)
     }, AUTH_TIMEOUT)
 
-    loadProfile()
-
-    // Auth state listener - breaks loading on any auth event
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('[Profile] Auth state changed:', event)
-      // Re-run loadProfile on auth changes
-      loadProfile(session?.user)
-    })
-
-    return () => {
-      clearTimeout(safetyTimeout)
-      subscription.unsubscribe()
-    }
-  }, [])
-
-  async function loadProfile(overrideUser?: any) {
-    try {
-      let user = overrideUser
-      
-      if (!user) {
-        // First attempt
-        const { data } = await supabase.auth.getUser()
-        user = data.user
-        
-        // Aggressive retry for Vercel cold starts
-        // Retry up to 4 times with increasing delays (total ~5 seconds)
-        const retryDelays = [300, 700, 1200, 2000]
-        
-        for (let i = 0; i < retryDelays.length && !user; i++) {
-          console.log(`[Profile] Auth retry ${i + 1}/${retryDelays.length} after ${retryDelays[i]}ms...`)
-          await new Promise(r => setTimeout(r, retryDelays[i]))
-          
-          const retryResult = await supabase.auth.getUser()
-          if (retryResult.data.user) {
-            console.log(`[Profile] User found on retry ${i + 1}`)
-            user = retryResult.data.user
-            break
-          }
-        }
-      }
-
-      // Mark auth as checked after all retries
-      setAuthChecked(true)
-
-      if (!user) {
-        console.log('[Profile] No user found after all retries')
+    // When globalUser becomes available from SocialProvider, use it
+    if (!globalLoading) {
+      if (globalUser) {
+        loadProfileData(globalUser.id)
+      } else {
         setLoading(false)
-        return
       }
+      clearTimeout(safetyTimeout)
+    }
 
-      console.log('[Profile] User authenticated, loading profile...')
+    return () => clearTimeout(safetyTimeout)
+  }, [globalUser, globalLoading])
 
+  async function loadProfileData(userId: string) {
+    try {
       const { data: profile } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', user.id)
+        .eq('id', userId)
         .single()
 
       if (profile) {
@@ -108,42 +68,30 @@ export default function MyProfilePage() {
         setEditForm({ username: profile.username || '', bio: profile.bio || '' })
         setAvatarPreview(profile.avatar_url || '')
 
-        // Fetch counts
-        const { count: followers } = await supabase
-          .from('follows')
-          .select('*', { count: 'exact', head: true })
-          .eq('following_id', user.id)
-        
-        const { count: following } = await supabase
-          .from('follows')
-          .select('*', { count: 'exact', head: true })
-          .eq('follower_id', user.id)
+        // Fetch counts in parallel
+        const [{ count: followers }, { count: following }] = await Promise.all([
+          supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', userId),
+          supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId)
+        ])
 
         setFollowersCount(followers || 0)
         setFollowingCount(following || 0)
       }
 
-      // Load initial 10 posts
-      const { data: userPosts, error: postsError } = await supabase
+      // Load initial posts
+      const { data: userPosts } = await supabase
         .from('posts')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(10)
 
-      // Don't fail if posts table doesn't exist or query fails
-      if (!postsError && userPosts) {
+      if (userPosts) {
         setPosts(userPosts)
         setHasMore(userPosts.length === 10)
-      } else {
-        setPosts([])
-        setHasMore(false)
       }
     } catch (error) {
       console.error('Error loading profile:', error)
-      setPosts([])
-      setHasMore(false)
-      setAuthChecked(true)
     } finally {
       setLoading(false)
     }
@@ -211,7 +159,7 @@ export default function MyProfilePage() {
       alert('Error updating profile: ' + error.message)
     } else {
       setEditing(false)
-      loadProfile()
+      if (globalUser) loadProfileData(globalUser.id)
     }
     setSaving(false)
   }
@@ -223,11 +171,8 @@ export default function MyProfilePage() {
     router.refresh()
   }
 
-  // Show skeleton while:
-  // 1. Local loading is in progress
-  // 2. Global social context is still loading
-  // 3. Auth check has not fully completed (including retries)
-  if (loading || globalLoading || !authChecked) {
+  // Show skeleton while loading
+  if (loading || globalLoading) {
     return <ProfileSkeleton />
   }
 
