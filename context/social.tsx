@@ -171,36 +171,39 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
       try {
         // If fresh login, wait a tiny bit for cookies to be fully set
         if (isFreshLogin) {
-          await new Promise(r => setTimeout(r, 100))
+          await new Promise(r => setTimeout(r, 500)) // Increased wait time
         }
 
-        // Get session - this should now find the session after fresh login
+        // 1. Try getSession first (fastest, checks local storage)
         const { data: { session } } = await supabase.auth.getSession()
         
         if (!mounted) return
 
-        console.log('[Social] Session check:', session ? 'Found user' : 'No session')
-
         if (session?.user) {
-          // User is logged in - load profile
+          console.log('[Social] Session found via getSession')
           await loadUserProfile(session.user.id)
           loadPosts(session.user.id)
-        } else if (isFreshLogin) {
-          // Fresh login but no session yet - try getUser as fallback
-          console.log('[Social] Fresh login but no session, trying getUser...')
-          const { data: { user } } = await supabase.auth.getUser()
+        } else {
+          // 2. Fallback to getUser (slower, checks server/cookies)
+          // This is critical for fresh logins where localStorage might be empty but cookies are set
+          console.log('[Social] No session in cache, checking server (getUser)...')
+          const { data: { user }, error } = await supabase.auth.getUser()
+          
           if (user) {
-            console.log('[Social] User found via getUser')
+            console.log('[Social] User found via getUser (cookie auth)')
+            // Manually set session if possible or just proceed with user
             await loadUserProfile(user.id)
             loadPosts(user.id)
           } else {
-            // Still no user - force page reload as last resort
-            console.log('[Social] Still no user, forcing reload...')
-            if (mounted) {
-              setLoading(false)
-              window.location.reload()
-              return
-            }
+             console.log('[Social] No user found on server either')
+             if (isFreshLogin) {
+               console.log('[Social] Fresh login flag present but no user - forcing reload')
+               if (mounted) {
+                 setLoading(false)
+                 window.location.reload()
+                 return
+               }
+             }
           }
         }
         
