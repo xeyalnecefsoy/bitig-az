@@ -7,11 +7,12 @@ import { useLocale } from '@/context/locale'
 import { t } from '@/lib/i18n'
 import Link from 'next/link'
 import { FiSearch, FiChevronDown, FiX } from 'react-icons/fi'
+import { PostCardSkeleton } from '@/components/ui/Skeleton'
 
 type SortOption = 'newest' | 'oldest' | 'popular'
 
 export default function SocialPage() {
-  const { posts, currentUser, following, loadMorePosts, hasMorePosts } = useSocial()
+  const { posts, currentUser, following, loadMorePosts, hasMorePosts, loading } = useSocial()
   const [tab, setTab] = useState<'feed' | 'following'>('feed')
   const [loadingMore, setLoadingMore] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -133,11 +134,23 @@ export default function SocialPage() {
 
         <SocialComposer />
         
-        {filteredPosts.length > 0 ? (
+        {/* Show skeleton while loading */}
+        {loading && (
+          <div className="space-y-4">
+            {[1, 2, 3].map(i => (
+              <PostCardSkeleton key={i} />
+            ))}
+          </div>
+        )}
+        
+        {/* Show posts or empty state only after loading completes */}
+        {!loading && filteredPosts.length > 0 && (
           filteredPosts.map((p) => (
             <SocialPostCard key={p.id} postId={p.id} />
           ))
-        ) : (
+        )}
+        
+        {!loading && filteredPosts.length === 0 && (
           <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">
             {searchQuery 
               ? t(locale, 'no_search_results')
