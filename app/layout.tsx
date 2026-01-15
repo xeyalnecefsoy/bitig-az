@@ -6,6 +6,7 @@ import { LocaleProvider } from '@/context/locale'
 import { ThemeProvider } from '@/context/theme'
 import { AudioProvider } from '@/context/audio'
 import { SocialProvider } from '@/context/social'
+import { SpeedInsights } from '@vercel/speed-insights/next'
 
 const inter = Inter({ 
   subsets: ['latin', 'cyrillic'],
@@ -178,6 +179,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
         />
+        <SpeedInsights />
       </body>
     </html>
   )
