@@ -40,6 +40,20 @@ body {
   }
 }
 
+/* Performance: contain layout shifts */
+.card, .book-card {
+  contain: layout style;
+}
+
+/* Reduce CLS by reserving space for images */
+.aspect-video {
+  aspect-ratio: 16/9;
+}
+
+.aspect-\[2\/3\] {
+  aspect-ratio: 2/3;
+}
+
 .container-max {
   @apply mx-auto max-w-7xl px-4 sm:px-6 lg:px-8;
 }

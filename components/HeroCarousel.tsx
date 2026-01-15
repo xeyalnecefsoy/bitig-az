@@ -10,22 +10,26 @@ const getSlides = (locale: Locale) => [
     id: 'curated',
     title: t(locale, 'hero_slide1_title'),
     subtitle: t(locale, 'hero_slide1_subtitle'),
-    img: 'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=800&h=450&fit=crop&q=80', // Optimized for mobile
-    imgLarge: 'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=1600&h=900&fit=crop&q=80',
+    // Optimized smaller images with better compression
+    img: 'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=400&h=225&fit=crop&q=60&auto=format',
+    imgLarge: 'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=800&h=450&fit=crop&q=70&auto=format',
+    blurDataUrl: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMCwsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQMEBAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBT/wAARCAAIAAoDASIAAhEBAxEB/8QAFgABAQEAAAAAAAAAAAAAAAAAAAUH/8QAIhAAAgEDBAMBAAAAAAAAAAAAAQIDBAURAAYSIRMxQWH/xAAVAQEBAAAAAAAAAAAAAAAAAAADBP/EABsRAAICAwEAAAAAAAAAAAAAAAECAAMEESEx/9oADAMBEQCEEAL/AK7O12Y0',
   },
   {
     id: 'discover',
     title: t(locale, 'hero_slide2_title'),
     subtitle: t(locale, 'hero_slide2_subtitle'),
-    img: 'https://images.unsplash.com/photo-1589998059171-988d887df646?w=800&h=450&fit=crop&q=80',
-    imgLarge: 'https://images.unsplash.com/photo-1589998059171-988d887df646?w=1600&h=900&fit=crop&q=80',
+    img: 'https://images.unsplash.com/photo-1589998059171-988d887df646?w=400&h=225&fit=crop&q=60&auto=format',
+    imgLarge: 'https://images.unsplash.com/photo-1589998059171-988d887df646?w=800&h=450&fit=crop&q=70&auto=format',
+    blurDataUrl: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMCwsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQMEBAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBT/wAARCAAIAAoDASIAAhEBAxEB/8QAFgABAQEAAAAAAAAAAAAAAAAAAAUH/8QAIhAAAgEDBAMBAAAAAAAAAAAAAQIDBAURAAYSIRMxQWH/xAAVAQEBAAAAAAAAAAAAAAAAAAADBP/EABsRAAICAwEAAAAAAAAAAAAAAAECAAMEESEx/9oADAMBEQCEEAL/AK7O12Y0',
   },
   {
     id: 'listen',
     title: t(locale, 'hero_slide3_title'),
     subtitle: t(locale, 'hero_slide3_subtitle'),
-    img: 'https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=800&h=450&fit=crop&q=80',
-    imgLarge: 'https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=1600&h=900&fit=crop&q=80',
+    img: 'https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=400&h=225&fit=crop&q=60&auto=format',
+    imgLarge: 'https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=800&h=450&fit=crop&q=70&auto=format',
+    blurDataUrl: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMCwsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQMEBAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBT/wAARCAAIAAoDASIAAhEBAxEB/8QAFgABAQEAAAAAAAAAAAAAAAAAAAUH/8QAIhAAAgEDBAMBAAAAAAAAAAAAAQIDBAURAAYSIRMxQWH/xAAVAQEBAAAAAAAAAAAAAAAAAAADBP/EABsRAAICAwEAAAAAAAAAAAAAAAECAAMEESEx/9oADAMBEQCEEAL/AK7O12Y0',
   },
 ]
 
@@ -62,7 +66,8 @@ export function HeroCarousel() {
           fetchPriority="high"
           className="object-cover"
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 600px"
-          quality={85}
+          placeholder="blur"
+          blurDataURL={current.blurDataUrl}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-black/0" />
         <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 lg:bottom-6 lg:left-6">

@@ -8,6 +8,7 @@ import { useLocale } from '@/context/locale'
 import { t } from '@/lib/i18n'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useMemo, useCallback } from 'react'
 
 export function BookCard({ book, locale, disabled }: { book: any; locale: string; disabled?: boolean }) {
   return (
@@ -51,16 +52,17 @@ function Add({ id }: { id: string }) {
   const { add } = useCart()
   const locale = useLocale()
   const router = useRouter()
-  const supabase = createClient()
+  // Lazy initialize supabase client
+  const supabase = useMemo(() => createClient(), [])
 
-  const handleAdd = async () => {
+  const handleAdd = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) {
       router.push(`/${locale}/login` as any)
       return
     }
     add(id)
-  }
+  }, [supabase, router, locale, add, id])
 
   return (
     <button onClick={handleAdd} className="btn btn-primary w-full mt-3 py-2 text-sm">
