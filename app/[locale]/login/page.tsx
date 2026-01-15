@@ -29,7 +29,7 @@ export default function LoginPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${location.origin}/auth/callback?next=/${locale}`,
+          redirectTo: `${location.origin}/auth/callback?next=/${locale}/profile`,
         },
       })
       if (error) throw error

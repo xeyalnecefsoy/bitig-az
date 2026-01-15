@@ -5,7 +5,15 @@ import { cookies } from 'next/headers'
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
-  const next = searchParams.get('next') ?? '/'
+  let next = searchParams.get('next') ?? '/'
+
+  // Force redirect to profile page to ensure session hydration happens immediately
+  // This solves the issue where redirecting to home page loses the URL hash before profile page can read it
+  if (next === '/' || next.match(/^\/[a-z]{2}\/?$/)) {
+    const localeMatch = next.match(/^\/([a-z]{2})/)
+    const locale = localeMatch ? localeMatch[1] : 'az' // Default to 'az' if no locale found
+    next = `/${locale}/profile`
+  }
 
   if (code) {
     const cookieStore = await cookies()
