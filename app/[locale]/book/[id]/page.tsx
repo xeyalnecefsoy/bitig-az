@@ -7,6 +7,7 @@ import type { Metadata } from 'next'
 import { isLocale, t, type Locale } from '@/lib/i18n'
 import { AudioPlayer } from '@/components/AudioPlayer'
 import { BookStatusButton } from '@/components/BookStatusButton'
+import { BookReviews } from '@/components/BookReviews'
 
 export default async function BookDetail({ params }: { params: Promise<{ locale: string; id: string }> }) {
   const { id, locale } = await params
@@ -55,6 +56,10 @@ export default async function BookDetail({ params }: { params: Promise<{ locale:
             title={book.title}
             cover={book.cover}
           />
+        </div>
+        
+        <div className="mt-12 pt-8 border-t border-neutral-200 dark:border-neutral-800">
+          <BookReviews bookId={book.id} locale={locale as Locale} />
         </div>
       </div>
     </section>

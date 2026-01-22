@@ -1,10 +1,12 @@
 import Link from 'next/link'
+import { notFound } from 'next/navigation'
 import type { Book } from '@/lib/data'
 import { BookCard } from '@/components/BookCard'
 import { HeroCarousel } from '@/components/HeroCarousel'
-import { t, type Locale } from '@/lib/i18n'
+import { t, isLocale, type Locale } from '@/lib/i18n'
 import { createClient } from '@/lib/supabase/server'
 import { AdBanner } from '@/components/ads/AdBanner'
+import { ContinueListeningSection } from '@/components/ContinueListeningSection'
 import { FiMessageCircle, FiUsers, FiBookOpen, FiArrowRight } from 'react-icons/fi'
 import type { Metadata } from 'next'
 
@@ -60,6 +62,12 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
 
 export default async function HomePage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params
+  
+  // Validate locale - if not valid, this is not a real locale route
+  if (!isLocale(locale)) {
+    notFound()
+  }
+  
   const supabase = await createClient()
   
   // Fetch books from database
@@ -104,6 +112,9 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
 
       {/* Sponsor Banner */}
       <AdBanner placement="homepage" className="container-max my-8" />
+
+      {/* Continue Listening - for logged in users */}
+      <ContinueListeningSection locale={locale as Locale} />
 
       <section id="featured" className="container-max py-12">
         <div className="flex items-end justify-between mb-6">

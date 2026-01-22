@@ -547,6 +547,8 @@ export const messages: Record<Locale, Record<string, string>> = {
   },
 };
 
-export function t(locale: Locale, key: string): string {
-  return messages[locale][key] ?? key;
+export function t(locale: Locale | string, key: string): string {
+  // Ensure locale is valid, fallback to default
+  const safeLocale = isLocale(locale) ? locale : defaultLocale;
+  return messages[safeLocale]?.[key] ?? messages[defaultLocale]?.[key] ?? key;
 }
