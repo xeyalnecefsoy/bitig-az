@@ -3,14 +3,9 @@ import { isLocale, type Locale } from '@/lib/i18n'
 import { LocaleProvider } from '@/context/locale'
 import { Navbar, MobileNav, MobileHeader } from '@/components/Navbar'
 import { Footer } from '@/components/Footer'
-import { CartProvider } from '@/context/cart'
-import { ThemeProvider } from '@/context/theme'
 import { GuestPopup } from '@/components/GuestPopup'
-import { AudioProvider } from '@/context/audio'
 import { FloatingPlayer } from '@/components/FloatingPlayer'
 import type { Metadata } from 'next'
-
-import { SocialProvider } from '@/context/social'
 
 // Localized metadata content
 const localeMetadata = {
@@ -42,25 +37,17 @@ export default async function LocaleLayout({ children, params }: { children: Rea
   if (!isLocale(locale)) return notFound()
   const lang = locale as Locale
   return (
-    <ThemeProvider>
-      <AudioProvider>
-        <CartProvider>
-          <SocialProvider>
-            <LocaleProvider locale={lang}>
-              <Navbar />
-              <MobileHeader />
-              <main className="min-h-screen pb-20 lg:pb-0">
-                {children}
-              </main>
-              <Footer locale={lang} />
-              <FloatingPlayer />
-              <MobileNav />
-              <GuestPopup />
-            </LocaleProvider>
-          </SocialProvider>
-        </CartProvider>
-      </AudioProvider>
-    </ThemeProvider>
+    <LocaleProvider locale={lang}>
+      <Navbar />
+      <MobileHeader />
+      <main className="min-h-screen pb-20 lg:pb-0">
+        {children}
+      </main>
+      <Footer locale={lang} />
+      <FloatingPlayer />
+      <MobileNav />
+      <GuestPopup />
+    </LocaleProvider>
   )
 }
 

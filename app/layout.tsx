@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { Inter } from 'next/font/google'
+import { AuthProvider } from '@/context/auth'
 import { CartProvider } from '@/context/cart'
 import { LocaleProvider } from '@/context/locale'
 import { ThemeProvider } from '@/context/theme'
@@ -158,17 +159,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="az" suppressHydrationWarning>
       <body className={inter.className} suppressHydrationWarning>
-        <ThemeProvider>
-          <AudioProvider>
-            <CartProvider>
-              <SocialProvider>
-                <LocaleProvider locale="az">
-                  {children}
-                </LocaleProvider>
-              </SocialProvider>
-            </CartProvider>
-          </AudioProvider>
-        </ThemeProvider>
+        <AuthProvider>
+          <ThemeProvider>
+            <AudioProvider>
+              <CartProvider>
+                <SocialProvider>
+                  <LocaleProvider locale="az">
+                    {children}
+                  </LocaleProvider>
+                </SocialProvider>
+              </CartProvider>
+            </AudioProvider>
+          </ThemeProvider>
+        </AuthProvider>
         <script
           id="json-ld-website"
           type="application/ld+json"

@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useMemo, useState, useCallback } 
 import type { Post, User, Comment } from '@/lib/social'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/context/auth'
 
 // Constants - much shorter timeouts
 const SAFETY_TIMEOUT = 3000 // 3 seconds max for initial load
@@ -30,6 +31,10 @@ const SocialCtx = createContext<SocialState | null>(null)
 export function SocialProvider({ children }: { children: React.ReactNode }) {
   const supabase = useMemo(() => createClient(), [])
   const router = useRouter()
+  
+  // AuthProvider-dən user al
+  const { user: authUser, loading: authLoading } = useAuth()
+  
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [users, setUsers] = useState<User[]>([])
   const [posts, setPosts] = useState<Post[]>([])
@@ -50,7 +55,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
       console.warn('Error fetching profile:', e)
     }
 
-    // Fallback to metadata if profile missing but we have auth data (prevents false "Sign In" state)
+    // Fallback to metadata if profile missing but we have auth data
     if (!profile && userMetadata) {
       console.log('[Social] Profile missing in DB, using metadata fallback')
       profile = {
@@ -152,190 +157,62 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     }
   }, [supabase])
 
-  // Main initialization
+  // Sadələşdirilmiş initialization - AuthProvider-dən user-i izləyir
   useEffect(() => {
     let mounted = true
 
-    // 0. AUTH CODE TRAP: Handle misconfigured OAuth redirects (Client-Side Recovery)
-    // If user lands on home page with ?code=..., implies server callback failed/skipped.
-    // We attempt to verify the code immediately on the client.
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search)
-      const code = params.get('code')
-      
-      if (code && !window.location.pathname.includes('/auth/callback')) {
-         console.log('[Social] Auth code detected on client, attempting manual exchange...')
-         
-         // Async exchange
-         const handleCodeExchange = async () => {
-             try {
-                 const { data, error } = await supabase.auth.exchangeCodeForSession(code)
-                 
-                 if (data?.session) {
-                     console.log('[Social] Manual exchange successful!', data.user.email)
-                     // Redirect to profile to show succesful login
-                     // Use replace to remove code from history
-                     const locale = window.location.pathname.split('/')[1] || 'az'
-                     window.location.replace(`${window.location.origin}/${locale}/profile`)
-                 } else if (error) {
-                     console.error('[Social] Manual exchange failed:', error.message)
-                     // Code likely invalid or used. 
-                 }
-             } catch (e) {
-                 console.error('[Social] Exchange exception:', e)
-             }
-         }
-         
-         // Execute but don't await (useEffect cannot be async)
-         handleCodeExchange()
-      }
-    }
-
-    // CRITICAL: Check for fresh login flag first
-    const checkFreshLogin = () => {
-      if (typeof window === 'undefined') return false
-      
-      const justLoggedIn = localStorage.getItem('bitig_auth_just_logged_in')
-      if (justLoggedIn) {
-        const loginTime = parseInt(justLoggedIn)
-        const now = Date.now()
-        // Only valid if within last 10 seconds
-        if (now - loginTime < 10000) {
-          console.log('[Social] Fresh login detected, will refresh session')
-          localStorage.removeItem('bitig_auth_just_logged_in')
-          return true
-        }
-        localStorage.removeItem('bitig_auth_just_logged_in')
-      }
-      return false
-    }
-
-    const isFreshLogin = checkFreshLogin()
-
-    // Safety timeout - always break loading after max time
-    const safetyTimeout = setTimeout(() => {
-      if (mounted) {
-        console.log('[Social] Safety timeout reached')
-        setLoading(false)
-      }
-    }, SAFETY_TIMEOUT)
-
-    // Auth state listener - REGISTER FIRST to catch all events
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!mounted) return
-      
-      console.log('[Social] Auth event:', event, session?.user?.id)
-      
-      // Handle all sign-in related events
-      if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') && session?.user) {
-        console.log('[Social] Auth event detected user, loading profile...')
-        await loadUserProfile(session.user.id, session.user.user_metadata)
-        loadPosts(session.user.id)
-        setLoading(false)
-      } else if (event === 'SIGNED_OUT') {
-        setCurrentUser(null)
-        setFollowing([])
-        setPosts([])
-        setLoading(false)
-      }
-    })
-
-    // Check for hash tokens or auth code
-    const hasHashToken = typeof window !== 'undefined' && window.location.hash.includes('access_token')
-    const hasAuthCode = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('code')
-
-    async function init() {
-      // BLOCKING: If we have an auth code or hash token, create a session FIRST.
-      // Do not run standard init check which would fail and show "Sign In"
-      if (hasAuthCode || hasHashToken) {
-        console.log('[Social] Auth in progress (code/hash detected), pausing init...')
+    const initialize = async () => {
+      // AuthProvider hələ yüklənir - gözlə
+      if (authLoading) {
         return
       }
 
-      try {
-        // ... Normal init logic ...
-        // If fresh login, wait a tiny bit for cookies to be fully set
-        if (isFreshLogin) {
-          await new Promise(r => setTimeout(r, 500)) 
-        }
+      // AuthProvider-dən user varsa, profile və posts yüklə
+      if (authUser) {
+        console.log('[Social] AuthProvider user detected:', authUser.email)
+        await loadUserProfile(authUser.id, authUser.user_metadata)
+        await loadPosts(authUser.id)
+      } else {
+        console.log('[Social] No user from AuthProvider')
+        setCurrentUser(null)
+        setFollowing([])
+        // Posts hələ də yükləyə bilərik (public posts)
+        await loadPosts()
+      }
 
-        // 1. Try getSession first
-        const { data: { session } } = await supabase.auth.getSession()
-        
-        if (!mounted) return
-
-        if (session?.user) {
-          console.log('[Social] Session found via getSession')
-          await loadUserProfile(session.user.id, session.user.user_metadata)
-          loadPosts(session.user.id)
-          // Ensure loading is false if we found a user
-          setLoading(false)
-        } else {
-          // 2. Fallback to getUser
-          console.log('[Social] No session in cache, checking server (getUser)...')
-          const { data: { user } } = await supabase.auth.getUser()
-          
-          if (user) {
-            console.log('[Social] User found via getUser')
-            await loadUserProfile(user.id, user.user_metadata)
-            loadPosts(user.id)
-            setLoading(false)
-          } else {
-             console.log('[Social] No user found')
-             if (isFreshLogin) {
-               console.log('[Social] Fresh login flag but no user - forcing reload')
-               if (mounted) {
-                 window.location.reload()
-                 return
-               }
-             }
-             // CRITICAL FIX: If hash token is present, keep loading true
-             if (hasHashToken) {
-                console.log('[Social] Hash token present, deferring loading state update...')
-                return
-             }
-             
-             // Only set loading false if we are sure there is no user and no hash token processing
-             setLoading(false)
+      // Load other profiles in background
+      supabase.from('profiles').select('*').order('updated_at', { ascending: false }).limit(10)
+        .then(({ data: profiles }) => {
+          if (profiles && mounted) {
+            const mappedUsers: User[] = profiles.map(p => ({
+              id: p.id,
+              name: p.username || 'Anonymous',
+              username: p.username || 'anonymous',
+              avatar: p.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.id}`,
+              bio: p.bio,
+              joinedAt: p.updated_at
+            }))
+            
+            setUsers(prev => {
+              const currentUserId = prev[0]?.id
+              const filtered = mappedUsers.filter(u => u.id !== currentUserId)
+              return currentUserId ? [prev[0], ...filtered] : mappedUsers
+            })
           }
-        }
-        
-        if (!hasHashToken) clearTimeout(safetyTimeout)
+        })
 
-        // Load other profiles in background
-        supabase.from('profiles').select('*').order('updated_at', { ascending: false }).limit(10)
-          .then(({ data: profiles }) => {
-            if (profiles && mounted) {
-              const mappedUsers: User[] = profiles.map(p => ({
-                id: p.id,
-                name: p.username || 'Anonymous',
-                username: p.username || 'anonymous',
-                avatar: p.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.id}`,
-                bio: p.bio,
-                joinedAt: p.updated_at
-              }))
-              
-              setUsers(prev => {
-                const currentUserId = prev[0]?.id
-                const filtered = mappedUsers.filter(u => u.id !== currentUserId)
-                return currentUserId ? [prev[0], ...filtered] : mappedUsers
-              })
-            }
-          })
-      } catch (error) {
-        console.error('Error initializing social context:', error)
-        if (mounted) setLoading(false)
+      if (mounted) {
+        setLoading(false)
       }
     }
 
-    init()
+    initialize()
 
     return () => {
       mounted = false
-      clearTimeout(safetyTimeout)
-      subscription.unsubscribe()
     }
-  }, [supabase, loadUserProfile, loadPosts])
+  }, [authUser, authLoading, supabase, loadUserProfile, loadPosts])
+
 
   const like = async (postId: string) => {
     if (!currentUser) return
