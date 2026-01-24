@@ -49,18 +49,41 @@ const sizeClasses = {
   lg: 'text-base px-3 py-1.5 gap-2',
 }
 
-export function RankBadge({ rank, locale, size = 'sm', showLabel = true }: RankBadgeProps) {
+import { useState } from 'react'
+import { RankHelpModal } from './RankHelpModal'
+
+export function RankBadge({ rank, locale, size = 'sm', showLabel = true, clickable = true }: RankBadgeProps & { clickable?: boolean }) {
   const config = rankConfig[rank] || rankConfig.novice
   const rankKey = `rank_${rank}` as const
+  const [showModal, setShowModal] = useState(false)
+
+  if (!clickable) {
+    return (
+      <div className={`inline-flex items-center rounded-full font-medium ${config.bg} ${config.color} ${sizeClasses[size]}`}>
+        <span>{config.icon}</span>
+        {showLabel && <span>{t(locale, rankKey)}</span>}
+      </div>
+    )
+  }
 
   return (
-    <span
-      className={`inline-flex items-center rounded-full font-medium ${config.bg} ${config.color} ${sizeClasses[size]}`}
-      title={t(locale, rankKey)}
-    >
-      <span>{config.icon}</span>
-      {showLabel && <span>{t(locale, rankKey)}</span>}
-    </span>
+    <>
+      <button
+        onClick={() => setShowModal(true)}
+        className={`inline-flex items-center rounded-full font-medium ${config.bg} ${config.color} ${sizeClasses[size]} hover:scale-105 transition-transform cursor-help`}
+        title={t(locale, 'rank_system_desc')}
+      >
+        <span>{config.icon}</span>
+        {showLabel && <span>{t(locale, rankKey)}</span>}
+      </button>
+
+      <RankHelpModal 
+        isOpen={showModal} 
+        onClose={() => setShowModal(false)} 
+        locale={locale} 
+        currentRank={rank} 
+      />
+    </>
   )
 }
 

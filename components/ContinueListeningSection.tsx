@@ -73,7 +73,7 @@ export function ContinueListeningSection({ locale }: { locale: Locale }) {
           {locale === 'az' ? 'Dinləməyə Davam Et' : 'Continue Listening'}
         </h2>
         <Link 
-          href={`/${locale}/library` as any}
+          href={`/${locale}/audiobooks?tab=library` as any}
           className="text-sm text-brand hover:underline"
         >
           {t(locale, 'see_all')}

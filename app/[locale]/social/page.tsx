@@ -9,6 +9,10 @@ import Link from 'next/link'
 import { FiSearch, FiChevronDown, FiX } from 'react-icons/fi'
 import { PostCardSkeleton } from '@/components/ui/Skeleton'
 
+import { createClient } from '@/lib/supabase/client'
+import { UserSearchResult, type SearchedUser } from '@/components/social/UserSearchResult'
+import { useEffect, useRef } from 'react'
+
 type SortOption = 'newest' | 'oldest' | 'popular'
 
 export default function SocialPage() {
@@ -17,8 +21,40 @@ export default function SocialPage() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState<SortOption>('newest')
+  const [searchedUsers, setSearchedUsers] = useState<SearchedUser[]>([])
+  const [isSearchingUsers, setIsSearchingUsers] = useState(false)
+  const supabase = createClient()
   const locale = useLocale()
   
+  // User Search Effect
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchedUsers([])
+      return
+    }
+
+    const timer = setTimeout(async () => {
+      setIsSearchingUsers(true)
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('id, username, full_name, avatar_url, bio')
+          .or(`username.ilike.%${searchQuery}%,full_name.ilike.%${searchQuery}%`)
+          .limit(5)
+        
+        if (data) {
+          setSearchedUsers(data)
+        }
+      } catch (error) {
+        console.error('Error searching users:', error)
+      } finally {
+        setIsSearchingUsers(false)
+      }
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [searchQuery])
+
   // Filter and sort posts
   const filteredPosts = useMemo(() => {
     let result = tab === 'feed' 
@@ -127,8 +163,37 @@ export default function SocialPage() {
 
         {/* Search Results Info */}
         {searchQuery && (
-          <div className="text-sm text-neutral-500 dark:text-neutral-400">
-            {filteredPosts.length} {t(locale, 'search_results_count')} "{searchQuery}"
+          <div className="space-y-6">
+            {/* Users Results */}
+            {(searchedUsers.length > 0 || isSearchingUsers) && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider px-1">
+                  {t(locale, 'section_users')}
+                </h3>
+                {isSearchingUsers ? (
+                   <div className="flex items-center gap-2 p-4 text-sm text-neutral-500">
+                     <div className="w-4 h-4 border-2 border-brand border-t-transparent rounded-full animate-spin" />
+                     {t(locale, 'social_loading')}
+                   </div>
+                ) : (
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {searchedUsers.map(user => (
+                      <UserSearchResult key={user.id} user={user} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Posts Header */}
+            <div className="flex items-center justify-between px-1">
+              <h3 className="text-sm font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                {t(locale, 'section_posts')}
+              </h3>
+              <span className="text-sm text-neutral-500">
+                {filteredPosts.length} {t(locale, 'search_results_count')}
+              </span>
+            </div>
           </div>
         )}
 

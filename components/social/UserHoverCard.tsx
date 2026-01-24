@@ -113,7 +113,7 @@ export function UserHoverCard({ userId, children, disabled = false, className = 
           ) : user ? (
             <div className="space-y-3">
               <div className="flex justify-between items-start">
-                <Link href={`/${locale}/social/profile/${user.id}` as any}>
+                <Link href={`/${locale}/social/profile/${user.username}` as any}>
                   <img 
                     src={user.avatar} 
                     alt={user.name} 
@@ -125,7 +125,7 @@ export function UserHoverCard({ userId, children, disabled = false, className = 
               
               <div>
                 <Link 
-                  href={`/${locale}/social/profile/${user.id}` as any}
+                  href={`/${locale}/social/profile/${user.username}` as any}
                   className="font-bold text-neutral-900 dark:text-white hover:underline block"
                 >
                   {user.name}

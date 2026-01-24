@@ -33,7 +33,6 @@ export function Navbar() {
         </Link>
         <nav className="flex items-center gap-4 sm:gap-6 text-sm text-neutral-800 dark:text-neutral-100">
           <Link href={audiobooksHref as any} className="hover:text-brand">{t(locale, 'nav_audiobooks')}</Link>
-          <Link href={`/${locale}/library` as any} className="hover:text-brand flex items-center gap-1"><FiBook size={14} /> {locale === 'az' ? 'Kitabxana' : 'Library'}</Link>
           <Link href={socialHref as any} className="hover:text-brand">{t(locale, 'nav_social')}</Link>
           <Link href={`/${locale}/profile` as any} className="hover:text-brand">{t(locale, 'nav_profile')}</Link>
           <Link href={cartHref as any} className="hover:text-brand inline-flex items-center gap-1">

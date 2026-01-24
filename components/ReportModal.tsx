@@ -2,16 +2,21 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { FiAlertTriangle, FiX } from 'react-icons/fi'
+import { t } from '@/lib/i18n'
+import { useLocale } from '@/context/locale'
+import { Alert } from '@/components/ui/Alert'
 
 type ReportModalProps = {
   targetId: string
-  targetType: 'post' | 'user'
+  targetType: 'post' | 'user' | 'comment'
   onClose: () => void
 }
 
 export function ReportModal({ targetId, targetType, onClose }: ReportModalProps) {
   const [reason, setReason] = useState('')
   const [loading, setLoading] = useState(false)
+  const [alert, setAlert] = useState<{ message: string, type: 'error' | 'success' } | null>(null)
+  const locale = useLocale()
   const supabase = createClient()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -20,7 +25,7 @@ export function ReportModal({ targetId, targetType, onClose }: ReportModalProps)
 
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      alert('You must be logged in to report.')
+      setAlert({ message: t(locale, 'login_required_report'), type: 'error' })
       setLoading(false)
       return
     }
@@ -33,12 +38,15 @@ export function ReportModal({ targetId, targetType, onClose }: ReportModalProps)
     })
 
     if (error) {
-      alert('Failed to submit report: ' + error.message)
+      setAlert({ message: t(locale, 'report_failed') + ': ' + error.message, type: 'error' })
+      setLoading(false)
     } else {
-      alert('Report submitted. Thank you for helping keep our community safe.')
-      onClose()
+      setAlert({ message: t(locale, 'report_success'), type: 'success' })
+      setLoading(false)
+      setTimeout(() => {
+        onClose()
+      }, 2000)
     }
-    setLoading(false)
   }
 
   return (
@@ -46,17 +54,24 @@ export function ReportModal({ targetId, targetType, onClose }: ReportModalProps)
       <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl dark:bg-neutral-900">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="flex items-center gap-2 text-lg font-semibold text-red-600">
-            <FiAlertTriangle /> Report {targetType}
+            <FiAlertTriangle /> {t(locale, 'report_' + targetType)}
           </h3>
           <button onClick={onClose} className="rounded-full p-1 hover:bg-neutral-100 dark:hover:bg-neutral-800">
             <FiX size={20} />
           </button>
         </div>
 
+        {alert && (
+           <div className="mb-4">
+             <Alert type={alert.type as any} message={alert.message} />
+           </div>
+        )}
+
+        {!alert || alert.type === 'error' ? (
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="mb-2 block text-sm font-medium text-neutral-700 dark:text-neutral-300">
-              Reason for reporting
+              {t(locale, 'report_reason')}
             </label>
             <select
               value={reason}
@@ -64,25 +79,25 @@ export function ReportModal({ targetId, targetType, onClose }: ReportModalProps)
               required
               className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800"
             >
-              <option value="">Select a reason</option>
-              <option value="spam">Spam or misleading</option>
-              <option value="harassment">Harassment or hate speech</option>
-              <option value="inappropriate">Inappropriate content</option>
-              <option value="violence">Violence or illegal activity</option>
-              <option value="other">Other</option>
+              <option value="">{t(locale, 'report_select_reason')}</option>
+              <option value="spam">{t(locale, 'reason_spam')}</option>
+              <option value="harassment">{t(locale, 'reason_harassment')}</option>
+              <option value="inappropriate">{t(locale, 'reason_inappropriate')}</option>
+              <option value="violence">{t(locale, 'reason_violence')}</option>
+              <option value="other">{t(locale, 'reason_other')}</option>
             </select>
           </div>
 
           {reason === 'other' && (
             <div>
               <label className="mb-2 block text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                Details
+                {t(locale, 'report_details')}
               </label>
               <textarea
                 required
                 className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800"
                 rows={3}
-                placeholder="Please provide more details..."
+                placeholder={t(locale, 'report_details_placeholder')}
               />
             </div>
           )}
@@ -93,17 +108,18 @@ export function ReportModal({ targetId, targetType, onClose }: ReportModalProps)
               onClick={onClose}
               className="rounded-lg px-4 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800"
             >
-              Cancel
+              {t(locale, 'cancel_btn')}
             </button>
             <button
               type="submit"
               disabled={loading}
               className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
             >
-              {loading ? 'Submitting...' : 'Submit Report'}
+              {loading ? t(locale, 'report_submitting') : t(locale, 'report_submit')}
             </button>
           </div>
         </form>
+        ) : null}
       </div>
     </div>
   )

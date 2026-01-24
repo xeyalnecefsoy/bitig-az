@@ -6,6 +6,7 @@ import Link from 'next/link'
 import type { Route } from 'next'
 import { useLocale } from '@/context/locale'
 import { t, type Locale } from '@/lib/i18n'
+import { useSocial } from '@/context/social'
 
 type Notification = {
   id: string
@@ -21,40 +22,10 @@ type Notification = {
 }
 
 export function NotificationsBtn() {
-  const [notifications, setNotifications] = useState<Notification[]>([])
-  const [unreadCount, setUnreadCount] = useState(0)
+  const { notifications, unreadCount, markNotificationsAsRead } = useSocial()
   const [isOpen, setIsOpen] = useState(false)
-  const supabase = createClient()
   const locale = useLocale()
   const dropdownRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    fetchNotifications()
-
-    // Subscribe to new notifications
-    const channel = supabase
-      .channel('notifications')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-        },
-        (payload) => {
-          // We should ideally check if it's for us, but RLS handles the fetch
-          // However, for real-time we might get all events if we don't filter in channel?
-          // Actually RLS doesn't filter realtime subscription events by default unless using "postgres_changes" with filter
-          // But simpler to just refetch or append if we can verify user_id
-          fetchNotifications()
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [])
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -66,40 +37,9 @@ export function NotificationsBtn() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  async function fetchNotifications() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-
-    const { data } = await supabase
-      .from('notifications')
-      .select(`
-        *,
-        actor:profiles!actor_id(username, avatar_url)
-      `)
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(10)
-
-    if (data) {
-      setNotifications(data as any)
-      setUnreadCount(data.filter(n => !n.read).length)
-    }
-  }
-
-  async function markAsRead() {
-    if (unreadCount === 0) return
-
-    const ids = notifications.filter(n => !n.read).map(n => n.id)
-    if (ids.length > 0) {
-      await supabase.from('notifications').update({ read: true }).in('id', ids)
-      setNotifications(prev => prev.map(n => ({ ...n, read: true })))
-      setUnreadCount(0)
-    }
-  }
-
   const toggleOpen = () => {
     if (!isOpen) {
-      markAsRead()
+      markNotificationsAsRead()
     }
     setIsOpen(!isOpen)
   }
@@ -146,7 +86,7 @@ export function NotificationsBtn() {
                   onClick={() => setIsOpen(false)}
                 >
                   <img
-                    src={n.actor?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${n.actor_id}`}
+                    src={n.actor?.avatar_url}
                     alt="Avatar"
                     className="h-8 w-8 rounded-full object-cover mt-1"
                   />
@@ -176,7 +116,7 @@ function getNotificationLink(n: Notification, locale: string) {
     case 'comment':
       return `/${locale}/social/post/${n.entity_id}`
     case 'follow':
-      return `/${locale}/social/profile/${n.actor_id}`
+      return `/${locale}/social/profile/${n.actor?.username || n.actor_id}`
     default:
       return `/${locale}/social`
   }

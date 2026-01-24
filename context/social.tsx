@@ -1,6 +1,6 @@
 "use client"
 import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react'
-import type { Post, User, Comment } from '@/lib/social'
+import { type Post, type User, type Comment, type Notification, DEFAULT_AVATAR } from '@/lib/social'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/auth'
@@ -24,6 +24,9 @@ export type SocialState = {
   loading: boolean
   loadMorePosts: () => Promise<void>
   hasMorePosts: boolean
+  notifications: Notification[]
+  unreadCount: number
+  markNotificationsAsRead: () => Promise<void>
 }
 
 const SocialCtx = createContext<SocialState | null>(null)
@@ -39,11 +42,13 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
   const [users, setUsers] = useState<User[]>([])
   const [posts, setPosts] = useState<Post[]>([])
   const [following, setFollowing] = useState<string[]>([])
+  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [unreadCount, setUnreadCount] = useState(0)
   const [loading, setLoading] = useState(true)
 
   // Load user profile helper
   const loadUserProfile = useCallback(async (userId: string, userMetadata?: any) => {
-    let profile = null
+     let profile = null
     try {
       const { data } = await supabase
         .from('profiles')
@@ -55,24 +60,13 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
       console.warn('Error fetching profile:', e)
     }
 
-    // Fallback to metadata if profile missing but we have auth data
-    if (!profile && userMetadata) {
-      console.log('[Social] Profile missing in DB, using metadata fallback')
-      profile = {
-        id: userId,
-        username: userMetadata.username || userMetadata.name || userMetadata.full_name || 'Anonymous',
-        avatar_url: userMetadata.avatar_url || userMetadata.picture,
-        bio: '',
-        updated_at: new Date().toISOString()
-      }
-    }
-
+    // Always prefer DB profile if exists
     if (profile) {
       const userData: User = {
         id: profile.id,
-        name: profile.username || profile.full_name || 'Anonymous',
+        name: profile.full_name || profile.username || 'Anonymous', // Prefer full name
         username: profile.username || 'anonymous',
-        avatar: profile.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.id}`,
+        avatar: profile.avatar_url || DEFAULT_AVATAR,
         bio: profile.bio,
         joinedAt: profile.updated_at
       }
@@ -92,7 +86,21 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
             setFollowing(follows.map(f => f.following_id))
           }
         })
-
+      return userData
+    } 
+    
+    // Fallback to auth metadata ONLY if no DB profile
+    if (userMetadata) {
+      console.log('[Social] Profile missing in DB, using metadata fallback')
+      const userData: User = {
+        id: userId,
+        name: userMetadata.full_name || userMetadata.name || userMetadata.username || 'Anonymous',
+        username: userMetadata.username || 'anonymous',
+        avatar: userMetadata.avatar_url || userMetadata.picture || DEFAULT_AVATAR,
+        bio: '',
+        joinedAt: new Date().toISOString()
+      }
+      setCurrentUser(userData)
       return userData
     }
     return null
@@ -167,11 +175,70 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
-      // AuthProvider-dən user varsa, profile və posts yüklə
+      // AuthProvider-dən user varsa, profile, posts və notifications yüklə
       if (authUser) {
         console.log('[Social] AuthProvider user detected:', authUser.email)
         await loadUserProfile(authUser.id, authUser.user_metadata)
         await loadPosts(authUser.id)
+        
+        // Load notifications
+        const { data: notifs } = await supabase
+          .from('notifications')
+          .select(`*, actor:profiles!actor_id(username, avatar_url)`)
+          .eq('user_id', authUser.id)
+          .order('created_at', { ascending: false })
+          .limit(20)
+        
+        if (notifs) {
+           const mappedNotifs = notifs.map((n: any) => ({
+             ...n,
+             actor: n.actor ? {
+               username: n.actor.username,
+               avatar_url: n.actor.avatar_url || DEFAULT_AVATAR
+             } : undefined
+           }))
+           setNotifications(mappedNotifs)
+           setUnreadCount(mappedNotifs.filter((n: any) => !n.read).length)
+        }
+
+        // Subscribe to notifications
+        const channel = supabase
+        .channel('social_notifications')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${authUser.id}`,
+          },
+          async (payload) => {
+             // Fetch new notification details
+             const { data: newNotif } = await supabase
+               .from('notifications')
+               .select(`*, actor:profiles!actor_id(username, avatar_url)`)
+               .eq('id', payload.new.id)
+               .single()
+             
+             if (newNotif) {
+                const mappedNew = {
+                  ...newNotif,
+                  actor: newNotif.actor ? {
+                    username: newNotif.actor.username,
+                    avatar_url: newNotif.actor.avatar_url || DEFAULT_AVATAR
+                  } : undefined
+                }
+                setNotifications(prev => [mappedNew, ...prev])
+                setUnreadCount(prev => prev + 1)
+             }
+          }
+        )
+        .subscribe()
+
+        return () => {
+          supabase.removeChannel(channel)
+        }
+
       } else {
         console.log('[Social] No user from AuthProvider')
         setCurrentUser(null)
@@ -188,7 +255,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
               id: p.id,
               name: p.username || 'Anonymous',
               username: p.username || 'anonymous',
-              avatar: p.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.id}`,
+              avatar: p.avatar_url || DEFAULT_AVATAR,
               bio: p.bio,
               joinedAt: p.updated_at
             }))
@@ -439,6 +506,20 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
 
   const isFollowing = (userId: string) => following.includes(userId)
 
+  const markNotificationsAsRead = async () => {
+    if (!currentUser || unreadCount === 0) return
+
+    const ids = notifications.filter(n => !n.read).map(n => n.id)
+    
+    // Optimistic update
+    setUnreadCount(0)
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+
+    if (ids.length > 0) {
+      await supabase.from('notifications').update({ read: true }).in('id', ids)
+    }
+  }
+
   const value: SocialState = useMemo(() => ({
     currentUser,
     users,
@@ -454,8 +535,11 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     isFollowing,
     loading,
     loadMorePosts,
-    hasMorePosts
-  }), [currentUser, users, posts, following, loading])
+    hasMorePosts,
+    notifications,
+    unreadCount,
+    markNotificationsAsRead
+  }), [currentUser, users, posts, following, loading, notifications, unreadCount])
 
   return <SocialCtx.Provider value={value}>{children}</SocialCtx.Provider>
 }

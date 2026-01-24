@@ -12,6 +12,7 @@ import { useSocial } from '@/context/social'
 import { t, type Locale } from '@/lib/i18n'
 import { RankBadge } from '@/components/RankBadge'
 import { ProfileSkeleton } from '@/components/ui/Skeleton'
+import { Alert } from '@/components/ui/Alert'
 
 export default function MyProfilePage() {
   const { close: closeAudio } = useAudio()
@@ -28,6 +29,7 @@ export default function MyProfilePage() {
   const [editForm, setEditForm] = useState({ username: '', bio: '' })
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [avatarPreview, setAvatarPreview] = useState<string>('')
+  const [alert, setAlert] = useState<{ message: string, type: 'error' | 'success' | 'info' } | null>(null)
   const router = useRouter()
   const pathname = usePathname()
   const locale = (pathname.split('/')[1] || 'en') as Locale
@@ -134,16 +136,36 @@ export default function MyProfilePage() {
     setSaving(true)
 
     let avatarUrl = currentUser.avatar_url
+    const usernameChanged = currentUser.username !== editForm.username
 
     // Upload new avatar if selected
     if (avatarFile) {
       const { url, error } = await uploadAvatar(avatarFile, currentUser.id)
       if (error) {
-        alert('Error uploading avatar: ' + error)
+        setAlert({ message: t(locale, 'error_avatar_upload'), type: 'error' })
         setSaving(false)
         return
       }
       avatarUrl = url || avatarUrl
+    }
+
+    // Check username rules if changed
+    if (usernameChanged) {
+      const { data: check } = await supabase.rpc('can_change_username', {
+        p_user_id: currentUser.id,
+        p_new_username: editForm.username
+      })
+
+      if (check && !check.allowed) {
+        let msg = t(locale, 'error_username_general')
+        if (check.reason === 'taken') msg = t(locale, 'error_username_taken')
+        if (check.reason === 'invalid_format') msg = t(locale, 'error_username_format')
+        if (check.reason === 'time_limit') msg = t(locale, 'error_username_limit').replace('{days}', check.days_left)
+        
+        setAlert({ message: msg, type: 'error' })
+        setSaving(false)
+        return
+      }
     }
 
     const { error } = await supabase
@@ -156,8 +178,9 @@ export default function MyProfilePage() {
       .eq('id', currentUser.id)
 
     if (error) {
-      alert('Error updating profile: ' + error.message)
+      setAlert({ message: t(locale, 'error_profile_update'), type: 'error' })
     } else {
+      setAlert(null)
       setEditing(false)
       if (globalUser) loadProfileData(globalUser.id)
     }
@@ -227,10 +250,14 @@ export default function MyProfilePage() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold text-lg">{t(locale, 'edit_profile')}</h3>
-                <button onClick={() => setEditing(false)} className="p-1 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded">
+                <button onClick={() => { setEditing(false); setAlert(null); }} className="p-1 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded">
                   <FiX />
                 </button>
               </div>
+
+              {alert && (
+                <Alert type={alert.type} message={alert.message} onClose={() => setAlert(null)} />
+              )}
 
               {/* Avatar Upload */}
               <div className="flex flex-col items-center gap-3">
@@ -263,6 +290,10 @@ export default function MyProfilePage() {
                   className="w-full px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-sm"
                   placeholder={t(locale, 'username_placeholder')}
                 />
+                <p className="mt-1.5 text-xs text-neutral-500 dark:text-neutral-400 flex items-start gap-1">
+                  <span className="text-amber-500 shrink-0">⚠</span> 
+                  {t(locale, 'username_change_hint')}
+                </p>
               </div>
 
               {/* Bio */}
@@ -302,10 +333,13 @@ export default function MyProfilePage() {
 
               {/* Reputation Stats */}
               <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-                <div className="rounded-lg bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 p-3">
+                <Link 
+                  href={`/${locale}/audiobooks?tab=library` as any}
+                  className="rounded-lg bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 p-3 hover:scale-[1.02] transition-transform cursor-pointer block"
+                >
                   <div className="text-xs text-blue-600 dark:text-blue-400 font-medium">{t(locale, 'books_read')}</div>
                   <div className="font-bold text-blue-700 dark:text-blue-300">{currentUser.books_read || 0}</div>
-                </div>
+                </Link>
                 <div className="rounded-lg bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 p-3">
                   <div className="text-xs text-green-600 dark:text-green-400 font-medium">{t(locale, 'reviews_written')}</div>
                   <div className="font-bold text-green-700 dark:text-green-300">{currentUser.reviews_count || 0}</div>

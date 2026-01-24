@@ -10,6 +10,8 @@ import { ReportModal } from '@/components/ReportModal'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { t } from '@/lib/i18n'
 import { UserHoverCard } from './UserHoverCard'
+import { RichText } from './RichText'
+import { DEFAULT_AVATAR } from '@/lib/social'
 
 export function SocialPostCard({ postId, disableHover = false }: { postId: string, disableHover?: boolean }) {
   const { posts, addComment, like, users, currentUser, deletePost } = useSocial()
@@ -26,7 +28,7 @@ export function SocialPostCard({ postId, disableHover = false }: { postId: strin
     id: post.userId,
     name: 'Unknown',
     username: 'unknown',
-    avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${post.userId}`,
+    avatar: DEFAULT_AVATAR,
     bio: ''
   }
 
@@ -37,12 +39,12 @@ export function SocialPostCard({ postId, disableHover = false }: { postId: strin
     <article className="card p-4 sm:p-5">
       <header className="flex items-start gap-3">
         <UserHoverCard userId={author.id} disabled={shouldDisableHover} className="flex items-start gap-3 flex-1 min-w-0 relative">
-          <Link href={`/${locale}/social/profile/${author.id}` as any} className="shrink-0">
+          <Link href={`/${locale}/social/profile/${author.username}` as any} className="shrink-0">
             <img src={author.avatar} alt={author.name} className="h-10 w-10 rounded-full object-cover" />
           </Link>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <Link href={`/${locale}/social/profile/${author.id}` as any} className="font-medium leading-tight hover:text-brand line-clamp-1">
+              <Link href={`/${locale}/social/profile/${author.username}` as any} className="font-medium leading-tight hover:text-brand line-clamp-1">
                 {author.name}
               </Link>
             </div>
@@ -103,8 +105,8 @@ export function SocialPostCard({ postId, disableHover = false }: { postId: strin
           onClose={() => setShowReport(false)}
         />
       )}
-      <Link href={`/${locale}/social/post/${post.id}` as any} className="mt-3 block text-sm sm:text-base whitespace-pre-wrap break-all hover:text-neutral-900 dark:hover:text-neutral-50 mb-3">
-        {post.content}
+      <Link href={`/${locale}/social/post/${post.id}` as any} className="mt-3 block text-sm sm:text-base whitespace-pre-wrap break-words hover:text-neutral-900 dark:hover:text-neutral-50 mb-3">
+        <RichText content={post.content} locale={locale} />
       </Link>
       
       {post.mentionedBook && (
@@ -172,7 +174,7 @@ function CommentItem({ id, postId, userId, content, createdAt }: { id: string; p
   const u = users.find(u => u.id === userId) || {
     id: userId,
     name: 'Unknown',
-    avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`,
+    avatar: DEFAULT_AVATAR,
     bio: ''
   }
   return (
@@ -211,7 +213,9 @@ function CommentItem({ id, postId, userId, content, createdAt }: { id: string; p
               </button>
             )}
           </div>
-          <div className="mt-0.5">{content}</div>
+          <div className="mt-0.5">
+            <RichText content={content} locale={locale} />
+          </div>
         </div>
       </div>
     </>

@@ -25,6 +25,15 @@ export async function middleware(request: NextRequest) {
 
   // Redirect to default locale if no valid locale in path
   if (!maybeLocale || !isLocale(maybeLocale)) {
+    // Check if it's potentially a username (root level path that isn't a locale)
+    // Exclude reserved routes
+    const reservedRoutes = ['auth', 'api', '_next', 'static', 'favicon.ico']
+    if (maybeLocale && !reservedRoutes.includes(maybeLocale)) {
+      const url = request.nextUrl.clone()
+      url.pathname = `/${defaultLocale}/social/profile/${maybeLocale}`
+      return NextResponse.rewrite(url)
+    }
+
     const url = request.nextUrl.clone()
     url.pathname = `/${defaultLocale}${pathname}`
     return NextResponse.redirect(url)

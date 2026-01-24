@@ -318,7 +318,7 @@ export function GroupContent({ group, locale }: GroupContentProps) {
                   {members.map((m) => (
                     <Link
                       key={m.id}
-                      href={`/${locale}/social/profile/${m.profiles?.id}` as any}
+                      href={`/${locale}/social/profile/${m.profiles?.username || m.profiles?.id}` as any}
                       className="flex items-center gap-3 p-2 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
                       onClick={() => setShowMembers(false)}
                     >
