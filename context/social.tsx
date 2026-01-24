@@ -168,6 +168,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
   // Sadələşdirilmiş initialization - AuthProvider-dən user-i izləyir
   useEffect(() => {
     let mounted = true
+    let cleanup: (() => void) | undefined
 
     const initialize = async () => {
       // AuthProvider hələ yüklənir - gözlə
@@ -235,7 +236,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         )
         .subscribe()
 
-        return () => {
+        cleanup = () => {
           supabase.removeChannel(channel)
         }
 
@@ -277,6 +278,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       mounted = false
+      if (cleanup) cleanup()
     }
   }, [authUser, authLoading, supabase, loadUserProfile, loadPosts])
 
