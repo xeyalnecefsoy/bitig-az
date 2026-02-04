@@ -36,7 +36,28 @@ export function BookCard({ book, locale, disabled }: { book: any; locale: string
         <h3 className="font-semibold text-sm sm:text-base line-clamp-1 text-neutral-900 dark:text-white mb-1">{book.title}</h3>
         <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 mb-2 line-clamp-1">{book.author}</p>
         <div className="flex items-center justify-between">
-          <span className="text-xs sm:text-sm font-bold text-brand">${book.price}</span>
+          <div className="flex items-center gap-2">
+            {book.price === 0 ? (
+              <span className="text-xs sm:text-sm font-bold text-green-600 dark:text-green-500">{t(locale, 'free')}</span>
+            ) : (
+              <>
+                {book.original_price && book.original_price > book.price && (
+                  <div className="flex flex-col">
+                    <span className="text-[10px] text-neutral-500 dark:text-neutral-400 line-through">{book.original_price} ₼</span>
+                    <span className="text-xs sm:text-sm font-bold text-brand">{book.price} ₼</span>
+                  </div>
+                )}
+                {(!book.original_price || book.original_price <= book.price) && (
+                  <span className="text-xs sm:text-sm font-bold text-brand">{book.price} ₼</span>
+                )}
+              </>
+            )}
+            {book.original_price && book.original_price > book.price && book.price > 0 && (
+              <span className="bg-red-500 text-white text-[9px] px-1.5 py-0.5 rounded font-bold">
+                {Math.round(((book.original_price - book.price) / book.original_price) * 100)}% {t(locale, 'discount')}
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-1 text-xs sm:text-sm">
             <span className="text-yellow-500">★</span>
             <span className="font-medium text-neutral-700 dark:text-neutral-300">{book.rating}</span>

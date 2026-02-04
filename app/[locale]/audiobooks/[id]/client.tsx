@@ -3,6 +3,7 @@ import { useCart } from '@/context/cart'
 import { t } from '@/lib/i18n'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { FaShoppingCart } from 'react-icons/fa'
 
 export function AddToCartBtn({ id, locale }: { id: string; locale: string }) {
   const { add } = useCart()
@@ -19,7 +20,8 @@ export function AddToCartBtn({ id, locale }: { id: string; locale: string }) {
   }
 
   return (
-    <button onClick={handleAdd} className="btn btn-primary px-8 py-3">
+    <button onClick={handleAdd} className="btn btn-primary px-8 py-3 flex items-center justify-center gap-2">
+      <FaShoppingCart />
       {t(locale as any, 'add_to_cart')}
     </button>
   )

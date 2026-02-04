@@ -40,12 +40,11 @@ export function CartClient({ locale, user }: { locale: string; user: any }) {
         <div className="relative">
           <div className="flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {suggestions.map(b => (
-              <Link key={b.id} href={`/${locale}/audiobooks/${b.id}` as any} className="snap-start shrink-0 w-64 sm:w-72">
-                <div className="relative h-36 w-full rounded-xl overflow-hidden">
-                  <Image src={b.cover} alt={b.title} fill className="object-cover" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-black/0" />
+              <Link key={b.id} href={`/${locale}/audiobooks/${b.id}` as any} className="snap-start shrink-0 w-32 sm:w-40 group">
+                <div className="relative aspect-[2/3] w-full rounded-xl overflow-hidden shadow-sm bg-neutral-100 dark:bg-neutral-800">
+                  <Image src={b.cover} alt={b.title} fill className="object-cover transition-transform group-hover:scale-105" />
                 </div>
-                <div className="mt-2 line-clamp-1 font-medium">{b.title}</div>
+                <div className="mt-2 line-clamp-1 font-medium text-sm">{b.title}</div>
                 <div className="text-sm text-neutral-600 dark:text-neutral-400 line-clamp-1">{b.author}</div>
               </Link>
             ))}
@@ -69,7 +68,7 @@ export function CartClient({ locale, user }: { locale: string; user: any }) {
                 </div>
                 <div className="flex-1">
                   <div className="font-medium">{book.title}</div>
-                  <div className="text-sm text-neutral-600">x{qty} • ${book.price.toFixed(2)}</div>
+                  <div className="text-sm text-neutral-600">x{qty} • {book.price.toFixed(2)} ₼</div>
                 </div>
                 <button className="text-red-600 hover:underline" onClick={() => remove(id)}>{t(locale as any, 'remove')}</button>
               </li>
@@ -80,7 +79,16 @@ export function CartClient({ locale, user }: { locale: string; user: any }) {
               <div className="text-neutral-600">{t(locale as any, 'subtotal')}</div>
               <div className="font-semibold">${total.toFixed(2)}</div>
             </div>
-            <Link href={`/${locale}/checkout` as any} className="btn btn-primary w-full mb-3">{t(locale as any, 'checkout')}</Link>
+            <button 
+              onClick={() => alert(t(locale as any, 'checkout_disabled_msg'))}
+              className="btn btn-primary w-full mb-3 opacity-75"
+              title={t(locale as any, 'checkout_disabled_title')}
+            >
+              {t(locale as any, 'checkout')}
+            </button>
+            <p className="text-xs text-amber-600 dark:text-amber-500 mb-4 text-center">
+              {t(locale as any, 'checkout_disabled_msg')}
+            </p>
             <button className="btn btn-outline w-full" onClick={clear}>{t(locale as any, 'clear_cart')}</button>
           </aside>
         </div>

@@ -281,6 +281,15 @@ export const messages: Record<Locale, Record<string, string>> = {
     no_search_results: "No results found for your search.",
     no_groups_found: "No groups found.",
     no_posts_yet: "No posts yet.",
+    // Books Search
+    search_placeholder: "Search title, author or genre...",
+    filter_genre: "Filter by Genre",
+    sort_by: "Sort by",
+    all: "All",
+    a_z: "A-Z",
+    z_a: "Z-A",
+    popular: "Popular",
+    newest: "Newest",
     // Group Detail
     group_about: "About",
     group_members_label: "Members",
@@ -311,6 +320,18 @@ export const messages: Record<Locale, Record<string, string>> = {
     reply: "Reply",
     like: "Like",
     comments: "Comments",
+    add_to_wishlist: "Want to Read",
+    in_wishlist: "In Wishlist",
+    add_to_favorites: "Add to Favorites",
+    remove_from_favorites: "Remove from Favorites",
+    status_want_to_read: "Want to Read",
+    status_reading: "Reading",
+    status_completed: "Completed",
+    checkout_disabled_title: "Feature Under Development",
+    checkout_disabled_msg: "Purchases are currently disabled as we are building the payment system.",
+    audio_mock_warning: "This is a demo audio file. Actual audiobook files will be added soon.",
+    free: "Free",
+    discount: "off",
   },
   az: {
     nav_home: "Ana səhifə",
@@ -589,6 +610,15 @@ export const messages: Record<Locale, Record<string, string>> = {
     no_search_results: "Axtarışınıza uyğun nəticə tapılmadı.",
     no_groups_found: "Hələ heç bir qrup yoxdur.",
     no_posts_yet: "Hələ heç bir paylaşım yoxdur.",
+    // Books Search
+    search_placeholder: "Kitab, müəllif və ya janr axtar...",
+    filter_genre: "Janra görə",
+    sort_by: "Sıralama",
+    all: "Hamısı",
+    a_z: "A-Z",
+    z_a: "Z-A",
+    popular: "Populyar",
+    newest: "Ən yeni",
     // Group Detail
     group_about: "Haqqında",
     group_members_label: "Üzvlər",
@@ -619,6 +649,18 @@ export const messages: Record<Locale, Record<string, string>> = {
     reply: "Cavabla",
     like: "Bəyən",
     comments: "Şərhlər",
+    add_to_wishlist: "İstəyirəm",
+    in_wishlist: "Siyahıdadır",
+    add_to_favorites: "Sevimlilərə əlavə et",
+    remove_from_favorites: "Sevimlilərdən çıxar",
+    status_want_to_read: "İstəkdədir",
+    status_reading: "Oxunur",
+    status_completed: "Bitirilib",
+    checkout_disabled_title: "Özəllik Hazırlanır",
+    checkout_disabled_msg: "Ödəniş sistemi hazırlandığı üçün alış-veriş müvəqqəti dayandırılıb.",
+    audio_mock_warning: "Bu demo səs faylıdır. Əsl kitab səsləri tezliklə əlavə olunacaq.",
+    free: "Pulsuz",
+    discount: "endirim",
   },
 };
 
@@ -627,3 +669,4 @@ export function t(locale: Locale | string, key: string): string {
   const safeLocale = isLocale(locale) ? locale : defaultLocale;
   return messages[safeLocale]?.[key] ?? messages[defaultLocale]?.[key] ?? key;
 }
+

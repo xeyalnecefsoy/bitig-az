@@ -104,7 +104,7 @@ export function MobileNav() {
               <FiShoppingCart className="text-[22px]" />
               <span className="whitespace-nowrap">{t(locale, 'nav_cart')}</span>
               {count > 0 && (
-                <span className="absolute -top-1.5 left-1/2 translate-x-2 rounded-full bg-brand text-white text-[10px] px-1">
+                <span className="absolute top-1 left-1/2 translate-x-2.5 rounded-full bg-brand text-white text-[9px] min-w-[15px] h-[15px] flex items-center justify-center border-2 border-white dark:border-neutral-950 font-bold shadow-sm">
                   {count}
                 </span>
               )}

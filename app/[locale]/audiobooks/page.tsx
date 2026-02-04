@@ -9,6 +9,9 @@ import { AdBanner } from '@/components/ads/AdBanner'
 import { LibraryContent } from '@/components/LibraryContent'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 
+import { SearchAndFilter } from '@/components/SearchAndFilter'
+import { useMemo } from 'react'
+
 export default function AudiobooksPage({ params: paramsPromise }: { params: Promise<{ locale: string }> }) {
   const [params, setParams] = React.useState<{ locale: string } | null>(null)
   const searchParams = useSearchParams()
@@ -28,19 +31,49 @@ export default function AudiobooksPage({ params: paramsPromise }: { params: Prom
 
   useEffect(() => {
     async function loadData() {
+      setLoading(true)
       const { data: { user: authUser } } = await supabase.auth.getUser()
       setUser(authUser)
 
-      const { data: booksData } = await supabase
-        .from('books')
-        .select('*')
-        .order('created_at', { ascending: false })
+      let query = supabase.from('books').select('*')
+
+      // 1. Search (Title, Author, Genre)
+      const searchQuery = searchParams.get('q')
+      if (searchQuery) {
+        query = query.or(`title.ilike.%${searchQuery}%,author.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`)
+      }
+
+      // 2. Genre Filter
+      const genre = searchParams.get('genre')
+      if (genre) {
+        query = query.eq('genre', genre)
+      }
+
+      // 3. Sorting
+      const sort = searchParams.get('sort')
+      switch (sort) {
+        case 'popular':
+          query = query.order('rating', { ascending: false })
+          break
+        case 'a-z':
+          query = query.order('title', { ascending: true })
+          break
+        case 'z-a':
+          query = query.order('title', { ascending: false })
+          break
+        case 'newest':
+        default:
+          query = query.order('created_at', { ascending: false })
+          break
+      }
+
+      const { data: booksData } = await query
 
       setBooks(booksData || [])
       setLoading(false)
     }
     loadData()
-  }, [])
+  }, [searchParams.toString()]) // Re-run when URL search params change
 
   useEffect(() => {
     const tab = searchParams.get('tab')
@@ -94,6 +127,8 @@ export default function AudiobooksPage({ params: paramsPromise }: { params: Prom
           </button>
         </div>
       </div>
+
+      {activeTab === 'discover' && <SearchAndFilter />}
 
       {activeTab === 'discover' ? (
         <>

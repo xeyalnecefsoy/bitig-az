@@ -33,3 +33,11 @@ Bu sənəd Bitig.az platformasının inkişafı zamanı qarşılaşdığımız x
 
 ## 🛠️ 6. Audio Proqres İzləmə
 - **Həll:** İstifadəçinin dinləmə proqresini hər 30 saniyədən bir asinxron olaraq Supabase-ə yazan `useListeningProgress` hook-u yaradıldı. Bu, həm "Davam et" bölməsini, həm də Gamification (xp, streak) sistemini qidalandırır.
+
+## 🔔 7. Sosial İnteraksiya və Bildirişlər (Real-time & Optimistic UI)
+- **Problem (Red Dot Bug):** Bildiriş oxunduqdan sonra səhifə yenilənəndə və ya pəncərə ölçüsü dəyişəndə qırmızı nöqtə yenidən peyda olurdu. Database sorğusu gecikirdi.
+- **Həll (Optimistic Update):** İstifadəçi bildiriş ikonuna klikləyən kimi `unreadCount` local state-də dərhal `0` edilir ("Fire and Forget"). Database sorğusu arxa planda baş verir. UI istifadəçini gözlətmir.
+- **Avatar Problemi:** "DiceBear" kimi generatorlar bəzən uyğunsuz/qəribə avatarlar yaradırdı.
+- **Həll:** Cinsiyyət və irqdən asılı olmayan neytral (boz siluet) bir `DEFAULT_AVATAR` sabiti yaradıldı. 
+- **Kritik Xəta (Loading Hang):** `useEffect` daxilində `initialize` funksiyasında `return () => cleanup` yazılmışdı. Bu, funksiyanın yarımçıq qalmasına və `setLoading(false)` əmrunun heç vaxt işləməməsinə səbəb olurdu -> Sonsuz 'loading' ekranı.
+- **Dərs:** `useEffect` daxilində asinxron funksiyalar yazarkən cleanup kodunu heç vaxt o funksiyanın daxilində return etmə. Onu `useEffect`-in əsas return blokuna qoy.

@@ -1,5 +1,5 @@
 "use client"
-import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { type Post, type User, type Comment, type Notification, DEFAULT_AVATAR } from '@/lib/social'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -45,6 +45,14 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [loading, setLoading] = useState(true)
+  
+  // Use ref to track users for stable access in callbacks without dependency changes
+  const usersRef = useRef<User[]>([])
+  
+  // Keep ref in sync with state
+  useEffect(() => {
+    usersRef.current = users
+  }, [users])
 
   // Load user profile helper
   const loadUserProfile = useCallback(async (userId: string, userMetadata?: any) => {
@@ -106,6 +114,43 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     return null
   }, [supabase])
 
+  // Helper to fetch and merge users
+  const fetchAndMergeUsers = useCallback(async (userIds: string[]) => {
+    if (userIds.length === 0) return
+
+    // Filter out users we already have using ref to avoid dependency cycle
+    const currentUsers = usersRef.current
+    const missingIds = userIds.filter(id => !currentUsers.find(u => u.id === id))
+    
+    if (missingIds.length === 0) return
+
+    try {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('id', missingIds)
+
+      if (profiles) {
+        const newUsers: User[] = profiles.map(p => ({
+          id: p.id,
+          name: p.full_name || p.username || 'Anonymous',
+          username: p.username || 'anonymous',
+          avatar: p.avatar_url || DEFAULT_AVATAR,
+          bio: p.bio,
+          joinedAt: p.updated_at
+        }))
+
+        setUsers(prev => {
+          const existingIds = new Set(prev.map(u => u.id))
+          const uniqueNewUsers = newUsers.filter(u => !existingIds.has(u.id))
+          return [...prev, ...uniqueNewUsers]
+        })
+      }
+    } catch (e) {
+      console.error('Error fetching profiles:', e)
+    }
+  }, [supabase]) // Removed users dependency
+
   // Load posts helper
   const loadPosts = useCallback(async (authUserId?: string) => {
     const { data: postsData } = await supabase
@@ -121,6 +166,20 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
       .limit(10)
 
     if (postsData && postsData.length > 0) {
+      // Collect all user IDs involved
+      const userIds = new Set<string>()
+      postsData.forEach(p => {
+        if (p.user_id) userIds.add(p.user_id)
+        if (Array.isArray(p.comments)) {
+          p.comments.forEach((c: any) => {
+             if (c.user_id) userIds.add(c.user_id)
+          })
+        }
+      })
+      
+      // Fetch missing profiles
+      await fetchAndMergeUsers(Array.from(userIds))
+
       const bookIds = postsData
         .filter(p => p.mentioned_book_id)
         .map(p => p.mentioned_book_id)
@@ -144,14 +203,14 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         userId: p.user_id,
         content: p.content,
         createdAt: p.created_at,
-        likes: p.likes.length,
-        likedByMe: authUserId ? p.likes.some((l: any) => l.user_id === authUserId) : false,
-        comments: p.comments.map((c: any) => ({
+        likes: p.likes ? p.likes.length : 0,
+        likedByMe: authUserId && p.likes ? p.likes.some((l: any) => l.user_id === authUserId) : false,
+        comments: Array.isArray(p.comments) ? p.comments.map((c: any) => ({
           id: c.id,
           userId: c.user_id,
           content: c.content,
           createdAt: c.created_at
-        })),
+        })) : [],
         mentionedBookId: p.mentioned_book_id,
         mentionedBook: p.mentioned_book_id && booksMap[p.mentioned_book_id] ? {
            id: booksMap[p.mentioned_book_id].id,
@@ -163,7 +222,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
       }))
       setPosts(mappedPosts)
     }
-  }, [supabase])
+  }, [supabase, fetchAndMergeUsers])
 
   // Sadələşdirilmiş initialization - AuthProvider-dən user-i izləyir
   useEffect(() => {
@@ -420,6 +479,16 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
       .range(posts.length, posts.length + 9)
 
     if (postsData && postsData.length > 0) {
+      // Collect all user IDs involved in new posts
+      const userIds = new Set<string>()
+      postsData.forEach(p => {
+        userIds.add(p.user_id)
+        p.comments.forEach((c: any) => userIds.add(c.user_id))
+      })
+      
+      // Fetch missing profiles
+      await fetchAndMergeUsers(Array.from(userIds))
+
       // Fetch mentioned books for new batch
       const bookIds = postsData
         .filter(p => p.mentioned_book_id)
@@ -518,7 +587,10 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })))
 
     if (ids.length > 0) {
-      await supabase.from('notifications').update({ read: true }).in('id', ids)
+      const { error } = await supabase.from('notifications').update({ read: true }).in('id', ids)
+      if (error) {
+        console.error('Error marking notifications as read:', error)
+      }
     }
   }
 

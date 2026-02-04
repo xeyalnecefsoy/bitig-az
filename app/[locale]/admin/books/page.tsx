@@ -91,7 +91,7 @@ export default function AdminBooksPage({ params }: { params: Promise<{ locale: s
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500 dark:text-neutral-400">{book.author}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500 dark:text-neutral-400">${book.price}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500 dark:text-neutral-400">{book.price} ₼</td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex justify-end gap-2">
                       <Link
@@ -135,7 +135,7 @@ export default function AdminBooksPage({ params }: { params: Promise<{ locale: s
               <div className="flex-1 min-w-0">
                 <h3 className="font-medium text-neutral-900 dark:text-white truncate">{book.title}</h3>
                 <p className="text-sm text-neutral-500 dark:text-neutral-400 truncate">{book.author}</p>
-                <p className="text-sm text-neutral-600 dark:text-neutral-300 mt-1">${book.price}</p>
+                <p className="text-sm text-neutral-600 dark:text-neutral-300 mt-1">{book.price} ₼</p>
               </div>
               <div className="flex gap-2">
                 <Link

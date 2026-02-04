@@ -6,6 +6,7 @@ import { AudiobookPlayerWrapper } from '@/components/AudiobookPlayerWrapper'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { FiLock } from 'react-icons/fi'
+import { BookActions } from '@/components/BookActions'
 
 export default async function AudiobookDetailsPage({ params }: { params: Promise<{ locale: string; id: string }> }) {
   const { locale, id } = await params
@@ -33,7 +34,7 @@ export default async function AudiobookDetailsPage({ params }: { params: Promise
   return (
     <section className="container-max py-10">
       <div className="grid gap-8 md:grid-cols-[300px_1fr] lg:gap-12">
-        <div className="relative aspect-[2/3] w-full overflow-hidden rounded-xl bg-neutral-100 dark:bg-neutral-800 shadow-lg">
+        <div className="relative mx-auto aspect-[2/3] w-[240px] md:w-full overflow-hidden rounded-xl bg-neutral-100 dark:bg-neutral-800 shadow-lg">
           <Image
             src={book.cover || '/placeholder-book.jpg'}
             alt={book.title}
@@ -56,7 +57,28 @@ export default async function AudiobookDetailsPage({ params }: { params: Promise
             <div>{book.length}</div>
           </div>
 
-          <div className="mb-8 text-2xl font-bold text-brand">${book.price}</div>
+
+          <div className="mb-8 flex items-center gap-3">
+            {book.price === 0 ? (
+              <div className="text-2xl font-bold text-green-600 dark:text-green-500">{t(locale as any, 'free')}</div>
+            ) : (
+              <>
+                {book.original_price && book.original_price > book.price && (
+                  <>
+                    <div className="text-lg text-neutral-500 dark:text-neutral-400 line-through">{book.original_price} ₼</div>
+                    <div className="text-2xl font-bold text-brand">{book.price} ₼</div>
+                    <span className="bg-red-500 text-white text-sm px-2 py-1 rounded-lg font-bold">
+                      {Math.round(((book.original_price - book.price) / book.original_price) * 100)}% {t(locale as any, 'discount')}
+                    </span>
+                  </>
+                )}
+                {(!book.original_price || book.original_price <= book.price) && (
+                  <div className="text-2xl font-bold text-brand">{book.price} ₼</div>
+                )}
+              </>
+            )}
+          </div>
+
 
           {user ? (
             <div className="mb-8">
@@ -89,6 +111,10 @@ export default async function AudiobookDetailsPage({ params }: { params: Promise
 
           <div className="flex gap-4">
             <AddToCartBtn id={book.id} locale={locale} />
+          </div>
+          
+          <div className="mt-6 border-t border-neutral-100 dark:border-neutral-800 pt-6">
+             <BookActions bookId={book.id} locale={locale as any} />
           </div>
         </div>
       </div>

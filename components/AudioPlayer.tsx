@@ -41,7 +41,11 @@ function getSleepTimerLabel(minutes: SleepTimerOption): string {
   return `${minutes} dəq`
 }
 
+import { useLocale } from '@/context/locale'
+import { t } from '@/lib/i18n'
+
 export function AudioPlayer({ tracks, title, cover, bookId }: { tracks: Track[]; title: string; cover: string; bookId?: string }) {
+  const locale = useLocale()
   const { 
     play, toggle, seek, setVolume, duration, currentTime, playing, volume, setExpanded, track, ended,
     playbackRate, setPlaybackRate,
@@ -49,9 +53,9 @@ export function AudioPlayer({ tracks, title, cover, bookId }: { tracks: Track[];
   } = useAudio()
   
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0)
-  const [showPlaylist, setShowPlaylist] = useState(true)
   const [showSpeedMenu, setShowSpeedMenu] = useState(false)
   const [showSleepMenu, setShowSleepMenu] = useState(false)
+  const [showPlaylist, setShowPlaylist] = useState(true)
 
   const currentTrack = tracks[currentTrackIndex]
   const currentTrackUrl = currentTrack ? getAudioUrl(currentTrack) : ''
@@ -60,7 +64,6 @@ export function AudioPlayer({ tracks, title, cover, bookId }: { tracks: Track[];
   // Auto-play next track
   useEffect(() => {
     if (ended && isCurrentTrackLoaded) {
-      // Don't auto-play next track if sleep timer is set to 'chapter'
       if (sleepTimerMode === 'chapter') {
         return
       }
@@ -101,6 +104,12 @@ export function AudioPlayer({ tracks, title, cover, bookId }: { tracks: Track[];
 
   return (
     <div className="w-full space-y-4">
+      {/* Mock Audio Warning */}
+      <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-sm text-amber-800 dark:text-amber-200 flex items-center gap-2">
+        <span className="text-lg">⚠️</span>
+        {t(locale, 'audio_mock_warning')}
+      </div>
+
       {/* Player Controls */}
       <div className="w-full rounded-xl border border-neutral-200 bg-white p-4 shadow-soft dark:border-neutral-800 dark:bg-neutral-900">
         <div className="flex items-center gap-4 mb-4">

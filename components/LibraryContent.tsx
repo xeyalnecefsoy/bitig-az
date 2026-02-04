@@ -4,7 +4,7 @@ import { useAuth } from '@/context/auth'
 import { createClient } from '@/lib/supabase/client'
 import { BookCard } from '@/components/BookCard'
 import { t, type Locale } from '@/lib/i18n'
-import { FiBook, FiBookOpen, FiCheckCircle, FiHeart, FiClock } from 'react-icons/fi'
+import { FiBook, FiBookOpen, FiCheckCircle, FiHeart, FiClock, FiSearch } from 'react-icons/fi'
 import Link from 'next/link'
 
 type Tab = 'all' | 'reading' | 'completed' | 'want_to_read' | 'favorites'
@@ -21,6 +21,7 @@ type UserBook = {
     cover_url?: string
     rating?: number
     length?: string
+    price?: number
   }
 }
 
@@ -36,6 +37,7 @@ export function LibraryContent({ locale }: { locale: Locale }) {
   const supabase = useMemo(() => createClient(), [])
   
   const [activeTab, setActiveTab] = useState<Tab>('all')
+  const [searchQuery, setSearchQuery] = useState('')
   const [userBooks, setUserBooks] = useState<UserBook[]>([])
   const [progress, setProgress] = useState<Map<string, ProgressItem>>(new Map())
   const [loading, setLoading] = useState(true)
@@ -53,7 +55,7 @@ export function LibraryContent({ locale }: { locale: Locale }) {
           .from('user_books')
           .select(`
             id, book_id, status,
-            books:book_id (id, title, author, cover, cover_url, rating, length)
+            books:book_id (id, title, author, cover, cover_url, rating, length, price)
           `)
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
@@ -86,14 +88,27 @@ export function LibraryContent({ locale }: { locale: Locale }) {
   }, [user, authLoading, supabase])
 
   const filteredBooks = useMemo(() => {
-    if (activeTab === 'all') return userBooks
-    return userBooks.filter(b => {
-      if (activeTab === 'reading') return b.status === 'reading'
-      if (activeTab === 'completed') return b.status === 'completed'
-      if (activeTab === 'want_to_read') return b.status === 'want_to_read'
-      return false
-    })
-  }, [userBooks, activeTab])
+    let filtered = userBooks
+
+    if (activeTab !== 'all') {
+      filtered = filtered.filter(b => {
+        if (activeTab === 'reading') return b.status === 'reading'
+        if (activeTab === 'completed') return b.status === 'completed'
+        if (activeTab === 'want_to_read') return b.status === 'want_to_read'
+        return false
+      })
+    }
+
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase()
+      filtered = filtered.filter(b => 
+        b.books.title.toLowerCase().includes(q) || 
+        b.books.author.toLowerCase().includes(q)
+      )
+    }
+
+    return filtered
+  }, [userBooks, activeTab, searchQuery])
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode; count: number }[] = [
     { id: 'all', label: locale === 'az' ? 'Hamısı' : 'All', icon: <FiBook />, count: userBooks.length },
@@ -172,27 +187,43 @@ export function LibraryContent({ locale }: { locale: Locale }) {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex flex-wrap gap-2 border-b border-neutral-100 dark:border-neutral-800 pb-4 overflow-x-auto scrollbar-hide">
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all ${
-              activeTab === tab.id
-                ? 'bg-brand text-white shadow-md shadow-brand/20'
-                : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-700'
-            }`}
-          >
-            {tab.icon}
-            {tab.label}
-            <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${
-              activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-neutral-200 dark:bg-neutral-700 text-neutral-500'
-            }`}>
-              {tab.count}
-            </span>
-          </button>
-        ))}
+      <div className="flex flex-col sm:flex-row gap-4 justify-between items-center bg-neutral-50 dark:bg-neutral-900/50 p-2 rounded-xl">
+        {/* Tabs */}
+        <div className="flex flex-wrap gap-2 overflow-x-auto scrollbar-hide">
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                activeTab === tab.id
+                  ? 'bg-white dark:bg-neutral-800 text-brand shadow-sm ring-1 ring-black/5 dark:ring-white/10'
+                  : 'text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200'
+              }`}
+            >
+              {tab.icon}
+              {tab.label}
+              <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${
+                activeTab === tab.id ? 'bg-brand/10 text-brand' : 'bg-neutral-200 dark:bg-neutral-700 text-neutral-500'
+              }`}>
+                {tab.count}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* Search */}
+        <div className="relative w-full sm:w-auto min-w-[240px]">
+          <Link href={`/${locale}/audiobooks`} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-brand transition-colors">
+            <FiSearch />
+          </Link>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={locale === 'az' ? 'Kitabxanamda axtar...' : 'Search in library...'}
+            className="w-full h-10 pl-9 pr-4 text-sm bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition-all"
+          />
+        </div>
       </div>
 
       {/* Books Grid */}
@@ -200,12 +231,14 @@ export function LibraryContent({ locale }: { locale: Locale }) {
         <div className="card p-12 text-center bg-neutral-50 dark:bg-neutral-900/30 border-dashed border-2">
           <FiBook className="mx-auto mb-3 text-4xl text-neutral-300 dark:text-neutral-700" />
           <p className="text-neutral-500 dark:text-neutral-400">
-            {activeTab === 'all' 
-              ? (locale === 'az' ? 'Kitabxananız boşdur' : 'Your library is empty')
-              : (locale === 'az' ? 'Bu kateqoriyada kitab yoxdur' : 'No books in this category')
+            {searchQuery 
+              ? (locale === 'az' ? 'Axtarışa uyğun kitab tapılmadı' : 'No books found matching your search')
+              : activeTab === 'all' 
+                ? (locale === 'az' ? 'Kitabxananız boşdur' : 'Your library is empty')
+                : (locale === 'az' ? 'Bu kateqoriyada kitab yoxdur' : 'No books in this category')
             }
           </p>
-          {activeTab !== 'all' && (
+          {activeTab !== 'all' && !searchQuery && (
              <button onClick={() => setActiveTab('all')} className="text-brand text-sm mt-2 font-medium hover:underline">
                {locale === 'az' ? 'Bütün kitablara bax' : 'View all books'}
              </button>
@@ -226,7 +259,8 @@ export function LibraryContent({ locale }: { locale: Locale }) {
                     author: book.author,
                     cover: book.cover || book.cover_url || '',
                     rating: book.rating || 0,
-                    length: book.length
+                    length: book.length,
+                    price: book.price
                   }} 
                   locale={locale}
                 />
@@ -235,9 +269,9 @@ export function LibraryContent({ locale }: { locale: Locale }) {
                   userBook.status === 'reading' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
                   'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
                 }`}>
-                  {userBook.status === 'completed' ? (locale === 'az' ? 'Bitib' : 'Done') :
-                   userBook.status === 'reading' ? (locale === 'az' ? 'Oxunur' : 'Reading') :
-                   (locale === 'az' ? 'Gözləyir' : 'Wait')}
+                  {userBook.status === 'completed' ? t(locale, 'status_completed') :
+                   userBook.status === 'reading' ? t(locale, 'status_reading') :
+                   t(locale, 'status_want_to_read')}
                 </div>
                 {/* Progress overlay */}
                 {bookProgress && bookProgress.total_listened_seconds > 0 && (
