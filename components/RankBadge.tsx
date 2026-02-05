@@ -1,7 +1,7 @@
 "use client"
 import { t, type Locale } from '@/lib/i18n'
 
-type Rank = 'novice' | 'reader' | 'bookworm' | 'scholar' | 'ozan' | 'writer'
+type Rank = 'novice' | 'reader' | 'bookworm' | 'scholar' | 'ozan' | 'writer' | 'founder'
 
 interface RankBadgeProps {
   rank: Rank
@@ -40,6 +40,11 @@ const rankConfig: Record<Rank, { icon: string; color: string; bg: string }> = {
     icon: '✍️',
     color: 'text-rose-600 dark:text-rose-400',
     bg: 'bg-gradient-to-r from-rose-100 to-amber-100 dark:from-rose-900/30 dark:to-amber-900/30',
+  },
+  founder: {
+    icon: '🚀',
+    color: 'text-blue-600 dark:text-blue-400',
+    bg: 'bg-blue-100 dark:bg-blue-900/30',
   },
 }
 

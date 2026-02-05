@@ -40,7 +40,7 @@ export function SocialPostCard({ postId, disableHover = false }: { postId: strin
       <header className="flex items-start gap-3">
         <UserHoverCard userId={author.id} disabled={shouldDisableHover} className="flex items-start gap-3 flex-1 min-w-0 relative">
           <Link href={`/${locale}/social/profile/${author.username}` as any} className="shrink-0">
-            <img src={author.avatar} alt={author.name} className="h-10 w-10 rounded-full object-cover" />
+            <img src={author.avatar} alt={author.name} className="h-10 w-10 rounded-full object-cover" referrerPolicy="no-referrer" />
           </Link>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
@@ -48,7 +48,7 @@ export function SocialPostCard({ postId, disableHover = false }: { postId: strin
                 {author.name}
               </Link>
             </div>
-            <div className="text-xs text-neutral-500 dark:text-neutral-400">{timeAgo(post.createdAt)}</div>
+            <div className="text-xs text-neutral-500 dark:text-neutral-400">{timeAgo(post.createdAt, locale)}</div>
           </div>
         </UserHoverCard>
         <div className="relative flex items-center gap-1">
@@ -174,6 +174,7 @@ function CommentItem({ id, postId, userId, content, createdAt }: { id: string; p
   const u = users.find(u => u.id === userId) || {
     id: userId,
     name: 'Unknown',
+    username: 'unknown',
     avatar: DEFAULT_AVATAR,
     bio: ''
   }
@@ -196,11 +197,19 @@ function CommentItem({ id, postId, userId, content, createdAt }: { id: string; p
         onCancel={() => setShowDeleteConfirm(false)}
       />
       <div className="flex items-start gap-3">
-        <img src={u.avatar} alt={u.name} className="h-7 w-7 rounded-full object-cover" />
-        <div className="bg-neutral-50 border border-neutral-100 rounded-lg px-3 py-2 text-sm dark:bg-neutral-800 dark:border-neutral-700 dark:text-neutral-100">
-          <div className="flex items-center gap-2">
-            <span className="font-medium">{u.name}</span>
-            <span className="text-xs text-neutral-500 dark:text-neutral-400">{timeAgo(createdAt)}</span>
+        <UserHoverCard userId={u.id} className="relative">
+          <Link href={`/${locale}/social/profile/${u.username || u.id}` as any}>
+            <img src={u.avatar} alt={u.name} className="h-7 w-7 rounded-full object-cover shrink-0" referrerPolicy="no-referrer" />
+          </Link>
+        </UserHoverCard>
+        <div className="bg-neutral-50 border border-neutral-100 rounded-lg px-3 py-2 text-sm dark:bg-neutral-800 dark:border-neutral-700 dark:text-neutral-100 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <UserHoverCard userId={u.id}>
+              <Link href={`/${locale}/social/profile/${u.username || u.id}` as any} className="font-medium hover:underline hover:text-brand transition-colors">
+                {u.name}
+              </Link>
+            </UserHoverCard>
+            <span className="text-xs text-neutral-500 dark:text-neutral-400 shrink-0">{timeAgo(createdAt, locale)}</span>
             {currentUser?.id === userId && (
               <button 
                 onClick={() => setShowDeleteConfirm(true)}
@@ -222,10 +231,33 @@ function CommentItem({ id, postId, userId, content, createdAt }: { id: string; p
   )
 }
 
-function timeAgo(iso: string) {
-  const diff = (Date.now() - new Date(iso).getTime()) / 1000
-  if (diff < 60) return `${Math.floor(diff)}s`
-  if (diff < 3600) return `${Math.floor(diff/60)}m`
-  if (diff < 86400) return `${Math.floor(diff/3600)}h`
-  return `${Math.floor(diff/86400)}d`
+
+function timeAgo(iso: string, locale: string = 'az') {
+  const date = new Date(iso)
+  const diff = (Date.now() - date.getTime()) / 1000
+
+  // Less than 1 minute
+  if (diff < 60) {
+    return locale === 'az' ? 'indicə' : 'just now'
+  }
+  
+  // Less than 1 hour
+  if (diff < 3600) {
+    const mins = Math.floor(diff/60)
+    return locale === 'az' ? `${mins} dəq` : `${mins}m`
+  }
+  
+  // Less than 24 hours
+  if (diff < 86400) {
+    const hours = Math.floor(diff/3600)
+    return locale === 'az' ? `${hours} saat` : `${hours}h`
+  }
+  
+  // Older than 24 hours - Show full date
+  // e.g. 15 Oct 2023 or 15 Oktyabr 2023
+  return new Intl.DateTimeFormat(locale === 'az' ? 'az-AZ' : 'en-US', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  }).format(date)
 }

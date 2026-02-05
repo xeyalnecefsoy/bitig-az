@@ -10,7 +10,7 @@ import { useDebounce } from 'use-debounce'
 import { Skeleton } from '@/components/ui/Skeleton'
 
 // Content quality constants
-const MIN_CHARS = 100
+const MIN_CHARS = 20
 const MAX_EMOJI = 5
 
 // Emoji regex pattern (covers most common emojis)

@@ -145,6 +145,8 @@ export const messages: Record<Locale, Record<string, string>> = {
     social_share_label: "Share what you're listening to",
     social_write_placeholder: "Write a post...",
     social_post_button: "Post",
+    social_login_title: "Join the conversation",
+    social_login_desc: "Log in to share posts, like content, and interact with the community.",
     social_sign_in_prompt: "Sign in to share your thoughts",
     social_load_more: "Load More Posts",
     social_loading: "Loading...",
@@ -157,7 +159,7 @@ export const messages: Record<Locale, Record<string, string>> = {
     following_tab: "Following",
     follow_back: "Follow Back",
     // Content Quality Controls
-    social_min_chars: "Minimum 100 characters required for quality discussions",
+    social_min_chars: "Minimum 20 characters required for quality discussions",
     social_chars_remaining: "characters remaining",
     social_chars_needed: "more characters needed",
     social_max_emoji: "Maximum 5 emojis allowed to keep content intellectual",
@@ -210,6 +212,7 @@ export const messages: Record<Locale, Record<string, string>> = {
     someone: "Someone",
     // Reputation System
     rank_novice: "Novice",
+    rank_founder: "Founder",
     rank_reader: "Reader",
     rank_bookworm: "Bookworm",
     rank_scholar: "Scholar",
@@ -332,6 +335,17 @@ export const messages: Record<Locale, Record<string, string>> = {
     audio_mock_warning: "This is a demo audio file. Actual audiobook files will be added soon.",
     free: "Free",
     discount: "off",
+    // Direct Messages
+    dm_title: "Messages",
+    dm_search: "Search messages...",
+    dm_no_conversations: "No conversations found",
+    dm_select_conversation: "Select a conversation to start chatting",
+    dm_type_message: "Type a message...",
+    dm_message_button: "Message",
+    dm_online: "Online",
+    dm_shared_book: "Shared a book",
+    dm_shared_post: "Shared a post",
+    dm_start_chatting: "Start chatting",
   },
   az: {
     nav_home: "Ana səhifə",
@@ -471,6 +485,8 @@ export const messages: Record<Locale, Record<string, string>> = {
     social_share_label: "Nə dinlədiyinizi paylaşın",
     social_write_placeholder: "Paylaşım yazın...",
     social_post_button: "Paylaş",
+    social_login_title: "Müzakirələrə qoşulun",
+    social_login_desc: "Paylaşım etmək, bəyənmək və icma ilə əlaqə qurmaq üçün daxil olun.",
     social_sign_in_prompt: "Fikirlərinizi paylaşmaq üçün daxil olun",
     social_load_more: "Daha Çox Yüklə",
     social_loading: "Yüklənir...",
@@ -483,7 +499,7 @@ export const messages: Record<Locale, Record<string, string>> = {
     following_tab: "İzlənilənlər",
     follow_back: "Qarşılıqlı izlə",
     // Content Quality Controls
-    social_min_chars: "Keyfiyyətli müzakirələr üçün minimum 100 simvol tələb olunur",
+    social_min_chars: "Keyfiyyətli müzakirələr üçün minimum 20 simvol tələb olunur",
     social_chars_remaining: "simvol qaldı",
     social_chars_needed: "simvol daha lazımdır",
     social_max_emoji: "İntellektual məzmun üçün maksimum 5 emoji icazəlidir",
@@ -539,6 +555,7 @@ export const messages: Record<Locale, Record<string, string>> = {
     someone: "Kimsə",
     // Reputation System
     rank_novice: "Oxucu",
+    rank_founder: "Qurucu",
     rank_reader: "Kitabsəvər",
     rank_bookworm: "Kitab Qurdu",
     rank_scholar: "Bilgə",
@@ -562,8 +579,9 @@ export const messages: Record<Locale, Record<string, string>> = {
     currently_reading: "Hal-hazırda oxuyuram",
     want_to_read: "Oxumaq istəyirəm",
     completed: "Tamamlandı",
+
     // Social Banner
-    social_banner_title: "Oxucu İcmamıza Qoşul",
+    social_banner_title: "Yerli İntellektual Sosial Şəbəkəyə Qoşul",
     social_banner_desc: "Kitablar haqqında fikirlərinizi bölüşün, yeni kitablar kəşf edin və dəyərli oxucularla tanış olun.",
     social_banner_cta: "İcmanı Kəşf Et",
     social_feature_discuss: "Kitabları müzakirə et",
@@ -661,6 +679,17 @@ export const messages: Record<Locale, Record<string, string>> = {
     audio_mock_warning: "Bu demo səs faylıdır. Əsl kitab səsləri tezliklə əlavə olunacaq.",
     free: "Pulsuz",
     discount: "endirim",
+    // Direct Messages
+    dm_title: "Mesajlar",
+    dm_search: "Mesajlarda axtar...",
+    dm_no_conversations: "Söhbət tapılmadı",
+    dm_select_conversation: "Söhbətə başlamaq üçün birini seçin",
+    dm_type_message: "Mesaj yazın...",
+    dm_message_button: "Mesaj",
+    dm_online: "Onlayn",
+    dm_shared_book: "Kitab paylaşdı",
+    dm_shared_post: "Paylaşım göndərdi",
+    dm_start_chatting: "Söhbətə başla",
   },
 };
 

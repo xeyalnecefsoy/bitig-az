@@ -7,6 +7,8 @@ import Link from 'next/link'
 import { FollowButton } from './FollowButton'
 import { User } from '@/lib/social'
 import { Skeleton } from '@/components/ui/Skeleton'
+import * as HoverCard from '@radix-ui/react-hover-card'
+import { RankBadge } from '@/components/RankBadge'
 
 interface UserHoverCardProps {
   userId: string
@@ -15,29 +17,12 @@ interface UserHoverCardProps {
   className?: string
 }
 
-export function UserHoverCard({ userId, children, disabled = false, className = 'relative inline-block' }: UserHoverCardProps) {
-  const [isOpen, setIsOpen] = useState(false)
+export function UserHoverCard({ userId, children, disabled = false, className = '' }: UserHoverCardProps) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(false)
-  const timeoutRef = useRef<NodeJS.Timeout>()
+  const [open, setOpen] = useState(false)
   const locale = useLocale()
   const supabase = createClient()
-
-  const handleMouseEnter = () => {
-    if (disabled) return
-    if (timeoutRef.current) clearTimeout(timeoutRef.current)
-    setIsOpen(true)
-    if (!user && !loading) {
-      fetchUser()
-    }
-  }
-
-  const handleMouseLeave = () => {
-    if (disabled) return
-    timeoutRef.current = setTimeout(() => {
-      setIsOpen(false)
-    }, 300) // Delay closing to allow moving mouse to the card
-  }
 
   async function fetchUser() {
     setLoading(true)
@@ -61,7 +46,7 @@ export function UserHoverCard({ userId, children, disabled = false, className = 
           .select('*', { count: 'exact', head: true })
           .eq('follower_id', userId)
 
-        setUser({
+          setUser({
           id: profile.id,
           name: profile.username || 'Anonymous',
           username: profile.username || 'anonymous',
@@ -69,7 +54,8 @@ export function UserHoverCard({ userId, children, disabled = false, className = 
           bio: profile.bio,
           joinedAt: profile.updated_at,
           followers: followersCount || 0,
-          following: followingCount || 0
+          following: followingCount || 0,
+          rank: profile.rank || 'novice'
         })
       }
     } catch (error) {
@@ -79,25 +65,33 @@ export function UserHoverCard({ userId, children, disabled = false, className = 
     }
   }
 
+  const handleOpenChange = (isOpen: boolean) => {
+    setOpen(isOpen)
+    if (isOpen && !user && !loading) {
+      fetchUser()
+    }
+  }
+
   if (disabled) return <div className={className}>{children}</div>
 
   return (
-    <div 
-      className={className}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
-      {children}
+    <HoverCard.Root open={open} onOpenChange={handleOpenChange} openDelay={300} closeDelay={100}>
+      <HoverCard.Trigger asChild>
+        <div className={className}>
+          {children}
+        </div>
+      </HoverCard.Trigger>
       
-      {isOpen && (
-        <div 
-          className="absolute z-50 top-full left-0 mt-2 w-72 bg-white dark:bg-neutral-900 rounded-xl shadow-xl border border-neutral-200 dark:border-neutral-800 p-4 animate-in fade-in zoom-in-95 duration-200"
-          style={{ transformOrigin: 'top left' }}
+      <HoverCard.Portal>
+        <HoverCard.Content 
+          className="z-[9999] w-72 bg-white dark:bg-neutral-900 rounded-xl shadow-xl border border-neutral-200 dark:border-neutral-800 p-4 animate-in fade-in zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95 duration-200"
+          sideOffset={5}
+          collisionPadding={20}
         >
           {loading && !user ? (
             <div className="space-y-3">
               <div className="flex justify-between items-start">
-                <Skeleton variant="circular" className="h-14 w-14" />
+                <Skeleton className="h-14 w-14 rounded-full" />
                 <Skeleton className="h-8 w-20 rounded-full" />
               </div>
               <div className="space-y-1.5">
@@ -118,18 +112,27 @@ export function UserHoverCard({ userId, children, disabled = false, className = 
                     src={user.avatar} 
                     alt={user.name} 
                     className="h-14 w-14 rounded-full object-cover border-2 border-white dark:border-neutral-900" 
+                    referrerPolicy="no-referrer"
                   />
                 </Link>
                 <FollowButton userId={user.id} size="sm" />
               </div>
               
               <div>
-                <Link 
-                  href={`/${locale}/social/profile/${user.username}` as any}
-                  className="font-bold text-neutral-900 dark:text-white hover:underline block"
-                >
-                  {user.name}
-                </Link>
+                <div className="flex items-center gap-2">
+                  <Link 
+                    href={`/${locale}/social/profile/${user.username}` as any}
+                    className="font-bold text-neutral-900 dark:text-white hover:underline block"
+                  >
+                    {user.name}
+                  </Link>
+                  {/* @ts-ignore */}
+                  <RankBadge 
+                    rank={(user.username === 'khayalnajafov' || user.username === 'xeyalnecefsoy' ? 'founder' : (user.rank || 'novice')) as any} 
+                    locale={locale} 
+                    size="sm" 
+                  />
+                </div>
                 <div className="text-sm text-neutral-500 dark:text-neutral-400">@{user.username}</div>
               </div>
 
@@ -155,8 +158,9 @@ export function UserHoverCard({ userId, children, disabled = false, className = 
               User not found
             </div>
           )}
-        </div>
-      )}
-    </div>
+          <HoverCard.Arrow className="fill-white dark:fill-neutral-900" />
+        </HoverCard.Content>
+      </HoverCard.Portal>
+    </HoverCard.Root>
   )
 }

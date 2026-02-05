@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { SocialPostCard } from '@/components/social/SocialPostCard'
+import { MessageButton } from '@/components/messages/MessageButton'
 import Link from 'next/link'
 import { FiUser, FiLock } from 'react-icons/fi'
 import { t, type Locale } from '@/lib/i18n'
@@ -82,7 +83,12 @@ export default async function SocialProfilePage({ params }: { params: Promise<{ 
                   <h1 className="text-2xl sm:text-3xl font-bold text-neutral-900 dark:text-white">
                     {profile.username || t(locale as Locale, 'profile_anonymous')}
                   </h1>
-                  <RankBadge rank={profile.rank || 'novice'} locale={locale as Locale} size="md" clickable={false} />
+                  <RankBadge 
+                    rank={(profile.username === 'khayalnajafov' || profile.username === 'xeyalnecefsoy' ? 'founder' : (profile.rank || 'novice')) as any} 
+                    locale={locale as Locale} 
+                    size="md" 
+                    clickable={false} 
+                  />
                 </div>
                 
                 {profile.full_name && (
@@ -113,9 +119,8 @@ export default async function SocialProfilePage({ params }: { params: Promise<{ 
                 </div>
 
                 {currentUser && !isGuest && (
-                   <div className="pt-4">
-                     {/* Client component for follow button could go here, but for SSR page we can use a simpler approach or hydrate */}
-                      {/* For now, we rely on the list view or profile view for follow actions to keep this page simple server-side */}
+                   <div className="pt-4 flex items-center justify-center gap-2">
+                     <MessageButton userId={profile.id} />
                    </div>
                 )}
               </div>

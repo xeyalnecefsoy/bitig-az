@@ -30,6 +30,7 @@ export function UserSearchResult({ user }: UserSearchResultProps) {
           src={user.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`}
           alt={user.username}
           className="w-12 h-12 rounded-full object-cover bg-neutral-100 dark:bg-neutral-800"
+          referrerPolicy="no-referrer"
         />
       </Link>
       

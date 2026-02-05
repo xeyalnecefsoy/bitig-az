@@ -1,6 +1,7 @@
 "use client"
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import Link from 'next/link'
 import { FiSearch, FiUser, FiShield, FiTrash2 } from 'react-icons/fi'
 import { usePathname } from 'next/navigation'
 import { t, type Locale } from '@/lib/i18n'
@@ -134,16 +135,20 @@ export default function AdminUsersPage() {
                 filteredUsers.map((user) => (
                   <tr key={user.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/50">
                     <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
+                      <Link 
+                        href={user.id === currentUserId ? `/${locale}/profile` : `/${locale}/social/profile/${user.username}`}
+                        className="flex items-center gap-3 group"
+                      >
                         <img
                           src={user.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`}
                           alt=""
-                          className="h-8 w-8 rounded-full object-cover"
+                          className="h-8 w-8 rounded-full object-cover group-hover:ring-2 ring-brand transition-all"
+                          referrerPolicy="no-referrer"
                         />
-                        <span className="font-medium text-neutral-900 dark:text-white">
+                        <span className="font-medium text-neutral-900 dark:text-white group-hover:text-brand transition-colors">
                           {user.username || 'Anonymous'}
                         </span>
-                      </div>
+                      </Link>
                     </td>
                     <td className="px-6 py-4">
                       <select

@@ -10,24 +10,26 @@ import type { Metadata } from 'next'
 // Localized metadata content
 const localeMetadata = {
   az: {
-    title: 'Bitig — Azərbaycan Səsli Kitab Platforması',
+    title: 'Bitig — Yerli İntellektual Sosial Şəbəkə',
     titleTemplate: '%s | Bitig',
-    description: 'Bitig — Azərbaycanın ən yaxşı səsli kitab platforması. Səsli kitabları kəşf edin, dinləyin və kitab həvəskarları ilə əlaqə qurun. Audiokitablar, pulsuz səsli kitablar.',
+    description: 'Bitig — Azərbaycanın ilk yerli intellektual sosial şəbəkəsi. Səsli kitabları kəşf edin, fikirlərinizi bölüşün və kitab həvəskarları ilə əlaqə qurun.',
     keywords: [
       'Bitig', 'bitig', 'bitig.az', 'bitiq', 'bitik',
       'səsli kitab', 'səsli kitablar', 'audiokitab', 'audiokitablar',
       'Azərbaycan səsli kitab', 'kitab dinlə', 'pulsuz səsli kitab',
       'Azərbaycan dilində kitablar', 'online kitab', 'kitabxana',
+      'sosial şəbəkə', 'intellektual şəbəkə',
     ],
   },
   en: {
-    title: 'Bitig — Azerbaijani Audiobooks Platform',
+    title: 'Bitig — Local Intellectual Social Network',
     titleTemplate: '%s | Bitig',
-    description: 'Bitig — The best Azerbaijani audiobooks platform. Discover, listen, and connect with book lovers. Audiobooks, free audiobooks, and more.',
+    description: 'Bitig — The first local intellectual social network of Azerbaijan. Discover audiobooks, share your thoughts, and connect with book lovers.',
     keywords: [
       'Bitig', 'bitig', 'bitig.az',
       'audiobook', 'audiobooks', 'Azerbaijan audiobooks',
       'Azerbaijani audiobooks', 'listen to books', 'free audiobooks',
+      'social network', 'intellectual network',
     ],
   },
 }

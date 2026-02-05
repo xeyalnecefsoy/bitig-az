@@ -20,10 +20,10 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: 'Bitig — Azərbaycan Səsli Kitab Platforması',
+    default: 'Bitig — Yerli İntellektual Sosial Şəbəkə',
     template: '%s | Bitig',
   },
-  description: 'Bitig — Azərbaycanın ən yaxşı səsli kitab platforması. Səsli kitabları kəşf edin, dinləyin və kitab həvəskarları ilə əlaqə qurun. Audiokitablar, pulsuz səsli kitablar və daha çoxu.',
+  description: 'Bitig — Azərbaycanın ilk yerli intellektual sosial şəbəkəsi. Səsli kitabları kəşf edin, fikirlərinizi bölüşün və kitab həvəskarları ilə əlaqə qurun.',
   keywords: [
     // Primary brand keywords
     'Bitig', 'bitig', 'bitig.az', 'bitiq', 'bitik',
@@ -60,8 +60,8 @@ export const metadata: Metadata = {
     ],
   },
   openGraph: {
-    title: 'Bitig — Azərbaycan Səsli Kitab Platforması',
-    description: 'Bitig — Azərbaycanın ən yaxşı səsli kitab platforması. Səsli kitabları kəşf edin, dinləyin və kitab həvəskarları ilə əlaqə qurun.',
+    title: 'Bitig — Yerli İntellektual Sosial Şəbəkə',
+    description: 'Bitig — Azərbaycanın ilk yerli intellektual sosial şəbəkəsi. Səsli kitabları kəşf edin, fikirlərinizi bölüşün və kitab həvəskarları ilə əlaqə qurun.',
     url: 'https://bitig.az',
     siteName: 'Bitig',
     images: [
@@ -77,8 +77,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Bitig — Azərbaycan Səsli Kitab Platforması',
-    description: 'Azərbaycanın ən yaxşı səsli kitab platforması. Səsli kitabları kəşf edin və dinləyin.',
+    title: 'Bitig — Yerli İntellektual Sosial Şəbəkə',
+    description: 'Azərbaycanın ilk yerli intellektual sosial şəbəkəsi. Səsli kitabları kəşf edin və fikirlərinizi bölüşün.',
     images: ['/og.png'],
     creator: '@bitigaz',
     site: '@bitigaz',

@@ -7,6 +7,7 @@ export type User = {
   joinedAt?: string;
   followers?: number;
   following?: number;
+  rank?: string;
 };
 
 export type Notification = {

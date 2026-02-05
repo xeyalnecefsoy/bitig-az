@@ -3,6 +3,7 @@ import { useState, useMemo } from 'react'
 import { useSocial } from '@/context/social'
 import { SocialPostCard } from '@/components/social/SocialPostCard'
 import { SocialComposer } from '@/components/social/SocialComposer'
+import { SocialLoginPrompt } from '@/components/social/SocialLoginPrompt'
 import { useLocale } from '@/context/locale'
 import { t } from '@/lib/i18n'
 import Link from 'next/link'
@@ -197,7 +198,11 @@ export default function SocialPage() {
           </div>
         )}
 
-        <SocialComposer />
+        {currentUser ? (
+          <SocialComposer />
+        ) : (
+          !loading && <SocialLoginPrompt />
+        )}
         
         {/* Show skeleton while loading */}
         {loading && (

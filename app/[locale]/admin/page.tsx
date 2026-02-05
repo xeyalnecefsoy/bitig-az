@@ -18,40 +18,86 @@ export default function AdminDashboard() {
     loadStats()
   }, [])
 
-  async function loadStats() {
-    // Fetch all stats in parallel
-    const [users, books, posts, comments, likes] = await Promise.all([
-      supabase.from('profiles').select('*', { count: 'exact', head: true }),
-      supabase.from('books').select('*'),
-      supabase.from('posts').select('*', { count: 'exact', head: true }),
-      supabase.from('comments').select('*', { count: 'exact', head: true }),
-      supabase.from('likes').select('*', { count: 'exact', head: true }),
+  async function getGrowth(table: string) {
+    const date = new Date()
+    date.setDate(date.getDate() - 30)
+    const thirtyDaysAgo = date.toISOString()
+
+    const [current, past] = await Promise.all([
+      supabase.from(table).select('*', { count: 'exact', head: true }),
+      supabase.from(table).select('*', { count: 'exact', head: true }).lt('created_at', thirtyDaysAgo)
     ])
 
-    const booksData = books.data || []
-    const totalRevenue = booksData.reduce((sum, book) => sum + (book.price || 0), 0)
-    const avgRating = booksData.length > 0 
-      ? booksData.reduce((sum, book) => sum + (book.rating || 0), 0) / booksData.length 
-      : 0
+    const currentCount = current.count || 0
+    const pastCount = past.count || 0
+    
+    // If pastCount is 0, growth is 100% if current > 0, else 0%
+    const growth = pastCount === 0 
+      ? (currentCount > 0 ? 100 : 0)
+      : Math.round(((currentCount - pastCount) / pastCount) * 100)
 
-    // Genre distribution
-    const genreCount: Record<string, number> = {}
-    booksData.forEach(book => {
-      genreCount[book.genre] = (genreCount[book.genre] || 0) + 1
-    })
+    return { count: currentCount, growth }
+  }
 
-    setStats({
-      totalUsers: users.count || 0,
-      totalBooks: booksData.length,
-      totalPosts: posts.count || 0,
-      totalComments: comments.count || 0,
-      totalLikes: likes.count || 0,
-      totalRevenue,
-      avgRating: avgRating.toFixed(1),
-      genreDistribution: genreCount,
-      topBooks: booksData.sort((a, b) => b.rating - a.rating).slice(0, 5),
-    })
-    setLoading(false)
+  async function loadStats() {
+    try {
+      // 1. Fetch Key Metrics with Trends
+      const [users, posts, books, reviews, comments, likes] = await Promise.all([
+        getGrowth('profiles'),
+        getGrowth('posts'),
+        supabase.from('books').select('id, genre, rating, title, author'), // Fetch basic info for calcs
+        getGrowth('book_reviews'),
+        supabase.from('comments').select('*', { count: 'exact', head: true }),
+        supabase.from('likes').select('*', { count: 'exact', head: true }),
+      ])
+
+      const booksData = books.data || []
+      const totalBooks = booksData.length
+      
+      // Calculate Avg Rating
+      const avgRating = totalBooks > 0 
+        ? booksData.reduce((sum, book) => sum + (book.rating || 0), 0) / totalBooks 
+        : 0
+
+      // Genre distribution
+      const genreCount: Record<string, number> = {}
+      booksData.forEach(book => {
+        if (book.genre) {
+          genreCount[book.genre] = (genreCount[book.genre] || 0) + 1
+        }
+      })
+
+      // Top Books (already fetched, just sort)
+      const topBooks = [...booksData]
+        .sort((a, b) => (b.rating || 0) - (a.rating || 0))
+        .slice(0, 5)
+
+      // Total Engagement (Likes + Comments)
+      const totalEngagement = (comments.count || 0) + (likes.count || 0)
+      
+      // Calculate engagement growth (approximate based on posts growth for now to save DB calls, or fetch explicitly)
+      // For now, let's just use the current count for engagement.
+
+      setStats({
+        totalUsers: users.count,
+        userGrowth: users.growth,
+        totalBooks: totalBooks,
+        totalPosts: posts.count,
+        postGrowth: posts.growth,
+        totalReviews: reviews.count,
+        reviewGrowth: reviews.growth,
+        totalEngagement,
+        avgRating: avgRating.toFixed(1),
+        genreDistribution: genreCount,
+        topBooks: topBooks,
+        totalComments: comments.count || 0,
+        totalLikes: likes.count || 0,
+      })
+    } catch (error) {
+      console.error('Error loading stats:', error)
+    } finally {
+      setLoading(false)
+    }
   }
 
   if (loading) {
@@ -76,7 +122,7 @@ export default function AdminDashboard() {
           value={stats.totalUsers} 
           icon={<FiUsers />}
           color="purple"
-          trend="+12%"
+          trend={stats.userGrowth}
         />
         <StatCard 
           label={t(locale, 'admin_total_books')} 
@@ -89,26 +135,27 @@ export default function AdminDashboard() {
           value={stats.totalPosts} 
           icon={<FiMessageCircle />}
           color="green"
-          trend="+8%"
+          trend={stats.postGrowth}
         />
         <StatCard 
-          label="Engagement" 
-          value={stats.totalLikes + stats.totalComments} 
-          icon={<FiTrendingUp />}
+          label={t(locale, 'reviews_written') || "Reviews"}
+          value={stats.totalReviews} 
+          icon={<FiStar />}
           color="orange"
-          trend="+24%"
+          trend={stats.reviewGrowth}
         />
       </div>
 
       {/* Secondary Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Replaced Revenue with Engagement for better relevance */}
         <div className="card p-6">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-neutral-600 dark:text-neutral-400">Total Revenue</span>
-            <FiDollarSign className="text-green-500" />
+            <span className="text-sm font-medium text-neutral-600 dark:text-neutral-400">Total Engagement</span>
+            <FiTrendingUp className="text-green-500" />
           </div>
-          <p className="text-2xl font-bold text-neutral-900 dark:text-white">${stats.totalRevenue.toFixed(2)}</p>
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">From {stats.totalBooks} audiobooks</p>
+          <p className="text-2xl font-bold text-neutral-900 dark:text-white">{stats.totalEngagement}</p>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">Likes & Comments</p>
         </div>
 
         <div className="card p-6">
@@ -210,7 +257,7 @@ function StatCard({ label, value, icon, color, trend }: {
   value: number; 
   icon: React.ReactNode;
   color: 'purple' | 'blue' | 'green' | 'orange';
-  trend?: string;
+  trend?: number;
 }) {
   const colorClasses = {
     purple: 'from-purple-500 to-purple-600',
@@ -230,8 +277,10 @@ function StatCard({ label, value, icon, color, trend }: {
           </div>
         </div>
         <p className="text-3xl font-bold text-neutral-900 dark:text-white">{value}</p>
-        {trend && (
-          <p className="text-xs text-green-600 dark:text-green-500 mt-1 font-medium">{trend} from last month</p>
+        {trend !== undefined && (
+          <p className={`text-xs mt-1 font-medium ${trend >= 0 ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}`}>
+            {trend >= 0 ? '+' : ''}{trend}% from last month
+          </p>
         )}
       </div>
     </div>

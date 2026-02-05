@@ -13,6 +13,7 @@ import { t, type Locale } from '@/lib/i18n'
 import { RankBadge } from '@/components/RankBadge'
 import { ProfileSkeleton } from '@/components/ui/Skeleton'
 import { Alert } from '@/components/ui/Alert'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
 
 export default function MyProfilePage() {
   const { close: closeAudio } = useAudio()
@@ -29,6 +30,7 @@ export default function MyProfilePage() {
   const [editForm, setEditForm] = useState({ username: '', bio: '' })
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [avatarPreview, setAvatarPreview] = useState<string>('')
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [alert, setAlert] = useState<{ message: string, type: 'error' | 'success' | 'info' } | null>(null)
   const router = useRouter()
   const pathname = usePathname()
@@ -187,7 +189,11 @@ export default function MyProfilePage() {
     setSaving(false)
   }
 
-  async function handleLogout() {
+  function handleLogout() {
+    setShowLogoutConfirm(true)
+  }
+
+  async function confirmLogout() {
     closeAudio() // Stop audio playback
     await supabase.auth.signOut()
     router.push(`/${locale}` as any)
@@ -266,6 +272,7 @@ export default function MyProfilePage() {
                     src={avatarPreview || currentUser.avatar_url} 
                     alt="Avatar" 
                     className="h-24 w-24 rounded-full object-cover border-2 border-neutral-200 dark:border-neutral-700" 
+                    referrerPolicy="no-referrer" 
                   />
                   <label className="absolute bottom-0 right-0 p-2 bg-brand text-white rounded-full cursor-pointer hover:bg-brand/90 shadow-lg">
                     <FiUpload size={14} />
@@ -321,11 +328,15 @@ export default function MyProfilePage() {
             // View Mode
             <>
               <div className="flex items-center gap-4">
-                <img src={currentUser.avatar_url} alt={currentUser.username} className="h-16 w-16 rounded-full object-cover" />
+                <img src={currentUser.avatar_url} alt={currentUser.username} className="h-16 w-16 rounded-full object-cover" referrerPolicy="no-referrer" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h1 className="text-lg font-semibold truncate">{currentUser.username || t(locale, 'profile_anonymous')}</h1>
-                    <RankBadge rank={currentUser.rank || 'novice'} locale={locale} size="sm" />
+                    <RankBadge 
+                      rank={(currentUser.username === 'khayalnajafov' || currentUser.username === 'xeyalnecefsoy' ? 'founder' : (currentUser.rank || 'novice')) as any} 
+                      locale={locale} 
+                      size="sm" 
+                    />
                   </div>
                   {currentUser.bio && <p className="text-sm text-neutral-600 dark:text-neutral-300 line-clamp-2">{currentUser.bio}</p>}
                 </div>
@@ -384,6 +395,17 @@ export default function MyProfilePage() {
           )}
         </div>
       </aside>
+
+      <ConfirmDialog
+        isOpen={showLogoutConfirm}
+        title={t(locale, 'logout')}
+        message={t(locale, 'logout_confirm_desc') || "Are you sure you want to log out?"}
+        confirmLabel={t(locale, 'logout')}
+        cancelLabel={t(locale, 'cancel_btn')}
+        onConfirm={confirmLogout}
+        onCancel={() => setShowLogoutConfirm(false)}
+        variant="danger"
+      />
     </section>
   )
 }
