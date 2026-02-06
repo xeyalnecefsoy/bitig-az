@@ -2,7 +2,7 @@
 import { t, type Locale } from '@/lib/i18n'
 import { FiX, FiCheck } from 'react-icons/fi'
 
-type Rank = 'novice' | 'reader' | 'bookworm' | 'scholar' | 'ozan' | 'writer'
+type Rank = 'novice' | 'reader' | 'bookworm' | 'scholar' | 'ozan' | 'writer' | 'founder'
 
 interface RankHelpModalProps {
   isOpen: boolean
@@ -29,6 +29,7 @@ const rankConfig: Record<Rank, { icon: string; color: string; bg: string }> = {
   scholar: { icon: '🎓', color: 'text-purple-600', bg: 'bg-purple-100' },
   ozan: { icon: '🎭', color: 'text-amber-600', bg: 'bg-amber-100' },
   writer: { icon: '✍️', color: 'text-rose-600', bg: 'bg-rose-100' },
+  founder: { icon: '🚀', color: 'text-blue-600', bg: 'bg-blue-100' },
 }
 
 export function RankHelpModal({ isOpen, onClose, locale, currentRank }: RankHelpModalProps) {
@@ -68,8 +69,8 @@ export function RankHelpModal({ isOpen, onClose, locale, currentRank }: RankHelp
           {ranks.map((rank, index) => {
             const req = rankRequirements[rank]
             const config = rankConfig[rank]
-            const isUnlocked = ranks.indexOf(currentRank) >= index
-            const isNext = ranks.indexOf(currentRank) + 1 === index
+            const isUnlocked = currentRank === 'founder' || ranks.indexOf(currentRank) >= index
+            const isNext = !isUnlocked && (currentRank !== 'founder' && ranks.indexOf(currentRank) + 1 === index)
 
             return (
               <div 

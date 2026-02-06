@@ -55,20 +55,26 @@ export default async function SocialProfilePage({ params }: { params: Promise<{ 
     isFollowing = !!data
   }
 
-  // Get random gradient based on user id
-  const gradients = [
-    'from-rose-400 to-orange-300',
-    'from-blue-400 to-indigo-400', 
-    'from-emerald-400 to-cyan-400',
-    'from-purple-400 to-pink-400',
-  ]
-  const gradient = gradients[profile.id.charCodeAt(0) % gradients.length]
+
 
   return (
     <section className="container-max py-0 sm:py-0">
       {/* Cover & Header */}
+      {/* Cover & Header */}
       <div className="relative mb-6">
-        <div className={`h-32 sm:h-48 w-full bg-gradient-to-r ${gradient}`} />
+        {/* Banner */}
+        <div className="w-full aspect-[4/1] bg-neutral-100 dark:bg-neutral-800">
+          {profile.banner_url ? (
+            <img 
+              src={profile.banner_url} 
+              alt="Banner" 
+              className="h-full w-full object-cover"
+              referrerPolicy="no-referrer"
+            />
+          ) : (
+            <div className="h-full w-full bg-gradient-to-r from-blue-500 to-purple-500 opacity-20" />
+          )}
+        </div>
         
         <div className="container-max px-4 sm:px-6 -mt-12 sm:-mt-16 relative z-10">
           <div className="flex flex-col items-center text-center">
@@ -76,32 +82,36 @@ export default async function SocialProfilePage({ params }: { params: Promise<{ 
                 src={profile.avatar_url || DEFAULT_AVATAR}
                 alt={profile.username}
                 className="h-24 w-24 sm:h-32 sm:w-32 rounded-full object-cover border-4 border-white dark:border-neutral-900 shadow-lg bg-white dark:bg-neutral-900"
+                referrerPolicy="no-referrer"
               />
               
               <div className="mt-4 space-y-2 max-w-lg">
-                <div className="flex items-center justify-center gap-2">
-                  <h1 className="text-2xl sm:text-3xl font-bold text-neutral-900 dark:text-white">
-                    {profile.username || t(locale as Locale, 'profile_anonymous')}
-                  </h1>
-                  <RankBadge 
-                    rank={(profile.username === 'khayalnajafov' || profile.username === 'xeyalnecefsoy' ? 'founder' : (profile.rank || 'novice')) as any} 
-                    locale={locale as Locale} 
-                    size="md" 
-                    clickable={false} 
-                  />
+                <div className="space-y-1">
+                  <div className="flex items-center justify-center gap-2">
+                    <h1 className="text-2xl sm:text-3xl font-bold text-neutral-900 dark:text-white">
+                      {profile.full_name || t(locale as Locale, 'profile_anonymous')}
+                    </h1>
+                    <RankBadge 
+                      rank={(profile.username === 'xeyalnecefsoy' ? 'founder' : (profile.rank || 'novice')) as any} 
+                      locale={locale as Locale} 
+                      size="md" 
+                      clickable={false} 
+                    />
+                  </div>
+                  {profile.username && (
+                    <div className="text-neutral-500 dark:text-neutral-400 font-medium text-lg">
+                      @{profile.username}
+                    </div>
+                  )}
                 </div>
                 
-                {profile.full_name && (
-                  <p className="text-neutral-600 dark:text-neutral-400 font-medium text-lg">{profile.full_name}</p>
-                )}
-                
                 {profile.bio && (
-                  <p className="text-neutral-600 dark:text-neutral-400 text-sm leading-relaxed">
+                  <p className="text-neutral-600 dark:text-neutral-400 text-sm leading-relaxed mt-2 whitespace-pre-wrap">
                     {profile.bio}
                   </p>
                 )}
                 
-                <div className="flex items-center justify-center gap-6 pt-2 text-sm">
+                <div className="flex items-center justify-center gap-6 pt-4 text-sm">
                    <div className="text-center">
                       <div className="font-bold text-neutral-900 dark:text-white text-lg">{profile.books_read || 0}</div>
                       <div className="text-neutral-500 dark:text-neutral-400 text-xs uppercase tracking-wide">{t(locale as Locale, 'books_read')}</div>

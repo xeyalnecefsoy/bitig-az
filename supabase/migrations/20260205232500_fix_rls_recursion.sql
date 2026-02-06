@@ -4,8 +4,11 @@
 -- Drop ALL existing policies first
 drop policy if exists "Users can view their conversations" on public.conversations;
 drop policy if exists "Users can view participants of their conversations" on public.conversation_participants;
+drop policy if exists "Users can view their participations" on public.conversation_participants;
 drop policy if exists "Users can view messages in their conversations" on public.direct_messages;
+drop policy if exists "Users can view messages" on public.direct_messages;
 drop policy if exists "Users can send messages in their conversations" on public.direct_messages;
+drop policy if exists "Users can send messages" on public.direct_messages;
 drop policy if exists "Users can update their conversations" on public.conversations;
 
 -- Simple approach: Use direct user check for participants, then reference participants for others

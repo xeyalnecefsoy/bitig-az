@@ -98,7 +98,11 @@ export function ChatWindow({ conversationId, conversation, onBack }: {
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="p-4 border-b border-neutral-200 dark:border-neutral-800 flex items-center gap-3 shrink-0">
-        <button onClick={onBack} className="md:hidden p-2 -ml-2 text-neutral-600 dark:text-neutral-400">
+        <button 
+          onClick={onBack} 
+          className="p-2 -ml-2 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-full transition-colors"
+          title={t(locale as Locale, 'dm_title')}
+        >
           <FiArrowLeft size={20} />
         </button>
         <Link 

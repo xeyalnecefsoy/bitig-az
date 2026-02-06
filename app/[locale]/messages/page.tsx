@@ -2,24 +2,36 @@ import { getConversations, getConversationByUserId } from '@/app/actions/message
 import { MessagesLayout } from '@/components/messages/MessagesLayout'
 import { Metadata } from 'next'
 
-export const metadata: Metadata = {
-  title: 'Messages | Bitig',
-  description: 'Your conversations',
+import { t, type Locale } from '@/lib/i18n'
+
+export async function generateMetadata({ 
+  params 
+}: { 
+  params: Promise<{ locale: string }> 
+}): Promise<Metadata> {
+  const { locale } = await params
+  return {
+    title: `${t(locale as Locale, 'dm_title')} | Bitig`,
+    description: t(locale as Locale, 'dm_search'),
+  }
 }
 
 export default async function MessagesPage({ 
-  searchParams 
+  searchParams,
+  params
 }: { 
-  searchParams: Promise<{ id?: string, userId?: string }> 
+  searchParams: Promise<{ id?: string, userId?: string }>,
+  params: Promise<{ locale: string }>
 }) {
-  const params = await searchParams
+  const { locale } = await params
+  const sParams = await searchParams
   let conversations = await getConversations()
   
   // If userId is provided (from profile Message button), find or create the conversation
-  let selectedConversationId = params.id
+  let selectedConversationId = sParams.id
   
-  if (params.userId) {
-    const directConversation = await getConversationByUserId(params.userId)
+  if (sParams.userId) {
+    const directConversation = await getConversationByUserId(sParams.userId)
     
     if (directConversation?.id) {
       selectedConversationId = directConversation.id

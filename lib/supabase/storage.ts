@@ -78,6 +78,41 @@ export async function uploadAvatar(file: File, userId: string): Promise<{ url: s
   return { url: data.publicUrl, error: null }
 }
 
+export async function uploadBanner(file: File, userId: string): Promise<{ url: string | null; error: string | null }> {
+  const validation = validateImageFile(file)
+  if (!validation.valid) {
+    return { url: null, error: validation.error || 'Invalid file' }
+  }
+
+  const supabase = createClient()
+  const fileExt = file.name.split('.').pop()
+  const fileName = `${userId}_banner.${fileExt}`
+  const filePath = `${userId}/${fileName}`
+
+  // Delete old banner if exists (we don't strictly need to do this if we overwrite, but good for cleanup if ext changes)
+  // Actually, standardizing on one extension or just overwriting is easier if we knew the old path, 
+  // but let's just upload with upsert: true. 
+  // Ideally we'd remove old ones to save space if extension differs, but for now specific naming is fine.
+  
+  const { error: uploadError } = await supabase.storage
+    .from('avatars') // Reusing avatars bucket for user-specific public images
+    .upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: true
+    })
+
+  if (uploadError) {
+    return { url: null, error: uploadError.message }
+  }
+
+  const { data } = supabase.storage
+    .from('avatars')
+    .getPublicUrl(filePath)
+
+  // Append timestamp to force refresh cache on client
+  return { url: `${data.publicUrl}?t=${Date.now()}`, error: null }
+}
+
 export async function deleteAudiobookCover(url: string): Promise<{ success: boolean; error: string | null }> {
   if (!url || !url.includes('audiobook-covers')) {
     return { success: true, error: null }

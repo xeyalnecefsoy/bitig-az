@@ -1,10 +1,16 @@
 'use client'
 
 import { formatDistanceToNow } from 'date-fns'
+import { az, enUS } from 'date-fns/locale'
 import { FiSearch } from 'react-icons/fi'
 import { useState } from 'react'
 import { useLocale } from '@/context/locale'
 import { t, type Locale } from '@/lib/i18n'
+
+// Helper for date-fns locale
+const getDateLocale = (locale: string) => {
+  return locale === 'az' ? az : enUS
+}
 
 // Simple avatar with initials fallback
 function UserAvatar({ user, size = 48 }: { user: any, size?: number }) {
@@ -83,13 +89,18 @@ export function ConversationList({ conversations, selectedId, onSelect }: {
             >
               <UserAvatar user={convo.otherUser} size={48} />
               <div className="flex-1 min-w-0">
-                <div className="flex justify-between items-baseline mb-1">
-                  <span className="font-semibold text-neutral-900 dark:text-white truncate">
-                    {convo.otherUser?.full_name || convo.otherUser?.username || 'İstifadəçi'}
-                  </span>
-                  <span className="text-xs text-neutral-500 shrink-0 ml-2">
-                    {formatDistanceToNow(new Date(convo.updated_at), { addSuffix: true })}
-                  </span>
+                <div className="flex flex-col mb-0.5">
+                  <div className="flex justify-between items-center">
+                    <span className="font-semibold text-neutral-900 dark:text-white truncate pr-2">
+                      {convo.otherUser?.full_name || convo.otherUser?.username || 'İstifadəçi'}
+                    </span>
+                    <span className="text-[10px] text-neutral-500 shrink-0 whitespace-nowrap">
+                      {formatDistanceToNow(new Date(convo.updated_at), { 
+                        addSuffix: true,
+                        locale: getDateLocale(locale)
+                      })}
+                    </span>
+                  </div>
                 </div>
                 <p className="text-sm text-neutral-500 dark:text-neutral-400 truncate">
                   {convo.last_message || t(locale as Locale, 'dm_start_chatting')}

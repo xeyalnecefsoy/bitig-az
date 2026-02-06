@@ -5,7 +5,7 @@ import { SocialPostCard } from '@/components/social/SocialPostCard'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { FiEdit2, FiSave, FiX, FiLogOut, FiUpload } from 'react-icons/fi'
-import { uploadAvatar } from '@/lib/supabase/storage'
+import { uploadAvatar, uploadBanner } from '@/lib/supabase/storage'
 import { useAudio } from '@/context/audio'
 import { FollowButton } from '@/components/social/FollowButton'
 import { useSocial } from '@/context/social'
@@ -30,6 +30,8 @@ export default function MyProfilePage() {
   const [editForm, setEditForm] = useState({ username: '', bio: '' })
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [avatarPreview, setAvatarPreview] = useState<string>('')
+  const [bannerFile, setBannerFile] = useState<File | null>(null)
+  const [bannerPreview, setBannerPreview] = useState<string>('')
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [alert, setAlert] = useState<{ message: string, type: 'error' | 'success' | 'info' } | null>(null)
   const router = useRouter()
@@ -71,6 +73,7 @@ export default function MyProfilePage() {
         setCurrentUser(profile)
         setEditForm({ username: profile.username || '', bio: profile.bio || '' })
         setAvatarPreview(profile.avatar_url || '')
+        setBannerPreview(profile.banner_url || '')
 
         // Fetch counts in parallel
         const [{ count: followers }, { count: following }] = await Promise.all([
@@ -133,11 +136,24 @@ export default function MyProfilePage() {
     }
   }
 
+  function handleBannerChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (file) {
+      setBannerFile(file)
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setBannerPreview(reader.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
   async function handleSave() {
     if (!currentUser) return
     setSaving(true)
 
     let avatarUrl = currentUser.avatar_url
+    let bannerUrl = currentUser.banner_url
     const usernameChanged = currentUser.username !== editForm.username
 
     // Upload new avatar if selected
@@ -149,6 +165,17 @@ export default function MyProfilePage() {
         return
       }
       avatarUrl = url || avatarUrl
+    }
+
+    // Upload new banner if selected
+    if (bannerFile) {
+      const { url, error } = await uploadBanner(bannerFile, currentUser.id)
+      if (error) {
+        setAlert({ message: t(locale, 'error_avatar_upload'), type: 'error' }) // Reuse error message or add new one
+        setSaving(false)
+        return
+      }
+      bannerUrl = url || bannerUrl
     }
 
     // Check username rules if changed
@@ -176,6 +203,7 @@ export default function MyProfilePage() {
         username: editForm.username,
         bio: editForm.bio,
         avatar_url: avatarUrl,
+        banner_url: bannerUrl,
       })
       .eq('id', currentUser.id)
 
@@ -265,13 +293,46 @@ export default function MyProfilePage() {
                 <Alert type={alert.type} message={alert.message} onClose={() => setAlert(null)} />
               )}
 
+              {/* Banner Upload */}
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                  {t(locale, 'banner_label')} <span className="text-neutral-400 font-normal ml-1">({t(locale, 'banner_recommended')})</span>
+                </label>
+                <div className="relative w-full aspect-[4/1] rounded-lg overflow-hidden bg-neutral-100 dark:bg-neutral-800 border-2 border-dashed border-neutral-300 dark:border-neutral-700 group">
+                  {(bannerPreview || currentUser.banner_url) ? (
+                    <img 
+                      src={bannerPreview || currentUser.banner_url} 
+                      alt="Banner" 
+                      className="h-full w-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center text-neutral-400 group-hover:opacity-0 transition-opacity">
+                      <span className="text-sm">{t(locale, 'no_banner')}</span>
+                    </div>
+                  )}
+                  <label className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white font-medium">
+                    <FiUpload className="mr-2" /> {t(locale, 'change_banner')}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleBannerChange}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                  {t(locale, 'banner_crop_hint')}
+                </p>
+              </div>
+
               {/* Avatar Upload */}
               <div className="flex flex-col items-center gap-3">
                 <div className="relative">
                   <img 
                     src={avatarPreview || currentUser.avatar_url} 
                     alt="Avatar" 
-                    className="h-24 w-24 rounded-full object-cover border-2 border-neutral-200 dark:border-neutral-700" 
+                    className="h-24 w-24 rounded-full object-cover border-2 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900" 
                     referrerPolicy="no-referrer" 
                   />
                   <label className="absolute bottom-0 right-0 p-2 bg-brand text-white rounded-full cursor-pointer hover:bg-brand/90 shadow-lg">
@@ -327,20 +388,82 @@ export default function MyProfilePage() {
           ) : (
             // View Mode
             <>
-              <div className="flex items-center gap-4">
-                <img src={currentUser.avatar_url} alt={currentUser.username} className="h-16 w-16 rounded-full object-cover" referrerPolicy="no-referrer" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h1 className="text-lg font-semibold truncate">{currentUser.username || t(locale, 'profile_anonymous')}</h1>
-                    <RankBadge 
-                      rank={(currentUser.username === 'khayalnajafov' || currentUser.username === 'xeyalnecefsoy' ? 'founder' : (currentUser.rank || 'novice')) as any} 
-                      locale={locale} 
-                      size="sm" 
-                    />
-                  </div>
-                  {currentUser.bio && <p className="text-sm text-neutral-600 dark:text-neutral-300 line-clamp-2">{currentUser.bio}</p>}
-                </div>
+            <div className="-m-5">
+              {/* Banner Area */}
+              <div className="relative w-full aspect-[4/1] bg-neutral-100 dark:bg-neutral-800 rounded-t-xl overflow-hidden">
+                {currentUser.banner_url ? (
+                  <img 
+                    src={currentUser.banner_url} 
+                    alt="Banner" 
+                    className="h-full w-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="h-full w-full bg-gradient-to-r from-blue-500 to-purple-500 opacity-20" />
+                )}
               </div>
+
+              {/* Profile Info Area */}
+              <div className="px-5 pb-5 relative">
+                 {/* Avatar (Overlapping) */}
+                 <div className="-mt-12 mb-3">
+                   <img 
+                      src={currentUser.avatar_url} 
+                      alt={currentUser.username} 
+                      className="h-24 w-24 rounded-full object-cover border-4 border-white dark:border-neutral-900 bg-white dark:bg-neutral-900 shadow-md" 
+                      referrerPolicy="no-referrer" 
+                    />
+                 </div>
+
+                 {/* Names & Badges & Actions */}
+                 <div className="flex justify-between items-start gap-4">
+                   <div className="space-y-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                         <h1 className="text-2xl font-bold text-neutral-900 dark:text-white truncate">
+                           {currentUser.full_name || t(locale, 'profile_anonymous')}
+                         </h1>
+                         <RankBadge 
+                            rank={(currentUser.username === 'xeyalnecefsoy' ? 'founder' : (currentUser.rank || 'novice')) as any} 
+                            locale={locale} 
+                            size="sm" 
+                         />
+                      </div>
+                      
+                      {/* Username */}
+                      {currentUser.username && (
+                        <div className="text-neutral-500 dark:text-neutral-400 font-medium truncate">
+                          @{currentUser.username}
+                        </div>
+                      )}
+                   </div>
+
+                   {/* Quick Actions */}
+                   <div className="flex gap-1.5 shrink-0">
+                     <button 
+                       onClick={() => setEditing(true)} 
+                       className="p-2 text-neutral-500 hover:text-brand hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-full transition-colors"
+                       title={t(locale, 'edit_profile')}
+                     >
+                       <FiEdit2 size={20} />
+                     </button>
+                     <button 
+                       onClick={handleLogout} 
+                       className="p-2 text-neutral-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
+                       title={t(locale, 'logout')}
+                     >
+                       <FiLogOut size={20} />
+                     </button>
+                   </div>
+                 </div>
+
+                 {/* Bio */}
+                 {currentUser.bio && (
+                   <p className="mt-3 text-sm text-neutral-600 dark:text-neutral-300 whitespace-pre-wrap">
+                     {currentUser.bio}
+                   </p>
+                 )}
+              </div>
+            </div>
 
               {/* Reputation Stats */}
               <div className="mt-4 grid grid-cols-3 gap-2 text-center">
@@ -383,14 +506,7 @@ export default function MyProfilePage() {
                 </div>
               )}
 
-              <div className="mt-4 space-y-2">
-                <button onClick={() => setEditing(true)} className="btn btn-outline w-full gap-2">
-                  <FiEdit2 /> {t(locale, 'edit_profile')}
-                </button>
-                <button onClick={handleLogout} className="btn btn-outline w-full gap-2 text-red-600 hover:text-red-700 hover:border-red-600">
-                  <FiLogOut /> {t(locale, 'logout')}
-                </button>
-              </div>
+
             </>
           )}
         </div>
