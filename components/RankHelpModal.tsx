@@ -20,6 +20,7 @@ const rankRequirements = {
   scholar: { books: 25, reviews: 15, likes: 50 },
   ozan: { books: 50, reviews: 30, likes: 100 },
   writer: { books: 100, reviews: 50, likes: 250 },
+  founder: { books: 0, reviews: 0, likes: 0 },
 }
 
 const rankConfig: Record<Rank, { icon: string; color: string; bg: string }> = {
