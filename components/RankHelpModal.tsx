@@ -71,7 +71,7 @@ export function RankHelpModal({ isOpen, onClose, locale, currentRank }: RankHelp
             const req = rankRequirements[rank]
             const config = rankConfig[rank]
             const isUnlocked = currentRank === 'founder' || ranks.indexOf(currentRank) >= index
-            const isNext = !isUnlocked && (currentRank !== 'founder' && ranks.indexOf(currentRank) + 1 === index)
+            const isNext = !isUnlocked && ranks.indexOf(currentRank as typeof ranks[number]) + 1 === index
 
             return (
               <div 
