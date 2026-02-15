@@ -1,4 +1,4 @@
-import { getConversations, getConversationByUserId } from '@/app/actions/messages'
+import { getConversations, getConversationByUserId, getConversationById } from '@/app/actions/messages'
 import { MessagesLayout } from '@/components/messages/MessagesLayout'
 import { Metadata } from 'next'
 
@@ -23,12 +23,21 @@ export default async function MessagesPage({
   searchParams: Promise<{ id?: string, userId?: string }>,
   params: Promise<{ locale: string }>
 }) {
+  console.log('[Page: Messages] Rendering...')
   const { locale } = await params
   const sParams = await searchParams
   let conversations = await getConversations()
   
   // If userId is provided (from profile Message button), find or create the conversation
   let selectedConversationId = sParams.id
+  
+  // If we have an ID but it's not in the list (e.g. empty new conversation), fetch it specifically
+  if (selectedConversationId && !conversations.find((c: any) => c.id === selectedConversationId)) {
+     const specificConvo = await getConversationById(selectedConversationId)
+     if (specificConvo) {
+        conversations = [specificConvo, ...conversations]
+     }
+  }
   
   if (sParams.userId) {
     const directConversation = await getConversationByUserId(sParams.userId)
@@ -49,7 +58,7 @@ export default async function MessagesPage({
   }
 
   return (
-    <div className="container py-4 h-[calc(100dvh-140px)] max-h-[calc(100dvh-140px)] overflow-hidden">
+    <div className="container max-w-7xl mx-auto py-4 h-[calc(100dvh-140px)] max-h-[calc(100dvh-140px)] overflow-hidden">
       <MessagesLayout 
         initialConversations={conversations} 
         initialSelectedId={selectedConversationId}

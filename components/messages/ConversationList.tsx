@@ -2,9 +2,10 @@
 
 import { formatDistanceToNow } from 'date-fns'
 import { az, enUS } from 'date-fns/locale'
-import { FiSearch } from 'react-icons/fi'
+import { FiSearch, FiPlus, FiUserPlus } from 'react-icons/fi'
 import { useState } from 'react'
 import { useLocale } from '@/context/locale'
+import { NewChatModal } from './NewChatModal'
 import { t, type Locale } from '@/lib/i18n'
 
 // Helper for date-fns locale
@@ -52,7 +53,15 @@ export function ConversationList({ conversations, selectedId, onSelect }: {
   const [search, setSearch] = useState('')
   const locale = useLocale()
 
-  const filtered = conversations.filter(c => 
+  const [tab, setTab] = useState<'inbox' | 'requests'>('inbox')
+  const [isModalOpen, setIsModalOpen] = useState(false)
+
+  const relevantConversations = conversations.filter(c => {
+    if (tab === 'requests') return c.status !== 'accepted'
+    return c.status === 'accepted'
+  })
+
+  const filtered = relevantConversations.filter(c => 
     c.otherUser?.username?.toLowerCase().includes(search.toLowerCase()) || 
     c.otherUser?.full_name?.toLowerCase().includes(search.toLowerCase())
   )
@@ -60,7 +69,43 @@ export function ConversationList({ conversations, selectedId, onSelect }: {
   return (
     <div className="flex flex-col h-full">
       <div className="p-4 border-b border-neutral-200 dark:border-neutral-800 shrink-0">
-        <h2 className="text-xl font-bold mb-4 dark:text-white">{t(locale as Locale, 'dm_title')}</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold dark:text-white">{t(locale as Locale, 'dm_title')}</h2>
+          <button 
+            onClick={() => setIsModalOpen(true)}
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-brand text-white hover:bg-brand/90 transition-all shadow-sm"
+            title={t(locale as Locale, 'dm_new_chat')}
+          >
+            <FiPlus size={20} />
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-1 p-1 bg-neutral-100 dark:bg-neutral-800 rounded-lg mb-4">
+          <button 
+            onClick={() => setTab('inbox')}
+            className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${
+              tab === 'inbox' 
+                ? 'bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white shadow-sm' 
+                : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
+            }`}
+          >
+            {t(locale as Locale, 'dm_inbox')}
+          </button>
+          <button 
+            onClick={() => setTab('requests')}
+            className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all relative ${
+              tab === 'requests' 
+                ? 'bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white shadow-sm' 
+                : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
+            }`}
+          >
+            {t(locale as Locale, 'dm_requests')}
+            {conversations.filter(c => c.status === 'pending').length > 0 && (
+              <span className="absolute top-1.5 right-2 w-1.5 h-1.5 rounded-full bg-red-500" />
+            )}
+          </button>
+        </div>
         <div className="relative">
           <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
           <input
@@ -110,6 +155,16 @@ export function ConversationList({ conversations, selectedId, onSelect }: {
           ))
         )}
       </div>
+
+
+      <NewChatModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        onConversationStarted={(id) => {
+          onSelect(id)
+          setTab('inbox') // Switch to inbox as sender is always accepted
+        }}
+      />
     </div>
   )
 }

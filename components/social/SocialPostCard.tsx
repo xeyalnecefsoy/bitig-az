@@ -4,6 +4,7 @@ import { useSocial } from '@/context/social'
 import { FiHeart, FiMessageCircle, FiTrash2 } from 'react-icons/fi'
 import { AiFillHeart } from 'react-icons/ai'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useLocale } from '@/context/locale'
 import { FiMoreHorizontal } from 'react-icons/fi'
 import { ReportModal } from '@/components/ReportModal'
@@ -34,6 +35,8 @@ export function SocialPostCard({ postId, disableHover = false }: { postId: strin
 
   const isOwnPost = currentUser?.id === author.id
   const shouldDisableHover = disableHover || isOwnPost
+
+  const router = useRouter()
 
   return (
     <article className="card p-4 sm:p-5">
@@ -105,9 +108,20 @@ export function SocialPostCard({ postId, disableHover = false }: { postId: strin
           onClose={() => setShowReport(false)}
         />
       )}
-      <Link href={`/${locale}/social/post/${post.id}` as any} className="mt-3 block text-sm sm:text-base whitespace-pre-wrap break-words hover:text-neutral-900 dark:hover:text-neutral-50 mb-3">
+      <div 
+        role="button"
+        tabIndex={0}
+        onClick={() => router.push(`/${locale}/social/post/${post.id}`)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            router.push(`/${locale}/social/post/${post.id}`)
+          }
+        }}
+        className="mt-3 block text-sm sm:text-base whitespace-pre-wrap break-words hover:text-neutral-900 dark:hover:text-neutral-50 mb-3 cursor-pointer"
+      >
         <RichText content={post.content} locale={locale} />
-      </Link>
+      </div>
       
       {post.mentionedBook && (
         <Link 

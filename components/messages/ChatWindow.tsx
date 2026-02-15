@@ -1,8 +1,12 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import { getMessages, sendMessage } from '@/app/actions/messages'
-import { FiSend, FiArrowLeft } from 'react-icons/fi'
+import { getMessages, sendMessage, deleteConversation } from '@/app/actions/messages'
+import { ConfirmModal } from '@/components/messages/ConfirmModal'
+import { RichText } from '@/components/social/RichText'
+import { useMentions } from '@/hooks/useMentions'
+import { MentionDropdown } from '@/components/social/MentionDropdown'
+import { FiSend, FiArrowLeft, FiTrash2 } from 'react-icons/fi'
 import { useSocial } from '@/context/social'
 import { useLocale } from '@/context/locale'
 import { t, type Locale } from '@/lib/i18n'
@@ -48,6 +52,53 @@ export function ChatWindow({ conversationId, conversation, onBack }: {
   const [messages, setMessages] = useState<any[]>([])
   const [inputText, setInputText] = useState('')
   const [sending, setSending] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+
+  const handleDeleteClick = () => {
+    setShowDeleteModal(true)
+  }
+
+  const {
+    query: mentionQuery,
+    isOpen: isMentionOpen,
+    suggestions: mentionSuggestions,
+    activeIndex: mentionActiveIndex,
+    loading: mentionLoading,
+    handleInputChange: handleMentionInputChange,
+    handleKeyDown: handleMentionKeyDown,
+    selectUser: selectMentionUser,
+  } = useMentions()
+
+  const handleConfirmDelete = async () => {
+    setIsDeleting(true)
+    setShowDeleteModal(false)
+    const result = await deleteConversation(conversationId)
+    setIsDeleting(false)
+    
+    if (result.error) {
+      alert('Error deleting conversation: ' + result.error)
+    } else {
+      onBack()
+    }
+  }
+
+
+
+  const handleDelete = async () => {
+    if (!confirm(t(locale as Locale, 'dm_delete_confirm') || 'Are you sure you want to delete this conversation? This cannot be undone.')) return
+    
+    setIsDeleting(true)
+    const result = await deleteConversation(conversation.id)
+    setIsDeleting(false)
+    
+    if (result.error) {
+      alert('Error deleting conversation: ' + result.error)
+    } else {
+      // Navigate back to list handled by parent or router refresh in action
+      onBack()
+    }
+  }
   const { currentUser } = useSocial()
   const scrollRef = useRef<HTMLDivElement>(null)
   const locale = useLocale()
@@ -55,10 +106,17 @@ export function ChatWindow({ conversationId, conversation, onBack }: {
   const otherUser = conversation?.otherUser
 
   useEffect(() => {
+    console.log('[ChatWindow] useEffect triggered for conversationId:', conversationId)
     loadMessages()
     // Reduced polling interval to 15 seconds
-    const interval = setInterval(loadMessages, 15000)
-    return () => clearInterval(interval)
+    const interval = setInterval(() => {
+        console.log('[ChatWindow] Polling messages...')
+        loadMessages()
+    }, 15000)
+    return () => {
+        console.log('[ChatWindow] Cleaning up useEffect for conversationId:', conversationId)
+        clearInterval(interval)
+    }
   }, [conversationId])
 
   useEffect(() => {
@@ -105,6 +163,14 @@ export function ChatWindow({ conversationId, conversation, onBack }: {
         >
           <FiArrowLeft size={20} />
         </button>
+        <button 
+           onClick={handleDeleteClick}
+           disabled={isDeleting}
+           className="p-2 text-red-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-full transition-colors ml-auto md:ml-0 order-2 md:order-none"
+           title="Delete conversation"
+        >
+          <FiTrash2 size={20} />
+        </button>
         <Link 
           href={`/${locale}/social/profile/${otherUser?.username || otherUser?.id}`} 
           className="flex items-center gap-3 hover:opacity-80 transition-opacity"
@@ -141,7 +207,11 @@ export function ChatWindow({ conversationId, conversation, onBack }: {
                     : 'bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white rounded-bl-sm border border-neutral-200 dark:border-neutral-700'
                 }`}
               >
-                {msg.message_type === 'text' && <p className="break-words">{msg.content}</p>}
+                {msg.message_type === 'text' && (
+                  <div className="break-words">
+                    <RichText content={msg.content} locale={locale as string} />
+                  </div>
+                )}
                 {msg.message_type === 'book_share' && (
                    <div className="flex flex-col">
                       <span className="text-xs opacity-70 mb-1">{t(locale as Locale, 'dm_shared_book')}</span>
@@ -160,14 +230,34 @@ export function ChatWindow({ conversationId, conversation, onBack }: {
       </div>
 
       {/* Input */}
-      <form onSubmit={handleSend} className="p-3 border-t border-neutral-200 dark:border-neutral-800 flex gap-3 bg-white dark:bg-neutral-900 shrink-0">
-        <input
-          type="text"
-          value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
-          placeholder={t(locale as Locale, 'dm_type_message')}
-          className="flex-1 bg-neutral-100 dark:bg-neutral-800 rounded-full px-4 py-3 outline-none focus:ring-2 ring-brand dark:text-white text-sm"
-        />
+      <form onSubmit={handleSend} className="p-3 border-t border-neutral-200 dark:border-neutral-800 flex gap-3 bg-white dark:bg-neutral-900 shrink-0 relative">
+        <div className="flex-1 relative">
+          <input
+            type="text"
+            value={inputText}
+            onChange={(e) => {
+              setInputText(e.target.value)
+              handleMentionInputChange(e)
+            }}
+            onKeyDown={(e) => handleMentionKeyDown(e, inputText, setInputText)}
+            placeholder={t(locale as Locale, 'dm_type_message')}
+            className="w-full bg-neutral-100 dark:bg-neutral-800 rounded-full px-4 py-3 outline-none focus:ring-2 ring-brand dark:text-white text-sm"
+          />
+          {isMentionOpen && (
+            <div className="absolute bottom-full left-0 w-full mb-2">
+               <MentionDropdown 
+                isOpen={isMentionOpen}
+                suggestions={mentionSuggestions}
+                activeIndex={mentionActiveIndex}
+                loading={mentionLoading}
+                onSelect={(user) => {
+                  const newValue = selectMentionUser(user, inputText)
+                  setInputText(newValue)
+                }}
+              />
+            </div>
+          )}
+        </div>
         <button 
           type="submit"
           disabled={!inputText.trim() || sending}
@@ -176,6 +266,17 @@ export function ChatWindow({ conversationId, conversation, onBack }: {
           <FiSend size={18} />
         </button>
       </form>
+      
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={handleConfirmDelete}
+        title={t(locale as Locale, 'dm_delete_title') || 'Delete Conversation'}
+        message={t(locale as Locale, 'dm_delete_confirm') || 'Are you sure you want to delete this conversation? This action cannot be undone.'}
+        confirmText={t(locale as Locale, 'delete') || 'Delete'}
+        isDestructive={true}
+        isLoading={isDeleting}
+      />
     </div>
   )
 }

@@ -6,7 +6,7 @@ import Image from 'next/image'
 import { useCart } from '@/context/cart'
 import { useLocale } from '@/context/locale'
 import { t } from '@/lib/i18n'
-import { FiGlobe, FiMoon, FiSun, FiShoppingCart, FiHome, FiHeadphones, FiUser, FiMessageCircle, FiBook } from 'react-icons/fi'
+import { FiGlobe, FiMoon, FiSun, FiShoppingCart, FiHome, FiHeadphones, FiUser, FiMessageCircle, FiBook, FiSend } from 'react-icons/fi'
 import { useTheme } from '@/context/theme'
 import { NotificationsBtn } from './NotificationsBtn'
 
@@ -38,6 +38,11 @@ export function Navbar() {
           <Link href={cartHref as any} className="hover:text-brand inline-flex items-center gap-1">
             <FiShoppingCart /> {t(locale, 'nav_cart')} <span className="ml-1 rounded-full bg-brand/10 px-2 py-0.5 text-brand">{count}</span>
           </Link>
+          {usePathname().startsWith(`/${locale}/social`) && (
+            <Link href={`/${locale}/messages` as any} className="hover:text-brand" aria-label={t(locale, 'dm_title')}>
+              <FiSend className="text-xl" />
+            </Link>
+          )}
           <NotificationsBtn />
           <LangDropdown current={locale} />
           <button
@@ -182,6 +187,7 @@ function LangDropdown({ current }: { current: 'en' | 'az' }) {
 
 export function MobileHeader() {
   const locale = useLocale()
+  const pathname = usePathname()
   const { theme, toggle } = useTheme()
   const [mounted, setMounted] = useState(false)
 
@@ -197,6 +203,11 @@ export function MobileHeader() {
           <span className="font-semibold text-base">Bitig</span>
         </Link>
         <div className="flex items-center gap-3">
+          {pathname.startsWith(`/${locale}/social`) && (
+            <Link href={`/${locale}/messages` as any} className="text-neutral-700 dark:text-neutral-200" aria-label={t(locale, 'dm_title')}>
+              <FiSend size={20} />
+            </Link>
+          )}
           <NotificationsBtn />
           <LangDropdown current={locale} />
           <button

@@ -8,6 +8,8 @@ import * as Popover from '@radix-ui/react-popover'
 import { createClient } from '@/lib/supabase/client'
 import { useDebounce } from 'use-debounce'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { useMentions } from '@/hooks/useMentions'
+import { MentionDropdown } from '@/components/social/MentionDropdown'
 
 // Content quality constants
 const MIN_CHARS = 20
@@ -32,6 +34,18 @@ export function SocialComposer({ groupId }: { groupId?: string }) {
   const [searching, setSearching] = useState(false)
   const supabase = createClient()
   const [open, setOpen] = useState(false)
+
+  const {
+    query: mentionQuery,
+    isOpen: isMentionOpen,
+    suggestions: mentionSuggestions,
+    activeIndex: mentionActiveIndex,
+    loading: mentionLoading,
+    handleInputChange: handleMentionInputChange,
+    handleKeyDown: handleMentionKeyDown,
+    selectUser: selectMentionUser,
+    setIsOpen: setMentionOpen
+  } = useMentions()
 
   // Validation state
   const validation = useMemo(() => {
@@ -118,17 +132,33 @@ export function SocialComposer({ groupId }: { groupId?: string }) {
 
       <div className="flex gap-2">
         <div className="flex-1">
-          <textarea
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            placeholder={t(locale, 'social_write_placeholder')}
-            rows={4}
-            className={`w-full rounded-md border px-3 py-2 text-sm resize-none bg-white text-neutral-900 dark:bg-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-400 transition-colors ${
-              value.length > 0 && !validation.isValid
-                ? 'border-red-300 dark:border-red-700 focus:border-red-500 focus:ring-red-500/20'
-                : 'border-neutral-200 dark:border-neutral-700 focus:border-brand focus:ring-brand/20'
-            }`}
-          />
+          <div className="relative">
+            <textarea
+              value={value}
+              onChange={(e) => {
+                setValue(e.target.value)
+                handleMentionInputChange(e)
+              }}
+              onKeyDown={(e) => handleMentionKeyDown(e, value, setValue)}
+              placeholder={t(locale, 'social_write_placeholder')}
+              rows={4}
+              className={`w-full rounded-md border px-3 py-2 text-sm resize-none bg-white text-neutral-900 dark:bg-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-400 transition-colors ${
+                value.length > 0 && !validation.isValid
+                  ? 'border-red-300 dark:border-red-700 focus:border-red-500 focus:ring-red-500/20'
+                  : 'border-neutral-200 dark:border-neutral-700 focus:border-brand focus:ring-brand/20'
+              }`}
+            />
+            <MentionDropdown 
+              isOpen={isMentionOpen}
+              suggestions={mentionSuggestions}
+              activeIndex={mentionActiveIndex}
+              loading={mentionLoading}
+              onSelect={(user) => {
+                const newValue = selectMentionUser(user, value)
+                setValue(newValue)
+              }}
+            />
+          </div>
           
           {selectedBook && (
             <div className="mt-2 flex items-center gap-2 bg-neutral-100 dark:bg-neutral-800 p-2 rounded-md border border-neutral-200 dark:border-neutral-700">

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { ConversationList } from './ConversationList'
 import { ChatWindow } from './ChatWindow'
 import { useLocale } from '@/context/locale'
@@ -24,9 +24,15 @@ export function MessagesLayout({
 
   // Update conversations if initialConversations changes (e.g. new data from server reval)
   // BUT don't overwrite if we have more conversations in state (e.g. from optimistic adds)
-  useMemo(() => {
-    if (initialConversations.length > conversations.length) {
-      setConversations(initialConversations)
+  // Update conversations if initialConversations changes
+  useEffect(() => {
+    if (initialConversations && initialConversations.length > 0) {
+       // Simple check: if we have more/different conversations from server, update state
+       // But we need to be careful not to overwrite optimistic updates if possible
+       // For now, let's just sync if server has more items
+       if (initialConversations.length > conversations.length) {
+         setConversations(initialConversations)
+       }
     }
   }, [initialConversations])
   
@@ -41,12 +47,12 @@ export function MessagesLayout({
 
   const handleSelect = (id: string) => {
     setSelectedConversationId(id)
-    router.replace(`/${locale}/messages?id=${id}`)
+    // router.replace(`/${locale}/messages?id=${id}`) // Temporarily disabled to prevent re-render loop
   }
 
   const handleBack = () => {
     setSelectedConversationId(null)
-    router.replace(`/${locale}/messages`)
+    // router.replace(`/${locale}/messages`) // Temporarily disabled to prevent re-render loop
   }
 
   return (

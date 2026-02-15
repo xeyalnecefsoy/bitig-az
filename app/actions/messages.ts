@@ -4,26 +4,44 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
 export async function getConversations() {
+  console.log('[Action: getConversations] Starting...')
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) return []
 
   // Step 1: Get conversation IDs I'm part of
-  const { data: myParticipations, error: partError } = await supabase
+  // Try fetching with status first (new schema)
+  let myParticipations: any[] = []
+  
+  const { data: dataWithStatus, error: partError } = await supabase
     .from('conversation_participants')
-    .select('conversation_id')
+    .select('conversation_id, status')
     .eq('user_id', user.id)
 
   if (partError) {
-    console.error('Error fetching my participations:', JSON.stringify(partError, null, 2))
-    return []
+    // If error implies column missing, try fetching without status (old schema fallback)
+    console.warn('Error fetching status, falling back to basic fetch:', partError.message)
+    const { data: dataBasic, error: basicError } = await supabase
+      .from('conversation_participants')
+      .select('conversation_id')
+      .eq('user_id', user.id)
+    
+    if (basicError) {
+       console.error('Error fetching participations:', basicError)
+       return []
+    }
+    // Default to 'accepted' if status is missing
+    myParticipations = (dataBasic || []).map(p => ({ ...p, status: 'accepted' }))
+  } else {
+    myParticipations = dataWithStatus || []
   }
 
   if (!myParticipations || myParticipations.length === 0) {
     return [] // No conversations yet
   }
 
+  const conversationMap = new Map(myParticipations.map(p => [p.conversation_id, p.status]))
   const conversationIds = myParticipations.map(p => p.conversation_id)
 
   // Step 2: Get conversations
@@ -38,28 +56,82 @@ export async function getConversations() {
     return []
   }
 
-  // Step 3: Get other participants for each conversation
-  const result = await Promise.all(
-    (conversations || []).map(async (convo) => {
-      const { data: participants } = await supabase
-        .from('conversation_participants')
-        .select('user_id, profiles:user_id(id, username, full_name, avatar_url)')
-        .eq('conversation_id', convo.id)
-        .neq('user_id', user.id)
-        .limit(1)
-        .single()
+  // Filter out conversations with no messages or placeholder text
+  // The user reported "Started a conversation..." appearing, which suggests it might be saved in DB
+  const validConversations = (conversations || []).filter(c => {
+     if (!c.last_message) return false
+     if (c.last_message.trim() === '') return false
+     if (c.last_message.startsWith('Started a conversation')) return false // Filter out auto-generated start messages
+     return true
+  })
 
-      return {
-        ...convo,
-        otherUser: participants?.profiles || null
+  // Step 3: Get other participants for these VALID conversations
+  const validIds = validConversations.map(c => c.id)
+  
+  if (validIds.length === 0) return []
+
+  const { data: otherParticipants, error: otherPartError } = await supabase
+    .from('conversation_participants')
+    .select('conversation_id, user_id')
+    .in('conversation_id', validIds)
+    .neq('user_id', user.id)
+
+  if (otherPartError) {
+    console.error('Error fetching other participants:', otherPartError)
+  }
+
+  // Map conversationId -> otherUserId
+  const otherUserMap = new Map()
+  const otherUserIds = new Set<string>()
+  
+  if (otherParticipants) {
+    otherParticipants.forEach(p => {
+      // For groups, this logic might need adjustment, but for DMs (limit 1 other) it's fine
+      // If we already have one, skip (or handle groups later)
+      if (!otherUserMap.has(p.conversation_id)) {
+        otherUserMap.set(p.conversation_id, p.user_id)
+        otherUserIds.add(p.user_id)
       }
     })
-  )
+  }
+
+  // Step 4: Fetch profiles for other users
+  let profiles: any[] = []
+  if (otherUserIds.size > 0) {
+    // console.log('[Action: getConversations] Fetching profiles for IDs:', Array.from(otherUserIds))
+    const { data: profilesData, error: profilesError } = await supabase
+      .from('profiles')
+      .select('id, username, full_name, avatar_url')
+      .in('id', Array.from(otherUserIds))
+    
+    if (profilesError) {
+      console.error('[Action: getConversations] Error fetching profiles:', profilesError)
+    } else {
+      // console.log('[Action: getConversations] Profiles found:', profilesData?.length)
+      profiles = profilesData || []
+    }
+  }
+
+  const profileMap = new Map(profiles.map(p => [p.id, p]))
+
+  // Step 5: Combine everything
+  const result = validConversations.map(convo => {
+    const otherUserId = otherUserMap.get(convo.id)
+    const otherUserProfile = otherUserId ? profileMap.get(otherUserId) : null
+
+    return {
+      ...convo,
+      status: conversationMap.get(convo.id) || 'accepted',
+      otherUser: otherUserProfile || null
+    }
+  })
 
   return result
 }
 
 export async function getMessages(conversationId: string) {
+  // Console log removed to reduce noise, but can be enabled for debugging
+  // console.log('[Action: getMessages] fetching for:', conversationId)
   const supabase = await createClient()
   
   const { data, error } = await supabase
@@ -171,11 +243,15 @@ export async function getConversationByUserId(otherUserId: string) {
   if (!convo) return null
 
   // Get other user details
-  const { data: otherUserData } = await supabase
-    .from('profiles')
-    .select('id, username, full_name, avatar_url')
-    .eq('id', otherUserId)
-    .single()
+  let otherUserData = null
+  if (otherUserId) {
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, username, full_name, avatar_url')
+      .eq('id', otherUserId)
+      .single()
+    otherUserData = data
+  }
 
   console.log('getConversationByUserId: returning conversation with otherUser:', otherUserData?.username)
 
@@ -184,4 +260,102 @@ export async function getConversationByUserId(otherUserId: string) {
     id: conversationId,
     otherUser: otherUserData
   }
+}
+
+export async function searchUsers(query: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) return []
+  if (!query || query.length < 1) return []
+
+  const { data: users, error } = await supabase
+    .from('profiles')
+    .select('id, username, full_name, avatar_url')
+    .or(`username.ilike.%${query}%,full_name.ilike.%${query}%`)
+    .limit(10)
+
+  if (error) {
+    console.error('Error searching users:', error)
+    return []
+  }
+
+  return users
+}
+
+export async function getConversationById(conversationId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) return null
+
+  // Get conversation
+  const { data: convo, error } = await supabase
+    .from('conversations')
+    .select('*')
+    .eq('id', conversationId)
+    .single()
+
+  if (error || !convo) return null
+
+  // Get other participant
+  const { data: participant } = await supabase
+    .from('conversation_participants')
+    .select('user_id, profiles:user_id(id, username, full_name, avatar_url)')
+    .eq('conversation_id', conversationId)
+    .neq('user_id', user.id)
+    .single()
+  
+  
+  // If we can't find the other participant via join (due to some issues), try manual fetch
+  let otherUser: any = participant?.profiles
+  
+  if (Array.isArray(otherUser)) otherUser = otherUser[0]
+  
+  if (!otherUser) {
+     // Fallback manual fetch
+     const { data: rawParticipant } = await supabase
+        .from('conversation_participants')
+        .select('user_id')
+        .eq('conversation_id', conversationId)
+        .neq('user_id', user.id)
+        .single()
+     
+     if (rawParticipant?.user_id) {
+        const { data: profile } = await supabase
+           .from('profiles')
+           .select('id, username, full_name, avatar_url')
+           .eq('id', rawParticipant.user_id)
+           .single()
+        otherUser = profile
+     }
+  }
+
+  return {
+    ...convo,
+    otherUser: otherUser || null,
+    status: 'accepted' // Default for specific fetch
+  }
+}
+
+export async function deleteConversation(conversationId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) return { error: 'Unauthorized' }
+
+  // Delete the conversation
+  // This will cascade delete messages and participants due to FK constraints
+  const { error } = await supabase
+    .from('conversations')
+    .delete()
+    .eq('id', conversationId)
+
+  if (error) {
+    console.error('Error deleting conversation:', error)
+    return { error: error.message }
+  }
+
+  revalidatePath('/messages')
+  return { success: true }
 }
