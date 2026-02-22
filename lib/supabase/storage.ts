@@ -205,3 +205,56 @@ export async function deleteAudioTrack(url: string): Promise<{ success: boolean;
 
   return { success: true, error: null }
 }
+
+export async function uploadPostImage(file: File, userId: string): Promise<{ url: string | null; error: string | null }> {
+  const validation = validateImageFile(file)
+  if (!validation.valid) {
+    return { url: null, error: validation.error || 'Invalid file' }
+  }
+
+  const supabase = createClient()
+  const fileExt = file.name.split('.').pop()
+  const fileName = `${crypto.randomUUID()}.${fileExt}`
+  const filePath = `${userId}/${fileName}`
+
+  const { error: uploadError } = await supabase.storage
+    .from('post-images')
+    .upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: false
+    })
+
+  if (uploadError) {
+    return { url: null, error: uploadError.message }
+  }
+
+  const { data } = supabase.storage
+    .from('post-images')
+    .getPublicUrl(filePath)
+
+  return { url: data.publicUrl, error: null }
+}
+
+export async function deletePostImages(urls: string[]): Promise<{ success: boolean; error: string | null }> {
+  if (!urls || urls.length === 0) return { success: true, error: null }
+  
+  const supabase = createClient()
+  const paths = urls.map(url => {
+    if (url.includes('post-images/')) {
+      return url.split('/post-images/')[1]
+    }
+    return null
+  }).filter(Boolean) as string[]
+
+  if (paths.length === 0) return { success: true, error: null }
+
+  const { error } = await supabase.storage
+    .from('post-images')
+    .remove(paths)
+
+  if (error) {
+    return { success: false, error: error.message }
+  }
+
+  return { success: true, error: null }
+}

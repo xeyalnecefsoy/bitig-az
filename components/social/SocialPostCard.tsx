@@ -1,7 +1,7 @@
 "use client"
 import { useState } from 'react'
 import { useSocial } from '@/context/social'
-import { FiHeart, FiMessageCircle, FiTrash2 } from 'react-icons/fi'
+import { FiHeart, FiMessageCircle, FiTrash2, FiX, FiChevronLeft, FiChevronRight } from 'react-icons/fi'
 import { AiFillHeart } from 'react-icons/ai'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -13,14 +13,22 @@ import { t } from '@/lib/i18n'
 import { UserHoverCard } from './UserHoverCard'
 import { RichText } from './RichText'
 import { DEFAULT_AVATAR } from '@/lib/social'
+import * as Popover from '@radix-ui/react-popover'
+import { SocialComposer } from './SocialComposer'
 
-export function SocialPostCard({ postId, disableHover = false }: { postId: string, disableHover?: boolean }) {
-  const { posts, addComment, like, users, currentUser, deletePost } = useSocial()
+export function SocialPostCard({ postId, disableHover = false, isThread = false }: { postId: string, disableHover?: boolean, isThread?: boolean }) {
+  const { posts, addComment, like, users, currentUser, deletePost, editPost } = useSocial()
   const post = posts.find(p => p.id === postId)
   const [comment, setComment] = useState('')
   const [showReport, setShowReport] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [expandedImage, setExpandedImage] = useState<{ index: number, urls: string[] } | null>(null)
+  const [currentSlide, setCurrentSlide] = useState(0)
+  const [isMoreOpen, setIsMoreOpen] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editContent, setEditContent] = useState(post?.content || '')
+  const [showReplyComposer, setShowReplyComposer] = useState(false)
   const locale = useLocale()
   
   if (!post) return null
@@ -39,8 +47,12 @@ export function SocialPostCard({ postId, disableHover = false }: { postId: strin
   const router = useRouter()
 
   return (
-    <article className="card p-4 sm:p-5">
-      <header className="flex items-start gap-3">
+    <article className={`card p-4 sm:p-5 min-w-0 w-full overflow-hidden ${isThread ? 'border-t-0 rounded-t-none mt-0' : ''}`}>
+      <header className="flex items-start gap-3 relative">
+        {/* Thread connecting line - only if this post is Part of a thread but not the very first one */}
+        {isThread && (
+          <div className="absolute -top-10 left-[1.125rem] bottom-0 w-0.5 bg-neutral-200 dark:bg-neutral-800 -z-10" aria-hidden="true" />
+        )}
         <UserHoverCard userId={author.id} disabled={shouldDisableHover} className="flex items-start gap-3 flex-1 min-w-0 relative">
           <Link href={`/${locale}/social/profile/${author.username}` as any} className="shrink-0">
             <img src={author.avatar} alt={author.name} className="h-10 w-10 rounded-full object-cover" referrerPolicy="no-referrer" />
@@ -51,7 +63,10 @@ export function SocialPostCard({ postId, disableHover = false }: { postId: strin
                 {author.name}
               </Link>
             </div>
-            <div className="text-xs text-neutral-500 dark:text-neutral-400">{timeAgo(post.createdAt, locale)}</div>
+            <div className="text-xs text-neutral-500 dark:text-neutral-400">
+              {timeAgo(post.createdAt, locale)}
+              {post.updatedAt && <span className="ml-1 italic opacity-70">({t(locale, 'edited') || 'redaktə edilib'})</span>}
+            </div>
           </div>
         </UserHoverCard>
         <div className="relative flex items-center gap-1">
@@ -66,20 +81,61 @@ export function SocialPostCard({ postId, disableHover = false }: { postId: strin
                <FiTrash2 />
              </button>
           )}
-          <button
-            onClick={() => {
-              if (!currentUser) {
-                alert('You must be logged in to report.')
-                return
-              }
-              setShowReport(true)
-            }}
-            className="p-1 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200"
-            title="Report Post"
-            aria-label="Report Post"
-          >
-            <FiMoreHorizontal />
-          </button>
+          <Popover.Root open={isMoreOpen} onOpenChange={setIsMoreOpen}>
+            <Popover.Trigger asChild>
+              <button
+                className="p-1 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors"
+                title={t(locale, 'more_options') || "Daha çox"}
+                aria-label="Options"
+              >
+                <FiMoreHorizontal />
+              </button>
+            </Popover.Trigger>
+            <Popover.Portal>
+              <Popover.Content 
+                className="w-48 bg-white dark:bg-neutral-900 rounded-lg shadow-xl border border-neutral-200 dark:border-neutral-800 p-1 z-50 animate-in fade-in zoom-in-95 duration-200" 
+                align="end" 
+                sideOffset={5}
+              >
+                {isOwnPost && (
+                  <button
+                    onClick={() => {
+                      setIsMoreOpen(false)
+                      setIsEditing(true)
+                      setEditContent(post.content)
+                    }}
+                    className="w-full text-left p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition-colors text-sm text-neutral-700 dark:text-neutral-300 font-medium"
+                  >
+                    {t(locale, 'edit_post') || "Postu düzəlt"}
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    setIsMoreOpen(false)
+                    const url = `${window.location.origin}/${locale}/social/post/${post.id}`
+                    navigator.clipboard.writeText(url)
+                    alert(t(locale, 'link_copied') || "Link kopyalandı!")
+                  }}
+                  className="w-full text-left p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition-colors text-sm text-neutral-700 dark:text-neutral-300 font-medium"
+                >
+                  {t(locale, 'copy_link') || "URL kopyala"}
+                </button>
+                <button
+                  onClick={() => {
+                    setIsMoreOpen(false)
+                    if (!currentUser) {
+                      alert('You must be logged in to report.')
+                      return
+                    }
+                    setShowReport(true)
+                  }}
+                  className="w-full text-left p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition-colors text-sm text-red-600 dark:text-red-400 font-medium border-t border-neutral-100 dark:border-neutral-800 mt-1 pt-1"
+                >
+                  {t(locale, 'report_post') || "Şikayət et"}
+                </button>
+              </Popover.Content>
+            </Popover.Portal>
+          </Popover.Root>
         </div>
       </header>
       
@@ -108,20 +164,104 @@ export function SocialPostCard({ postId, disableHover = false }: { postId: strin
           onClose={() => setShowReport(false)}
         />
       )}
-      <div 
-        role="button"
-        tabIndex={0}
-        onClick={() => router.push(`/${locale}/social/post/${post.id}`)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault()
-            router.push(`/${locale}/social/post/${post.id}`)
-          }
-        }}
-        className="mt-3 block text-sm sm:text-base whitespace-pre-wrap break-words hover:text-neutral-900 dark:hover:text-neutral-50 mb-3 cursor-pointer"
-      >
-        <RichText content={post.content} locale={locale} />
-      </div>
+      {isEditing ? (
+        <div className="mt-3 mb-3">
+          <textarea
+            value={editContent}
+            onChange={(e) => setEditContent(e.target.value)}
+            className="w-full rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand/50 resize-y min-h-[100px]"
+            placeholder="Postunuzu daxil edin..."
+          />
+          <div className="flex justify-end gap-2 mt-2">
+            <button 
+              onClick={() => {
+                setIsEditing(false)
+                setEditContent(post.content) // Revert back
+              }}
+              className="text-xs px-3 py-1.5 font-medium text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors"
+            >
+              {t(locale, 'cancel_btn') || "Ləğv et"}
+            </button>
+            <button 
+              onClick={async () => {
+                if (editContent.trim() || (post.imageUrls && post.imageUrls.length > 0) || post.mentionedBook) {
+                  await editPost(post.id, editContent)
+                  setIsEditing(false)
+                }
+              }}
+              className="text-xs px-3 py-1.5 font-medium bg-brand text-white rounded-md hover:bg-brand/90 transition-colors"
+            >
+              {t(locale, 'save_btn') || "Yadda saxla"}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div 
+          role="button"
+          tabIndex={0}
+          onClick={() => router.push(`/${locale}/social/post/${post.id}`)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              router.push(`/${locale}/social/post/${post.id}`)
+            }
+          }}
+          className="mt-3 block text-sm sm:text-base whitespace-pre-wrap break-words hover:text-neutral-900 dark:hover:text-neutral-50 mb-3 cursor-pointer"
+        >
+          <RichText content={post.content} locale={locale} />
+        </div>
+      )}
+
+      {post.imageUrls && post.imageUrls.length > 0 && (
+        <div className="relative mb-3 w-full rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-800 bg-neutral-100 dark:bg-neutral-900">
+          <div 
+            className="flex transition-transform duration-300 ease-in-out" 
+            style={{ transform: `translateX(-${currentSlide * 100}%)` }}
+          >
+            {post.imageUrls.map((url, index) => (
+              <div 
+                key={index}
+                className="w-full min-w-full shrink-0 relative aspect-[4/3] sm:aspect-video max-h-[400px] cursor-zoom-in overflow-hidden"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setExpandedImage({ index, urls: post.imageUrls! })
+                }}
+              >
+                <img 
+                  src={url} 
+                  alt={`Post image ${index + 1}`} 
+                  className="absolute inset-0 w-full h-full object-cover"
+                  loading="lazy"
+                />
+              </div>
+            ))}
+          </div>
+          
+          {post.imageUrls.length > 1 && (
+            <>
+              {currentSlide > 0 && (
+                <button 
+                  onClick={(e) => { e.stopPropagation(); setCurrentSlide(prev => prev - 1) }}
+                  className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 p-1.5 sm:p-2 bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-sm transition-colors"
+                >
+                  <FiChevronLeft className="w-5 h-5" />
+                </button>
+              )}
+              {currentSlide < post.imageUrls.length - 1 && (
+                <button 
+                  onClick={(e) => { e.stopPropagation(); setCurrentSlide(prev => prev + 1) }}
+                  className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 p-1.5 sm:p-2 bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-sm transition-colors"
+                >
+                  <FiChevronRight className="w-5 h-5" />
+                </button>
+              )}
+              <div className="absolute top-3 right-3 bg-black/50 text-white text-xs px-2 py-1 rounded-full backdrop-blur-sm pointer-events-none">
+                {currentSlide + 1} / {post.imageUrls.length}
+              </div>
+            </>
+          )}
+        </div>
+      )}
       
       {post.mentionedBook && (
         <Link 
@@ -171,19 +311,143 @@ export function SocialPostCard({ postId, disableHover = false }: { postId: strin
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           placeholder={t(locale, 'social_write_comment')}
-          className="flex-1 rounded-md border border-neutral-200 px-3 py-2 text-sm bg-white text-neutral-900 placeholder-neutral-400 dark:bg-neutral-900 dark:text-neutral-100 dark:border-neutral-700 dark:placeholder-neutral-400"
+          className="flex-1 rounded-md border border-neutral-200 px-3 py-2 text-sm bg-white text-neutral-900 placeholder-neutral-400 dark:bg-neutral-900 dark:text-neutral-100 dark:border-neutral-700 dark:placeholder-neutral-400 focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand"
         />
         <button className="btn btn-primary text-sm px-3">{t(locale, 'social_post_button')}</button>
       </form>
+
+      {/* Add to Thread section */}
+      {isOwnPost && !isThread && (
+        <div className="mt-4 pt-4 border-t border-neutral-100 dark:border-neutral-800">
+          <button 
+            onClick={() => setShowReplyComposer(true)}
+            className="flex items-center gap-2 text-sm text-brand font-medium hover:text-brand/80 transition-colors"
+          >
+            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-brand/10">
+              +
+            </span>
+            {t(locale, 'add_to_thread') || "Zəncirə əlavə et (Thread)"}
+          </button>
+        </div>
+      )}
+
+      {/* Reply Modal */}
+      {showReplyComposer && isOwnPost && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-4">
+          <div className="bg-white dark:bg-neutral-950 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-100 dark:border-neutral-800">
+              <span className="font-semibold text-neutral-900 dark:text-white">
+                {t(locale, 'add_to_thread') || "Zəncirə əlavə et"}
+              </span>
+              <button 
+                onClick={() => setShowReplyComposer(false)}
+                className="p-2 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-full transition-colors"
+              >
+                <FiX size={20} />
+              </button>
+            </div>
+            
+            <div className="p-4">
+              {/* Context Post (Parent) */}
+              <div className="flex gap-3 mb-2 relative">
+                <div className="absolute top-10 left-5 bottom-[-16px] w-0.5 bg-neutral-200 dark:bg-neutral-800 z-0" aria-hidden="true" />
+                <img src={author.avatar} alt={author.name} className="h-10 w-10 rounded-full object-cover shrink-0 relative z-10" />
+                <div className="flex-1 min-w-0 pb-4">
+                  <div className="font-medium text-neutral-900 dark:text-white">{author.name}</div>
+                  <div className="text-sm text-neutral-600 dark:text-neutral-300 mt-1 line-clamp-3">
+                    {post.content}
+                  </div>
+                </div>
+              </div>
+
+              {/* Composer */}
+              <div className="flex gap-3 relative z-10 mt-1">
+                <img src={currentUser?.avatar} alt={currentUser?.name} className="h-10 w-10 rounded-full object-cover shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <SocialComposer 
+                    replyToPostId={post.id} 
+                    onPostCreated={() => setShowReplyComposer(false)} 
+                    isInlineReply={true} 
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Expanded Image Modal / Lightbox */}
+      {expandedImage && (
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4 sm:p-8 cursor-zoom-out animate-in fade-in duration-200"
+          onClick={(e) => {
+            e.stopPropagation()
+            setExpandedImage(null)
+          }}
+        >
+          <button 
+            className="absolute top-4 right-4 sm:top-6 sm:right-6 p-2 text-white/70 hover:text-white bg-black/50 hover:bg-black/70 rounded-full transition-colors z-[101]"
+            onClick={(e) => {
+              e.stopPropagation()
+              setExpandedImage(null)
+            }}
+          >
+            <FiX size={24} />
+          </button>
+          
+          {/* Navigation Controls */}
+          {expandedImage.urls.length > 1 && (
+            <>
+              {expandedImage.index > 0 && (
+                <button
+                  className="absolute left-4 sm:left-8 top-1/2 -translate-y-1/2 p-3 text-white/70 hover:text-white bg-black/50 hover:bg-black/70 rounded-full transition-colors z-[101]"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setExpandedImage(prev => prev ? { ...prev, index: prev.index - 1 } : null)
+                  }}
+                >
+                  <FiChevronLeft size={32} />
+                </button>
+              )}
+              {expandedImage.index < expandedImage.urls.length - 1 && (
+                <button
+                  className="absolute right-4 sm:right-8 top-1/2 -translate-y-1/2 p-3 text-white/70 hover:text-white bg-black/50 hover:bg-black/70 rounded-full transition-colors z-[101]"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setExpandedImage(prev => prev ? { ...prev, index: prev.index + 1 } : null)
+                  }}
+                >
+                  <FiChevronRight size={32} />
+                </button>
+              )}
+              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/50 text-white text-sm px-4 py-2 rounded-full backdrop-blur-md">
+                {expandedImage.index + 1} / {expandedImage.urls.length}
+              </div>
+            </>
+          )}
+
+          <img 
+            src={expandedImage.urls[expandedImage.index]} 
+            alt="Expanded view" 
+            className="max-w-full max-h-[90vh] object-contain rounded-md shadow-2xl transition-all duration-300"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </article>
   )
 }
 
-function CommentItem({ id, postId, userId, content, createdAt }: { id: string; postId: string; userId: string; content: string; createdAt: string }) {
-  const { users, currentUser, deleteComment } = useSocial()
+function CommentItem({ id, postId, userId, content, createdAt, updatedAt }: { id: string; postId: string; userId: string; content: string; createdAt: string; updatedAt?: string | null }) {
+  const { users, currentUser, deleteComment, editComment } = useSocial()
   const locale = useLocale()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [showReport, setShowReport] = useState(false)
+  const [isMoreOpen, setIsMoreOpen] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editContent, setEditContent] = useState(content)
   
   const u = users.find(u => u.id === userId) || {
     id: userId,
@@ -210,6 +474,13 @@ function CommentItem({ id, postId, userId, content, createdAt }: { id: string; p
         }}
         onCancel={() => setShowDeleteConfirm(false)}
       />
+      {showReport && (
+        <ReportModal
+          targetId={id}
+          targetType="comment"
+          onClose={() => setShowReport(false)}
+        />
+      )}
       <div className="flex items-start gap-3">
         <UserHoverCard userId={u.id} className="relative">
           <Link href={`/${locale}/social/profile/${u.username || u.id}` as any}>
@@ -223,22 +494,104 @@ function CommentItem({ id, postId, userId, content, createdAt }: { id: string; p
                 {u.name}
               </Link>
             </UserHoverCard>
-            <span className="text-xs text-neutral-500 dark:text-neutral-400 shrink-0">{timeAgo(createdAt, locale)}</span>
-            {currentUser?.id === userId && (
-              <button 
-                onClick={() => setShowDeleteConfirm(true)}
-                disabled={isDeleting}
-                className="text-neutral-400 hover:text-red-500 ml-auto p-0.5 disabled:opacity-50"
-                title={t(locale, 'delete_comment')}
-                aria-label={t(locale, 'delete_comment')}
-              >
-                <FiTrash2 size={12} />
-              </button>
-            )}
+            <span className="text-xs text-neutral-500 dark:text-neutral-400 shrink-0">
+              {timeAgo(createdAt, locale)}
+              {updatedAt && <span className="ml-1 italic opacity-70">({t(locale, 'edited') || 'redaktə edilib'})</span>}
+            </span>
+            <div className="flex items-center ml-auto gap-1">
+              {currentUser?.id === userId && (
+                <button 
+                  onClick={() => setShowDeleteConfirm(true)}
+                  disabled={isDeleting}
+                  className="text-neutral-400 hover:text-red-500 p-0.5 disabled:opacity-50"
+                  title={t(locale, 'delete_comment')}
+                  aria-label={t(locale, 'delete_comment')}
+                >
+                  <FiTrash2 size={12} />
+                </button>
+              )}
+              <Popover.Root open={isMoreOpen} onOpenChange={setIsMoreOpen}>
+                <Popover.Trigger asChild>
+                  <button
+                    className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 p-0.5 transition-colors"
+                    title={t(locale, 'more_options') || "Daha çox"}
+                    aria-label="Options"
+                  >
+                    <FiMoreHorizontal size={12} />
+                  </button>
+                </Popover.Trigger>
+                <Popover.Portal>
+                  <Popover.Content 
+                    className="w-40 bg-white dark:bg-neutral-900 rounded-lg shadow-xl border border-neutral-200 dark:border-neutral-800 p-1 z-50 animate-in fade-in zoom-in-95 duration-200" 
+                    align="end" 
+                    sideOffset={5}
+                  >
+                    {currentUser?.id === userId && (
+                      <button
+                        onClick={() => {
+                          setIsMoreOpen(false)
+                          setIsEditing(true)
+                          setEditContent(content)
+                        }}
+                        className="w-full text-left p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition-colors text-xs text-neutral-700 dark:text-neutral-300 font-medium"
+                      >
+                        {t(locale, 'edit_comment') || "Şərhi düzəlt"}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        setIsMoreOpen(false)
+                        if (!currentUser) {
+                          alert('You must be logged in to report.')
+                          return
+                        }
+                        setShowReport(true)
+                      }}
+                      className="w-full text-left p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition-colors text-xs text-red-600 dark:text-red-400 font-medium"
+                    >
+                      {t(locale, 'report_comment') || "Şikayət et"}
+                    </button>
+                  </Popover.Content>
+                </Popover.Portal>
+              </Popover.Root>
+            </div>
           </div>
-          <div className="mt-0.5">
-            <RichText content={content} locale={locale} />
-          </div>
+          {isEditing ? (
+            <div className="mt-2 text-left">
+              <textarea
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                className="w-full rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand/50 resize-y min-h-[60px]"
+                autoFocus
+              />
+              <div className="flex justify-end gap-2 mt-2">
+                <button 
+                  onClick={() => {
+                    setIsEditing(false)
+                    setEditContent(content)
+                  }}
+                  className="text-xs px-2 py-1 font-medium text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors"
+                >
+                  {t(locale, 'cancel_btn') || "Ləğv et"}
+                </button>
+                <button 
+                  onClick={async () => {
+                    if (editContent.trim() && editContent !== content) {
+                      await editComment(id, postId, editContent)
+                    }
+                    setIsEditing(false)
+                  }}
+                  className="text-xs px-2 py-1 font-medium bg-brand text-white rounded-md hover:bg-brand/90 transition-colors"
+                >
+                  {t(locale, 'save_btn') || "Yadda saxla"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-0.5 text-left">
+              <RichText content={content} locale={locale} />
+            </div>
+          )}
         </div>
       </div>
     </>

@@ -147,12 +147,14 @@ function LangDropdown({ current }: { current: 'en' | 'az' }) {
   return (
     <div className="relative" ref={ref}>
       <button
-        className="inline-flex items-center gap-2 rounded-md border border-neutral-200 px-2 py-1 text-xs hover:border-neutral-300 text-neutral-700 dark:border-neutral-700 dark:hover:border-neutral-600 dark:text-neutral-100"
+        className="inline-flex items-center gap-1.5 sm:gap-2 rounded-md border border-neutral-200 px-2 py-1 text-xs hover:border-neutral-300 text-neutral-700 dark:border-neutral-700 dark:hover:border-neutral-600 dark:text-neutral-100"
         onClick={toggleOpen}
         aria-haspopup="listbox"
         aria-expanded={open}
       >
-        <FiGlobe /> {currentLabel}
+        <FiGlobe className="shrink-0 text-sm sm:text-base" /> 
+        <span className="hidden sm:inline">{currentLabel}</span>
+        <span className="sm:hidden font-medium">{current.toUpperCase()}</span>
       </button>
       {open && (
         <ul role="listbox" className="absolute right-0 mt-2 w-44 rounded-md border border-neutral-200 bg-white shadow-soft dark:border-neutral-700 dark:bg-neutral-900">

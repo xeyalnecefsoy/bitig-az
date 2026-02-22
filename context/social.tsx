@@ -14,8 +14,10 @@ export type SocialState = {
   posts: Post[]
   like: (postId: string) => Promise<void>
   addComment: (postId: string, content: string) => Promise<void>
-  createPost: (content: string, mentionedBookId?: string, groupId?: string) => Promise<void>
+  createPost: (content: string, mentionedBookId?: string, groupId?: string, imageUrls?: string[], parentPostId?: string) => Promise<string | undefined>
+  editPost: (postId: string, content: string) => Promise<void>
   deletePost: (postId: string) => Promise<void>
+  editComment: (commentId: string, postId: string, content: string) => Promise<void>
   deleteComment: (commentId: string, postId: string) => Promise<void>
   following: string[]
   follow: (userId: string) => Promise<void>
@@ -202,6 +204,8 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         id: p.id,
         userId: p.user_id,
         content: p.content,
+        imageUrls: p.image_urls,
+        parentPostId: p.parent_post_id,
         createdAt: p.created_at,
         likes: p.likes ? p.likes.length : 0,
         likedByMe: authUserId && p.likes ? p.likes.some((l: any) => l.user_id === authUserId) : false,
@@ -383,17 +387,28 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const createPost = async (content: string, mentionedBookId?: string, groupId?: string) => {
-    if (!currentUser) return
+  const createPost = async (content: string, mentionedBookId?: string, groupId?: string, imageUrls?: string[], parentPostId?: string): Promise<string | undefined> => {
+    if (!currentUser) return undefined
+
+    // Ensure content is strictly not completely empty to avoid Postgres `not null` or implicit checks failing
+    const safeContent = content.trim() === '' ? ' ' : content
 
     const { data, error } = await supabase.from('posts').insert({
       user_id: currentUser.id,
-      content,
+      content: safeContent,
+      image_urls: imageUrls,
+      parent_post_id: parentPostId,
       mentioned_book_id: mentionedBookId,
       group_id: groupId
     }).select().single()
 
-    if (!error && data) {
+    if (error) {
+      console.error('Error creating post:', error)
+      alert('Paylaşım edilərkən xəta baş verdi: ' + error.message)
+      return undefined
+    }
+
+    if (data) {
       let mentionedBookDetails = undefined
       if (mentionedBookId) {
          const { data: b } = await supabase.from('books').select('*').eq('id', mentionedBookId).single()
@@ -411,23 +426,59 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         id: data.id,
         userId: data.user_id,
         content: data.content,
+        imageUrls: data.image_urls,
         createdAt: data.created_at,
         likes: 0,
         likedByMe: false,
         comments: [],
+        parentPostId: data.parent_post_id,
         mentionedBookId: data.mentioned_book_id,
         mentionedBook: mentionedBookDetails,
         groupId: data.group_id
       }
       setPosts(prev => [newPost, ...prev])
+      return data.id
+    }
+  }
+
+  const editPost = async (postId: string, content: string) => {
+    if (!currentUser) return
+    const now = new Date().toISOString()
+
+    // Optimistic update
+    setPosts(prev => prev.map(p => {
+      if (p.id === postId) {
+        return { ...p, content, updatedAt: now }
+      }
+      return p
+    }))
+
+    const { error } = await supabase
+      .from('posts')
+      .update({ content, updated_at: now })
+      .eq('id', postId)
+      .eq('user_id', currentUser.id)
+
+    if (error) {
+      console.error('Error editing post:', error)
+      // We could ideally revert the optimistic update here on error
     }
   }
 
   const deletePost = async (postId: string) => {
     if (!currentUser) return
     
+    const postToDelete = posts.find(p => p.id === postId)
+
     // Optimistic update
     setPosts(prev => prev.filter(p => p.id !== postId))
+
+    // Delete images from storage first
+    if (postToDelete && postToDelete.imageUrls && postToDelete.imageUrls.length > 0) {
+      // Import dynamically or explicitly if needed, but we can just use the storage client directly here to avoid circular dependencies if any, or just import it at the top.
+      const { deletePostImages } = await import('@/lib/supabase/storage')
+      await deletePostImages(postToDelete.imageUrls)
+    }
 
     const { error } = await supabase
       .from('posts')
@@ -461,6 +512,31 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
 
     if (error) {
       console.error('Error deleting comment:', error)
+    }
+  }
+
+  const editComment = async (commentId: string, postId: string, content: string) => {
+    if (!currentUser) return
+    const now = new Date().toISOString()
+
+    setPosts(prev => prev.map(p => {
+      if (p.id === postId) {
+        return {
+          ...p,
+          comments: p.comments.map(c => c.id === commentId ? { ...c, content, updatedAt: now } : c)
+        }
+      }
+      return p
+    }))
+
+    const { error } = await supabase
+      .from('comments')
+      .update({ content, updated_at: now })
+      .eq('id', commentId)
+      .eq('user_id', currentUser.id)
+
+    if (error) {
+      console.error('Error editing comment:', error)
     }
   }
 
@@ -512,6 +588,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         id: p.id,
         userId: p.user_id,
         content: p.content,
+        imageUrls: p.image_urls,
         createdAt: p.created_at,
         likes: p.likes.length,
         likedByMe: authUser ? p.likes.some((l: any) => l.user_id === authUser.id) : false,
@@ -601,7 +678,9 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     like,
     addComment,
     createPost,
+    editPost,
     deletePost,
+    editComment,
     deleteComment,
     following,
     follow,

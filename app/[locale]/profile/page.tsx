@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { SocialPostCard } from '@/components/social/SocialPostCard'
+import { SocialFeed } from '@/components/social/SocialFeed'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { FiEdit2, FiSave, FiX, FiLogOut, FiUpload } from 'react-icons/fi'
@@ -252,15 +253,13 @@ export default function MyProfilePage() {
 
   return (
     <section className="container-max py-6 sm:py-8 grid gap-6 lg:grid-cols-[2fr_1fr]">
-      <div className="space-y-4 sm:space-y-5">
+      <div className="space-y-4 sm:space-y-5 min-w-0">
         <h2 className="text-xl font-bold text-neutral-900 dark:text-white">{t(locale, 'my_posts')}</h2>
         {posts.length === 0 ? (
           <div className="card p-6 text-sm text-neutral-600 dark:text-neutral-300">{t(locale, 'profile_no_posts')}</div>
         ) : (
           <div className="space-y-6">
-          {posts.map(post => (
-            <SocialPostCard key={post.id} postId={post.id} disableHover={true} />
-          ))}
+            <SocialFeed posts={posts} disableHover={true} />
           
           {hasMore && (
               <div className="flex justify-center py-4">

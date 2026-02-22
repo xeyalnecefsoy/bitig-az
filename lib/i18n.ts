@@ -151,6 +151,15 @@ export const messages: Record<Locale, Record<string, string>> = {
     social_load_more: "Load More Posts",
     social_loading: "Loading...",
     social_write_comment: "Write a comment",
+    // Post Actions
+    edit_post: "Edit Post",
+    copy_link: "Copy Link",
+    edit_comment: "Edit Comment",
+    save_btn: "Save changes",
+    link_copied: "Link copied!",
+    edited: "edited",
+    post_all: "Post all",
+    
     // Follow System
     follow: "Follow",
     unfollow: "Unfollow",
@@ -256,10 +265,13 @@ export const messages: Record<Locale, Record<string, string>> = {
     social_feature_discover: "Discover reads",
     social_feature_discover_desc: "New worlds",
     // Book Mentions
+    attach_image: "Attach Image",
     attach_book: "Attach Book",
     search_books: "Search audiobooks...",
     mentioned_book: "Mentioned Book",
     remove_book: "Remove",
+    add_to_thread: "Add to Thread",
+    adding_to_thread: "Adding to Thread",
     // Delete
     delete: "Delete",
     delete_post: "Delete post",
@@ -509,6 +521,15 @@ export const messages: Record<Locale, Record<string, string>> = {
     social_load_more: "Daha Çox Yüklə",
     social_loading: "Yüklənir...",
     social_write_comment: "Şərh yazın",
+    // Post Actions
+    edit_post: "Paylaşımı redaktə et",
+    copy_link: "Keçidi kopyala",
+    edit_comment: "Şərhi redaktə et",
+    save_btn: "Yadda saxla",
+    link_copied: "Keçid kopyalandı!",
+    edited: "redaktə edilib",
+    post_all: "Hamısını paylaş",
+    
     // Follow System
     follow: "İzlə",
     unfollow: "İzləməyi dayandır",
@@ -615,10 +636,13 @@ export const messages: Record<Locale, Record<string, string>> = {
     social_feature_discover: "Yeni kitablar tap",
     social_feature_discover_desc: "Yeni dünyalar",
     // Book Mentions
+    attach_image: "Şəkil əlavə et",
     attach_book: "Kitab əlavə et",
     search_books: "Səsli kitabları axtar...",
     mentioned_book: "Bəhs edilən kitab",
     remove_book: "Sil",
+    add_to_thread: "Fikri davam etdir",
+    adding_to_thread: "Fikir davam etdirilir...",
     // Delete
     delete: "Sil",
     delete_post: "Paylaşımı sil",

@@ -26,8 +26,16 @@ create table posts (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references profiles(id) on delete cascade not null,
   content text not null,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+  image_urls text[],
+  parent_post_id uuid references posts(id) on delete set null,
+  mentioned_book_id text,
+  group_id uuid references groups(id) on delete cascade,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone
 );
+
+-- Create index for thread lookups
+create index posts_parent_post_id_idx on posts(parent_post_id);
 
 -- Create comments table
 create table comments (
@@ -35,7 +43,8 @@ create table comments (
   post_id uuid references posts(id) on delete cascade not null,
   user_id uuid references profiles(id) on delete cascade not null,
   content text not null,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone
 );
 
 -- Create likes table

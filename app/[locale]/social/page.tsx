@@ -3,6 +3,7 @@ import { useState, useMemo } from 'react'
 import { useSocial } from '@/context/social'
 import { SocialPostCard } from '@/components/social/SocialPostCard'
 import { SocialComposer } from '@/components/social/SocialComposer'
+import { SocialFeed } from '@/components/social/SocialFeed'
 import { SocialLoginPrompt } from '@/components/social/SocialLoginPrompt'
 import { useLocale } from '@/context/locale'
 import { t } from '@/lib/i18n'
@@ -94,7 +95,7 @@ export default function SocialPage() {
 
   return (
     <section className="container-max py-6 sm:py-8 grid gap-6 lg:grid-cols-[2fr_1fr]">
-      <div className="space-y-4 sm:space-y-5">
+      <div className="space-y-4 sm:space-y-5 min-w-0">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">{t(locale, 'nav_social')}</h1>
         </div>
@@ -215,9 +216,7 @@ export default function SocialPage() {
         
         {/* Show posts or empty state only after loading completes */}
         {!loading && filteredPosts.length > 0 && (
-          filteredPosts.map((p) => (
-            <SocialPostCard key={p.id} postId={p.id} />
-          ))
+          <SocialFeed posts={filteredPosts} />
         )}
         
         {!loading && filteredPosts.length === 0 && (

@@ -5,6 +5,7 @@ import { Group } from '@/lib/social'
 import { t } from '@/lib/i18n'
 import { useSocial } from '@/context/social'
 import { SocialPostCard } from '@/components/social/SocialPostCard'
+import { SocialFeed } from '@/components/social/SocialFeed'
 import { SocialComposer } from '@/components/social/SocialComposer'
 import { FiUsers, FiMessageCircle, FiCheck, FiX, FiChevronDown } from 'react-icons/fi'
 import { createClient } from '@/lib/supabase/client'
@@ -221,7 +222,7 @@ export function GroupContent({ group, locale }: GroupContentProps) {
       {/* Main Content */}
       <div className="grid lg:grid-cols-[2fr_1fr] gap-6">
         {/* Feed */}
-        <div className="space-y-4">
+        <div className="space-y-4 min-w-0">
           {/* Post Filter */}
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
@@ -250,9 +251,7 @@ export function GroupContent({ group, locale }: GroupContentProps) {
 
           {/* Posts */}
           {sortedPosts.length > 0 ? (
-            sortedPosts.map((post) => (
-              <SocialPostCard key={post.id} postId={post.id} />
-            ))
+            <SocialFeed posts={sortedPosts} />
           ) : (
             <div className="bg-neutral-50 dark:bg-neutral-800/50 rounded-xl p-8 text-center border border-dashed border-neutral-200 dark:border-neutral-700">
               <div className="text-4xl mb-3">💬</div>

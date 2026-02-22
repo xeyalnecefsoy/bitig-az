@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { SocialPostCard } from '@/components/social/SocialPostCard'
+import { SocialFeed } from '@/components/social/SocialFeed'
 import { MessageButton } from '@/components/messages/MessageButton'
 import Link from 'next/link'
 import { FiUser, FiLock } from 'react-icons/fi'
@@ -138,7 +139,7 @@ export default async function SocialProfilePage({ params }: { params: Promise<{ 
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto space-y-4 sm:space-y-5">
+      <div className="max-w-2xl mx-auto space-y-4 sm:space-y-5 min-w-0">
         <h2 className="text-xl font-bold text-neutral-900 dark:text-white px-1">{t(locale as any, 'posts')}</h2>
         
         {isGuest ? (
@@ -197,9 +198,7 @@ export default async function SocialProfilePage({ params }: { params: Promise<{ 
               {t(locale as any, 'profile_no_posts')}
             </div>
           ) : (
-            posts?.map(post => (
-              <SocialPostCard key={post.id} postId={post.id} />
-            ))
+            <SocialFeed posts={posts || []} />
           )
         )}
       </div>

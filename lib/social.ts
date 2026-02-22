@@ -28,6 +28,7 @@ export type Comment = {
   userId: string
   content: string
   createdAt: string
+  updatedAt?: string | null
 }
 
 export type Group = {
@@ -48,7 +49,10 @@ export type Post = {
   id: string
   userId: string
   content: string
+  imageUrls?: string[]
+  parentPostId?: string
   createdAt: string
+  updatedAt?: string | null
   likes: number
   likedByMe?: boolean
   comments: Comment[]
