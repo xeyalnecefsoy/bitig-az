@@ -14,11 +14,12 @@ export type SocialState = {
   posts: Post[]
   like: (postId: string) => Promise<void>
   addComment: (postId: string, content: string) => Promise<void>
-  createPost: (content: string, mentionedBookId?: string, groupId?: string, imageUrls?: string[], parentPostId?: string) => Promise<string | undefined>
+  createPost: (content: string, mentionedBookId?: string, groupId?: string, imageUrls?: string[], parentPostId?: string, pollOptions?: string[], pollDurationHours?: number) => Promise<string | undefined>
+  voteOnPoll: (postId: string, optionId: string) => Promise<void>
   editPost: (postId: string, content: string) => Promise<void>
   deletePost: (postId: string) => Promise<void>
   editComment: (commentId: string, postId: string, content: string) => Promise<void>
-  deleteComment: (commentId: string, postId: string) => Promise<void>
+  deleteComment: (commentId: string, postId: string, postOwnerId?: string) => Promise<void>
   following: string[]
   follow: (userId: string) => Promise<void>
   unfollow: (userId: string) => Promise<void>
@@ -162,6 +163,13 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         likes (user_id),
         comments (
           id, user_id, content, created_at
+        ),
+        polls (
+          expires_at,
+          poll_options (
+            id, text,
+            poll_votes (user_id)
+          )
         )
       `)
       .order('created_at', { ascending: false })
@@ -200,30 +208,58 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      const mappedPosts: Post[] = postsData.map(p => ({
-        id: p.id,
-        userId: p.user_id,
-        content: p.content,
-        imageUrls: p.image_urls,
-        parentPostId: p.parent_post_id,
-        createdAt: p.created_at,
-        likes: p.likes ? p.likes.length : 0,
-        likedByMe: authUserId && p.likes ? p.likes.some((l: any) => l.user_id === authUserId) : false,
-        comments: Array.isArray(p.comments) ? p.comments.map((c: any) => ({
-          id: c.id,
-          userId: c.user_id,
-          content: c.content,
-          createdAt: c.created_at
-        })) : [],
-        mentionedBookId: p.mentioned_book_id,
-        mentionedBook: p.mentioned_book_id && booksMap[p.mentioned_book_id] ? {
-           id: booksMap[p.mentioned_book_id].id,
-           title: booksMap[p.mentioned_book_id].title,
-           coverUrl: booksMap[p.mentioned_book_id].cover || booksMap[p.mentioned_book_id].cover_url,
-           author: booksMap[p.mentioned_book_id].author
-        } : undefined,
-        groupId: p.group_id
-      }))
+      const mappedPosts: Post[] = postsData.map(p => {
+        let pollData = undefined;
+        // In one-to-one foreign key relationships without strictly unique definitions, Supabase sometimes returns arrays.
+        const poll = Array.isArray(p.polls) ? p.polls[0] : p.polls;
+        if (poll) {
+           const hasExpired = new Date(poll.expires_at) < new Date();
+           let totalVotes = 0;
+           const options = (poll.poll_options || []).map((opt: any) => {
+               const votes = opt.poll_votes || [];
+               totalVotes += votes.length;
+               return {
+                   id: opt.id,
+                   text: opt.text,
+                   votesCount: votes.length,
+                   hasVoted: authUserId ? votes.some((v: any) => v.user_id === authUserId) : false
+               }
+           });
+           
+           pollData = {
+               expiresAt: poll.expires_at,
+               hasExpired,
+               totalVotes,
+               options
+           }
+        }
+
+        return {
+          id: p.id,
+          userId: p.user_id,
+          content: p.content,
+          imageUrls: p.image_urls,
+          parentPostId: p.parent_post_id,
+          createdAt: p.created_at,
+          likes: p.likes ? p.likes.length : 0,
+          likedByMe: authUserId && p.likes ? p.likes.some((l: any) => l.user_id === authUserId) : false,
+          comments: Array.isArray(p.comments) ? p.comments.map((c: any) => ({
+            id: c.id,
+            userId: c.user_id,
+            content: c.content,
+            createdAt: c.created_at
+          })) : [],
+          mentionedBookId: p.mentioned_book_id,
+          mentionedBook: p.mentioned_book_id && booksMap[p.mentioned_book_id] ? {
+             id: booksMap[p.mentioned_book_id].id,
+             title: booksMap[p.mentioned_book_id].title,
+             coverUrl: booksMap[p.mentioned_book_id].cover || booksMap[p.mentioned_book_id].cover_url,
+             author: booksMap[p.mentioned_book_id].author
+          } : undefined,
+          groupId: p.group_id,
+          poll: pollData
+        }
+      })
       setPosts(mappedPosts)
     }
   }, [supabase, fetchAndMergeUsers])
@@ -387,7 +423,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const createPost = async (content: string, mentionedBookId?: string, groupId?: string, imageUrls?: string[], parentPostId?: string): Promise<string | undefined> => {
+  const createPost = async (content: string, mentionedBookId?: string, groupId?: string, imageUrls?: string[], parentPostId?: string, pollOptions?: string[], pollDurationHours?: number): Promise<string | undefined> => {
     if (!currentUser) return undefined
 
     // Ensure content is strictly not completely empty to avoid Postgres `not null` or implicit checks failing
@@ -422,6 +458,40 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
          }
       }
 
+      let pollData = undefined;
+      // Handle Poll Creation
+      if (pollOptions && pollOptions.length >= 2 && pollDurationHours) {
+         const expiresAt = new Date();
+         expiresAt.setHours(expiresAt.getHours() + pollDurationHours);
+         
+         const { error: pollError } = await supabase.from('polls').insert({
+            post_id: data.id,
+            expires_at: expiresAt.toISOString()
+         });
+
+         if (!pollError) {
+             const optionsToInsert = pollOptions.map(opt => ({
+                 post_id: data.id,
+                 text: opt.trim()
+             }));
+             const { data: insertedOptions } = await supabase.from('poll_options').insert(optionsToInsert).select();
+             
+             if (insertedOptions) {
+                 pollData = {
+                     expiresAt: expiresAt.toISOString(),
+                     hasExpired: false,
+                     totalVotes: 0,
+                     options: insertedOptions.map(o => ({
+                         id: o.id,
+                         text: o.text,
+                         votesCount: 0,
+                         hasVoted: false
+                     }))
+                 };
+             }
+         }
+      }
+
       const newPost: Post = {
         id: data.id,
         userId: data.user_id,
@@ -434,10 +504,47 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         parentPostId: data.parent_post_id,
         mentionedBookId: data.mentioned_book_id,
         mentionedBook: mentionedBookDetails,
-        groupId: data.group_id
+        groupId: data.group_id,
+        poll: pollData
       }
       setPosts(prev => [newPost, ...prev])
       return data.id
+    }
+  }
+
+  const voteOnPoll = async (postId: string, optionId: string) => {
+    if (!currentUser) return;
+
+    // Optimistically update
+    setPosts(prev => prev.map(p => {
+        if (p.id === postId && p.poll) {
+            const newOptions = p.poll.options.map(opt => {
+                if (opt.id === optionId) {
+                    return { ...opt, votesCount: opt.votesCount + 1, hasVoted: true };
+                }
+                return opt;
+            });
+            return {
+                ...p,
+                poll: {
+                    ...p.poll,
+                    totalVotes: p.poll.totalVotes + 1,
+                    options: newOptions
+                }
+            };
+        }
+        return p;
+    }));
+
+    const { error } = await supabase.from('poll_votes').insert({
+        post_id: postId,
+        option_id: optionId,
+        user_id: currentUser.id
+    });
+
+    if (error) {
+       console.error("Error voting on poll:", error);
+       // Reverting optimistic UI on error could be implemented here
     }
   }
 
@@ -491,7 +598,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const deleteComment = async (commentId: string, postId: string) => {
+  const deleteComment = async (commentId: string, postId: string, postOwnerId?: string) => {
     if (!currentUser) return
 
     setPosts(prev => prev.map(p => {
@@ -504,11 +611,20 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
       return p
     }))
 
-    const { error } = await supabase
+    // Post owner can delete any comment on their post
+    const isPostOwner = postOwnerId && currentUser.id === postOwnerId
+
+    let query = supabase
       .from('comments')
       .delete()
       .eq('id', commentId)
-      .eq('user_id', currentUser.id)
+
+    // If not the post owner, restrict to own comments only
+    if (!isPostOwner) {
+      query = query.eq('user_id', currentUser.id)
+    }
+
+    const { error } = await query
 
     if (error) {
       console.error('Error deleting comment:', error)
@@ -549,6 +665,13 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         likes (user_id),
         comments (
           id, user_id, content, created_at
+        ),
+        polls (
+          expires_at,
+          poll_options (
+            id, text,
+            poll_votes (user_id)
+          )
         )
       `)
       .order('created_at', { ascending: false })
@@ -584,29 +707,57 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      const mappedPosts: Post[] = postsData.map(p => ({
-        id: p.id,
-        userId: p.user_id,
-        content: p.content,
-        imageUrls: p.image_urls,
-        createdAt: p.created_at,
-        likes: p.likes.length,
-        likedByMe: authUser ? p.likes.some((l: any) => l.user_id === authUser.id) : false,
-        comments: p.comments.map((c: any) => ({
-          id: c.id,
-          userId: c.user_id,
-          content: c.content,
-          createdAt: c.created_at
-        })),
-        mentionedBookId: p.mentioned_book_id,
-        mentionedBook: p.mentioned_book_id && booksMap[p.mentioned_book_id] ? {
-            id: booksMap[p.mentioned_book_id].id,
-            title: booksMap[p.mentioned_book_id].title,
-            coverUrl: booksMap[p.mentioned_book_id].cover || booksMap[p.mentioned_book_id].cover_url,
-            author: booksMap[p.mentioned_book_id].author
-        } : undefined,
-        groupId: p.group_id
-      }))
+      const mappedPosts: Post[] = postsData.map(p => {
+        let pollData = undefined;
+        // In one-to-one foreign key relationships without strictly unique definitions, Supabase sometimes returns arrays.
+        const poll = Array.isArray(p.polls) ? p.polls[0] : p.polls;
+        if (poll) {
+           const hasExpired = new Date(poll.expires_at) < new Date();
+           let totalVotes = 0;
+           const options = (poll.poll_options || []).map((opt: any) => {
+               const votes = opt.poll_votes || [];
+               totalVotes += votes.length;
+               return {
+                   id: opt.id,
+                   text: opt.text,
+                   votesCount: votes.length,
+                   hasVoted: authUser ? votes.some((v: any) => v.user_id === authUser.id) : false
+               }
+           });
+           
+           pollData = {
+               expiresAt: poll.expires_at,
+               hasExpired,
+               totalVotes,
+               options
+           }
+        }
+
+        return {
+          id: p.id,
+          userId: p.user_id,
+          content: p.content,
+          imageUrls: p.image_urls,
+          createdAt: p.created_at,
+          likes: p.likes.length,
+          likedByMe: authUser ? p.likes.some((l: any) => l.user_id === authUser.id) : false,
+          comments: p.comments.map((c: any) => ({
+            id: c.id,
+            userId: c.user_id,
+            content: c.content,
+            createdAt: c.created_at
+          })),
+          mentionedBookId: p.mentioned_book_id,
+          mentionedBook: p.mentioned_book_id && booksMap[p.mentioned_book_id] ? {
+              id: booksMap[p.mentioned_book_id].id,
+              title: booksMap[p.mentioned_book_id].title,
+              coverUrl: booksMap[p.mentioned_book_id].cover || booksMap[p.mentioned_book_id].cover_url,
+              author: booksMap[p.mentioned_book_id].author
+          } : undefined,
+          groupId: p.group_id,
+          poll: pollData
+        }
+      })
       setPosts(prev => [...prev, ...mappedPosts])
     }
   }
@@ -682,6 +833,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     deletePost,
     editComment,
     deleteComment,
+    voteOnPoll,
     following,
     follow,
     unfollow,

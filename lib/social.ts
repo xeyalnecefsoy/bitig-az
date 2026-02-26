@@ -45,6 +45,20 @@ export type Group = {
   is_member?: boolean // For UI logic
 }
 
+export type PollOption = {
+  id: string
+  text: string
+  votesCount: number
+  hasVoted: boolean
+}
+
+export type Poll = {
+  expiresAt: string
+  hasExpired: boolean
+  options: PollOption[]
+  totalVotes: number
+}
+
 export type Post = {
   id: string
   userId: string
@@ -70,6 +84,7 @@ export type Post = {
     slug: string
     icon_url?: string
   }
+  poll?: Poll
 }
 
 // Neutral, professional default avatar (Silhouette)

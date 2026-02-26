@@ -81,9 +81,9 @@ export function ReportModal({ targetId, targetType, onClose }: ReportModalProps)
             >
               <option value="">{t(locale, 'report_select_reason')}</option>
               <option value="spam">{t(locale, 'reason_spam')}</option>
-              <option value="harassment">{t(locale, 'reason_harassment')}</option>
-              <option value="inappropriate">{t(locale, 'reason_inappropriate')}</option>
-              <option value="violence">{t(locale, 'reason_violence')}</option>
+              <option value="language">{t(locale, 'reason_language')}</option>
+              <option value="quality">{t(locale, 'reason_quality')}</option>
+              <option value="values">{t(locale, 'reason_values')}</option>
               <option value="other">{t(locale, 'reason_other')}</option>
             </select>
           </div>

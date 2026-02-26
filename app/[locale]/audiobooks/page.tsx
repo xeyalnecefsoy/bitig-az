@@ -43,10 +43,23 @@ export default function AudiobooksPage({ params: paramsPromise }: { params: Prom
         query = query.or(`title.ilike.%${searchQuery}%,author.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`)
       }
 
-      // 2. Genre Filter
+      // 2. Filters
       const genre = searchParams.get('genre')
       if (genre) {
         query = query.eq('genre', genre)
+      }
+
+      const voiceType = searchParams.get('voice_type')
+      if (voiceType) {
+        query = query.eq('voice_type', voiceType)
+      }
+
+      if (searchParams.get('has_ambience') === 'true') {
+        query = query.eq('has_ambience', true)
+      }
+
+      if (searchParams.get('has_sound_effects') === 'true') {
+        query = query.eq('has_sound_effects', true)
       }
 
       // 3. Sorting

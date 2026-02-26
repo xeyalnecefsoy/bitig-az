@@ -83,16 +83,16 @@ export function SearchAndFilter() {
       {/* Filters Panel */}
       {showFilters && (
         <div className="p-4 rounded-xl bg-white border border-neutral-200 shadow-sm dark:bg-neutral-900 dark:border-neutral-800 animate-in fade-in slide-in-from-top-2">
-          <div className="grid gap-6 sm:grid-cols-2">
+          <div className="flex flex-wrap items-start gap-6 lg:gap-8">
             {/* Genre Filter */}
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+            <div className="flex-1 min-w-[200px]">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-3">
                 {t(locale, 'filter_genre')}
               </label>
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => updateFilter('genre', null)}
-                  className={`px-3 py-1.5 rounded-full text-sm transition-colors ${!currentGenre ? 'bg-brand text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-400'}`}
+                  className={`px-3 py-1.5 rounded-lg text-sm transition-colors font-medium border ${!currentGenre ? 'bg-brand text-white border-brand' : 'bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800'}`}
                 >
                   {t(locale, 'all')}
                 </button>
@@ -100,7 +100,7 @@ export function SearchAndFilter() {
                   <button
                     key={genre}
                     onClick={() => updateFilter('genre', genre)}
-                    className={`px-3 py-1.5 rounded-full text-sm transition-colors ${currentGenre === genre ? 'bg-brand text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-400'}`}
+                    className={`px-3 py-1.5 rounded-lg text-sm transition-colors font-medium border ${currentGenre === genre ? 'bg-brand text-white border-brand' : 'bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800'}`}
                   >
                     {genre}
                   </button>
@@ -108,22 +108,72 @@ export function SearchAndFilter() {
               </div>
             </div>
 
-            {/* Sort Order */}
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                {t(locale, 'sort_by')}
-              </label>
-              <select
-                value={currentSort}
-                onChange={(e) => updateFilter('sort', e.target.value)}
-                className="w-full p-2.5 rounded-lg border border-neutral-200 bg-white text-sm outline-none focus:border-brand dark:bg-neutral-800 dark:border-neutral-700 dark:text-white"
-              >
-                {SORT_OPTIONS.map(opt => (
-                  <option key={opt.value} value={opt.value}>
-                    {t(locale, opt.label)}
-                  </option>
-                ))}
-              </select>
+            {/* Sub-filters Group */}
+            <div className="flex flex-wrap items-start gap-6 lg:gap-8">
+              {/* Voice Type Filter */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-3">
+                  {t(locale, 'filter_voice_type')}
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => updateFilter('voice_type', null)}
+                    className={`px-3 py-1.5 rounded-lg text-sm transition-colors font-medium border ${!searchParams.get('voice_type') ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800'}`}
+                  >
+                    {t(locale, 'voice_any')}
+                  </button>
+                  {['single', 'multiple', 'radio_theater'].map(vt => (
+                    <button
+                      key={vt}
+                      onClick={() => updateFilter('voice_type', vt)}
+                      className={`px-3 py-1.5 rounded-lg text-sm transition-colors font-medium border ${searchParams.get('voice_type') === vt ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800'}`}
+                    >
+                      {t(locale, `voice_${vt}`)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Atmosphere (Ambience & SFX) */}
+              <div>
+                 <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-3">
+                  {t(locale, 'filter_atmosphere')}
+                </label>
+                <div className="flex gap-2">
+                  <button 
+                    title={t(locale, 'has_ambience')}
+                    onClick={() => updateFilter('has_ambience', searchParams.get('has_ambience') === 'true' ? null : 'true')}
+                    className={`px-3 py-1.5 rounded-lg text-sm transition-colors font-medium border flex items-center gap-2 ${searchParams.get('has_ambience') === 'true' ? 'bg-amber-600 text-white border-amber-600' : 'bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800'}`}
+                  >
+                    {t(locale, 'has_ambience')}
+                  </button>
+                  <button 
+                    title={t(locale, 'has_sound_effects')}
+                    onClick={() => updateFilter('has_sound_effects', searchParams.get('has_sound_effects') === 'true' ? null : 'true')}
+                    className={`px-3 py-1.5 rounded-lg text-sm transition-colors font-medium border flex items-center gap-2 ${searchParams.get('has_sound_effects') === 'true' ? 'bg-purple-600 text-white border-purple-600' : 'bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800'}`}
+                  >
+                    {t(locale, 'has_sound_effects')}
+                  </button>
+                </div>
+              </div>
+
+              {/* Sort Order */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-3">
+                  {t(locale, 'sort_by')}
+                </label>
+                <select
+                  value={currentSort}
+                  onChange={(e) => updateFilter('sort', e.target.value)}
+                  className="w-full sm:w-auto p-2 rounded-lg border border-neutral-200 bg-white text-sm font-medium text-neutral-700 outline-none focus:border-brand dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-300"
+                >
+                  {SORT_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>
+                      {t(locale, opt.label)}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
         </div>

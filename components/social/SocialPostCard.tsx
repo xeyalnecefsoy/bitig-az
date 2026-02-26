@@ -1,12 +1,11 @@
 "use client"
 import { useState } from 'react'
 import { useSocial } from '@/context/social'
-import { FiHeart, FiMessageCircle, FiTrash2, FiX, FiChevronLeft, FiChevronRight } from 'react-icons/fi'
+import { FiHeart, FiMessageCircle, FiTrash2, FiX, FiChevronLeft, FiChevronRight, FiMoreHorizontal, FiEdit2, FiCopy, FiMessageSquare, FiAlertTriangle, FiFlag } from 'react-icons/fi'
 import { AiFillHeart } from 'react-icons/ai'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useLocale } from '@/context/locale'
-import { FiMoreHorizontal } from 'react-icons/fi'
 import { ReportModal } from '@/components/ReportModal'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { t } from '@/lib/i18n'
@@ -15,9 +14,10 @@ import { RichText } from './RichText'
 import { DEFAULT_AVATAR } from '@/lib/social'
 import * as Popover from '@radix-ui/react-popover'
 import { SocialComposer } from './SocialComposer'
+import { calculatePollPercentages } from '@/lib/pollUtils'
 
 export function SocialPostCard({ postId, disableHover = false, isThread = false }: { postId: string, disableHover?: boolean, isThread?: boolean }) {
-  const { posts, addComment, like, users, currentUser, deletePost, editPost } = useSocial()
+  const { posts, addComment, like, users, currentUser, deletePost, editPost, voteOnPoll } = useSocial()
   const post = posts.find(p => p.id === postId)
   const [comment, setComment] = useState('')
   const [showReport, setShowReport] = useState(false)
@@ -104,9 +104,9 @@ export function SocialPostCard({ postId, disableHover = false, isThread = false 
                       setIsEditing(true)
                       setEditContent(post.content)
                     }}
-                    className="w-full text-left p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition-colors text-sm text-neutral-700 dark:text-neutral-300 font-medium"
+                    className="w-full text-left p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition-colors text-sm text-neutral-700 dark:text-neutral-300 font-medium flex items-center gap-2"
                   >
-                    {t(locale, 'edit_post') || "Postu düzəlt"}
+                    <FiEdit2 size={14} className="opacity-70" /> {t(locale, 'edit_post') || "Postu düzəlt"}
                   </button>
                 )}
                 <button
@@ -116,10 +116,21 @@ export function SocialPostCard({ postId, disableHover = false, isThread = false 
                     navigator.clipboard.writeText(url)
                     alert(t(locale, 'link_copied') || "Link kopyalandı!")
                   }}
-                  className="w-full text-left p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition-colors text-sm text-neutral-700 dark:text-neutral-300 font-medium"
+                  className="w-full text-left p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition-colors text-sm text-neutral-700 dark:text-neutral-300 font-medium flex items-center gap-2"
                 >
-                  {t(locale, 'copy_link') || "URL kopyala"}
+                  <FiCopy size={14} className="opacity-70" /> {t(locale, 'copy_link') || "URL kopyala"}
                 </button>
+                {isOwnPost && !isThread && (
+                  <button 
+                    onClick={() => {
+                      setIsMoreOpen(false)
+                      setShowReplyComposer(true)
+                    }}
+                    className="w-full text-left p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition-colors text-sm text-neutral-700 dark:text-neutral-300 font-medium flex items-center gap-2"
+                  >
+                    <FiMessageSquare size={14} className="opacity-70" /> {t(locale, 'add_to_thread')}
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     setIsMoreOpen(false)
@@ -129,9 +140,9 @@ export function SocialPostCard({ postId, disableHover = false, isThread = false 
                     }
                     setShowReport(true)
                   }}
-                  className="w-full text-left p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition-colors text-sm text-red-600 dark:text-red-400 font-medium border-t border-neutral-100 dark:border-neutral-800 mt-1 pt-1"
+                  className="w-full text-left p-2 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-md transition-colors text-sm text-red-600 dark:text-red-400 font-medium border-t border-neutral-100 dark:border-neutral-800 mt-1 pt-1 flex items-center gap-2"
                 >
-                  {t(locale, 'report_post') || "Şikayət et"}
+                  <FiAlertTriangle size={14} className="opacity-70" /> {t(locale, 'report_post') || "Şikayət et"}
                 </button>
               </Popover.Content>
             </Popover.Portal>
@@ -206,9 +217,66 @@ export function SocialPostCard({ postId, disableHover = false, isThread = false 
               router.push(`/${locale}/social/post/${post.id}`)
             }
           }}
-          className="mt-3 block text-sm sm:text-base whitespace-pre-wrap break-words hover:text-neutral-900 dark:hover:text-neutral-50 mb-3 cursor-pointer"
+          className="mt-3 block text-sm sm:text-base whitespace-pre-wrap break-words text-neutral-800 hover:text-neutral-900 dark:text-neutral-100 dark:hover:text-white mb-3 cursor-pointer"
         >
           <RichText content={post.content} locale={locale} />
+        </div>
+      )}
+
+      {/* Poll Rendering */}
+      {post.poll && (
+        <div className="mt-3 mb-4 bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700 rounded-xl p-4" onClick={(e) => e.stopPropagation()}>
+          <div className="space-y-2.5">
+            {post.poll.options.map((opt, idx) => {
+              const showResults = post.poll?.hasExpired || opt.hasVoted;
+              const percentages = post.poll ? calculatePollPercentages(post.poll.options, post.poll.totalVotes) : [];
+              const percentage = percentages[idx] || 0;
+              const isWinning = showResults && post.poll && opt.votesCount === Math.max(...post.poll.options.map(o => o.votesCount));
+
+              return (
+                <div key={opt.id} className="relative">
+                  {!showResults ? (
+                    <button
+                      onClick={() => voteOnPoll(post.id, opt.id)}
+                      className="w-full text-left px-4 py-2.5 rounded-lg border border-brand/30 hover:border-brand hover:bg-brand/5 dark:border-brand/40 dark:hover:border-brand text-sm font-medium transition-colors text-neutral-800 dark:text-neutral-200"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-4 h-4 rounded-full border border-neutral-400 dark:border-neutral-500 flex items-center justify-center shrink-0"></div>
+                        <span className="truncate">{opt.text}</span>
+                      </div>
+                    </button>
+                  ) : (
+                    <div className="relative overflow-hidden rounded-lg bg-neutral-100 dark:bg-neutral-800 border border-transparent">
+                      <div 
+                        className={`absolute top-0 bottom-0 left-0 ${isWinning ? 'bg-brand/20 dark:bg-brand/30' : 'bg-neutral-200 dark:bg-neutral-700'}`} 
+                        style={{ width: `${percentage}%` }}
+                      ></div>
+                      <div className="relative px-4 py-2.5 flex justify-between items-center text-sm font-medium">
+                        <div className="flex items-center gap-2 truncate pr-4">
+                          <span className={`truncate ${isWinning ? 'font-semibold text-neutral-900 dark:text-white' : 'text-neutral-700 dark:text-neutral-300'}`}>
+                            {opt.text}
+                          </span>
+                          {opt.hasVoted && (
+                            <svg className="w-4 h-4 text-brand shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                        </div>
+                        <span className={`shrink-0 ${isWinning ? 'font-semibold text-neutral-900 dark:text-white' : 'text-neutral-600 dark:text-neutral-400'}`}>
+                          {percentage}%
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-3 flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
+            <span>{post.poll.totalVotes} səs</span>
+            <span>•</span>
+            <span>{post.poll.hasExpired ? 'Səsvermə bitib' : `Bitir: ${timeAgo(post.poll.expiresAt, locale)}`}</span>
+          </div>
         </div>
       )}
 
@@ -303,7 +371,7 @@ export function SocialPostCard({ postId, disableHover = false, isThread = false 
       </div>
       <div className="mt-4 space-y-3">
         {post.comments.slice(0, 3).map(c => (
-          <CommentItem key={c.id} id={c.id} postId={post.id} userId={c.userId} content={c.content} createdAt={c.createdAt} />
+          <CommentItem key={c.id} id={c.id} postId={post.id} userId={c.userId} content={c.content} createdAt={c.createdAt} postOwnerId={post.userId} />
         ))}
       </div>
       <form className="mt-4 flex gap-2" onSubmit={(e) => { e.preventDefault(); if (!comment.trim()) return; addComment(post.id, comment.trim()); setComment('') }}>
@@ -315,21 +383,6 @@ export function SocialPostCard({ postId, disableHover = false, isThread = false 
         />
         <button className="btn btn-primary text-sm px-3">{t(locale, 'social_post_button')}</button>
       </form>
-
-      {/* Add to Thread section */}
-      {isOwnPost && !isThread && (
-        <div className="mt-4 pt-4 border-t border-neutral-100 dark:border-neutral-800">
-          <button 
-            onClick={() => setShowReplyComposer(true)}
-            className="flex items-center gap-2 text-sm text-brand font-medium hover:text-brand/80 transition-colors"
-          >
-            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-brand/10">
-              +
-            </span>
-            {t(locale, 'add_to_thread') || "Zəncirə əlavə et (Thread)"}
-          </button>
-        </div>
-      )}
 
       {/* Reply Modal */}
       {showReplyComposer && isOwnPost && (
@@ -439,7 +492,7 @@ export function SocialPostCard({ postId, disableHover = false, isThread = false 
   )
 }
 
-function CommentItem({ id, postId, userId, content, createdAt, updatedAt }: { id: string; postId: string; userId: string; content: string; createdAt: string; updatedAt?: string | null }) {
+function CommentItem({ id, postId, userId, content, createdAt, updatedAt, postOwnerId }: { id: string; postId: string; userId: string; content: string; createdAt: string; updatedAt?: string | null; postOwnerId?: string }) {
   const { users, currentUser, deleteComment, editComment } = useSocial()
   const locale = useLocale()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -468,7 +521,7 @@ function CommentItem({ id, postId, userId, content, createdAt, updatedAt }: { id
         isLoading={isDeleting}
         onConfirm={async () => {
           setIsDeleting(true)
-          await deleteComment(id, postId)
+          await deleteComment(id, postId, postOwnerId)
           setShowDeleteConfirm(false)
           setIsDeleting(false)
         }}
@@ -499,17 +552,6 @@ function CommentItem({ id, postId, userId, content, createdAt, updatedAt }: { id
               {updatedAt && <span className="ml-1 italic opacity-70">({t(locale, 'edited') || 'redaktə edilib'})</span>}
             </span>
             <div className="flex items-center ml-auto gap-1">
-              {currentUser?.id === userId && (
-                <button 
-                  onClick={() => setShowDeleteConfirm(true)}
-                  disabled={isDeleting}
-                  className="text-neutral-400 hover:text-red-500 p-0.5 disabled:opacity-50"
-                  title={t(locale, 'delete_comment')}
-                  aria-label={t(locale, 'delete_comment')}
-                >
-                  <FiTrash2 size={12} />
-                </button>
-              )}
               <Popover.Root open={isMoreOpen} onOpenChange={setIsMoreOpen}>
                 <Popover.Trigger asChild>
                   <button
@@ -522,7 +564,7 @@ function CommentItem({ id, postId, userId, content, createdAt, updatedAt }: { id
                 </Popover.Trigger>
                 <Popover.Portal>
                   <Popover.Content 
-                    className="w-40 bg-white dark:bg-neutral-900 rounded-lg shadow-xl border border-neutral-200 dark:border-neutral-800 p-1 z-50 animate-in fade-in zoom-in-95 duration-200" 
+                    className="w-44 bg-white dark:bg-neutral-900 rounded-lg shadow-xl border border-neutral-200 dark:border-neutral-800 p-1 z-50 animate-in fade-in zoom-in-95 duration-200" 
                     align="end" 
                     sideOffset={5}
                   >
@@ -533,9 +575,22 @@ function CommentItem({ id, postId, userId, content, createdAt, updatedAt }: { id
                           setIsEditing(true)
                           setEditContent(content)
                         }}
-                        className="w-full text-left p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition-colors text-xs text-neutral-700 dark:text-neutral-300 font-medium"
+                        className="w-full flex items-center gap-2 p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition-colors text-xs text-neutral-700 dark:text-neutral-300 font-medium"
                       >
+                        <FiEdit2 size={12} />
                         {t(locale, 'edit_comment') || "Şərhi düzəlt"}
+                      </button>
+                    )}
+                    {(currentUser?.id === userId || currentUser?.id === postOwnerId) && (
+                      <button
+                        onClick={() => {
+                          setIsMoreOpen(false)
+                          setShowDeleteConfirm(true)
+                        }}
+                        className="w-full flex items-center gap-2 p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition-colors text-xs text-red-600 dark:text-red-400 font-medium"
+                      >
+                        <FiTrash2 size={12} />
+                        {t(locale, 'delete_comment')}
                       </button>
                     )}
                     <button
@@ -547,8 +602,9 @@ function CommentItem({ id, postId, userId, content, createdAt, updatedAt }: { id
                         }
                         setShowReport(true)
                       }}
-                      className="w-full text-left p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition-colors text-xs text-red-600 dark:text-red-400 font-medium"
+                      className="w-full flex items-center gap-2 p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition-colors text-xs text-neutral-600 dark:text-neutral-400 font-medium"
                     >
+                      <FiFlag size={12} />
                       {t(locale, 'report_comment') || "Şikayət et"}
                     </button>
                   </Popover.Content>

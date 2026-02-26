@@ -1,15 +1,15 @@
 "use client"
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { FiPlus, FiEdit2, FiTrash2, FiEye, FiEyeOff, FiTrendingUp } from 'react-icons/fi'
+import { FiPlus, FiEdit2, FiTrash2, FiEye, FiTrendingUp } from 'react-icons/fi'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { useLocale } from '@/context/locale'
+import { t } from '@/lib/i18n'
 
 export default function SponsorsPage() {
   const [sponsors, setSponsors] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const pathname = usePathname()
-  const locale = pathname.split('/')[1] || 'en'
+  const locale = useLocale()
   const supabase = createClient()
 
   useEffect(() => {
@@ -36,12 +36,12 @@ export default function SponsorsPage() {
   }
 
   async function deleteSponsor(id: string) {
-    if (!confirm('Delete this sponsor? This action cannot be undone.')) return
+    if (!confirm(t(locale, 'admin_delete_sponsor_confirm'))) return
     
     const { error } = await supabase.from('sponsors').delete().eq('id', id)
     
     if (error) {
-      alert('Error: ' + error.message)
+      alert(t(locale, 'admin_sponsor_error') + ': ' + error.message)
     } else {
       loadSponsors()
     }
@@ -63,32 +63,32 @@ export default function SponsorsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">Sponsors & Ads</h1>
+          <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">{t(locale, 'admin_sponsors')}</h1>
           <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
-            Manage advertising and sponsorships
+            {t(locale, 'admin_sponsors_desc')}
           </p>
         </div>
         <Link href={`/${locale}/admin/sponsors/new` as any} className="btn btn-primary gap-2">
-          <FiPlus /> Add Sponsor
+          <FiPlus /> {t(locale, 'admin_add_sponsor')}
         </Link>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <div className="card p-4">
-          <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-1">Total Sponsors</p>
+          <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-1">{t(locale, 'admin_total_sponsors')}</p>
           <p className="text-2xl font-bold text-neutral-900 dark:text-white">{sponsors.length}</p>
         </div>
         <div className="card p-4">
-          <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-1">Active</p>
+          <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-1">{t(locale, 'admin_active_sponsors')}</p>
           <p className="text-2xl font-bold text-green-600">{sponsors.filter(s => s.active).length}</p>
         </div>
         <div className="card p-4">
-          <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-1">Total Impressions</p>
+          <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-1">{t(locale, 'admin_total_impressions')}</p>
           <p className="text-2xl font-bold text-blue-600">{totalImpressions.toLocaleString()}</p>
         </div>
         <div className="card p-4">
-          <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-1">Click Rate</p>
+          <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-1">{t(locale, 'admin_click_rate')}</p>
           <p className="text-2xl font-bold text-brand">{avgCTR}%</p>
         </div>
       </div>
@@ -100,11 +100,11 @@ export default function SponsorsPage() {
           <table className="min-w-full divide-y divide-neutral-200 dark:divide-neutral-800">
             <thead className="bg-neutral-50 dark:bg-neutral-900">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase">Sponsor</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase">Placement</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase">Performance</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase">Status</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase">{t(locale, 'admin_sponsor_col')}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase">{t(locale, 'admin_placement_col')}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase">{t(locale, 'admin_performance_col')}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase">{t(locale, 'admin_status_col')}</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase">{t(locale, 'admin_actions_col')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
@@ -137,11 +137,11 @@ export default function SponsorsPage() {
                       <div className="text-xs space-y-1">
                         <div className="flex items-center gap-2">
                           <FiEye size={12} className="text-neutral-400" />
-                          <span>{sponsor.impressions || 0} views</span>
+                          <span>{sponsor.impressions || 0} {t(locale, 'admin_sponsor_views')}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <FiTrendingUp size={12} className="text-neutral-400" />
-                          <span>{sponsor.clicks || 0} clicks ({ctr}%)</span>
+                          <span>{sponsor.clicks || 0} {t(locale, 'admin_sponsor_clicks')} ({ctr}%)</span>
                         </div>
                       </div>
                     </td>
@@ -154,7 +154,7 @@ export default function SponsorsPage() {
                             : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-700'
                         }`}
                       >
-                        {sponsor.active ? '● Active' : '○ Inactive'}
+                        {sponsor.active ? `● ${t(locale, 'admin_sponsor_active')}` : `○ ${t(locale, 'admin_sponsor_inactive')}`}
                       </button>
                     </td>
                     <td className="px-6 py-4 text-right">
@@ -162,14 +162,14 @@ export default function SponsorsPage() {
                         <Link 
                           href={`/${locale}/admin/sponsors/${sponsor.id}` as any} 
                           className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
-                          title="Edit"
+                          title={t(locale, 'admin_edit')}
                         >
                           <FiEdit2 size={16} />
                         </Link>
                         <button 
                           onClick={() => deleteSponsor(sponsor.id)} 
                           className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                          title="Delete"
+                          title={t(locale, 'delete')}
                         >
                           <FiTrash2 size={16} />
                         </button>
@@ -205,15 +205,15 @@ export default function SponsorsPage() {
                     sponsor.active ? 'bg-green-100 text-green-800' : 'bg-neutral-100 text-neutral-600'
                   }`}
                 >
-                  {sponsor.active ? 'Active' : 'Inactive'}
+                  {sponsor.active ? t(locale, 'admin_sponsor_active') : t(locale, 'admin_sponsor_inactive')}
                 </button>
               </div>
               <div className="flex gap-2">
                 <Link href={`/${locale}/admin/sponsors/${sponsor.id}` as any} className="btn btn-outline flex-1 text-sm py-2">
-                  <FiEdit2 /> Edit
+                  <FiEdit2 /> {t(locale, 'admin_edit')}
                 </Link>
                 <button onClick={() => deleteSponsor(sponsor.id)} className="btn btn-outline text-red-600 flex-1 text-sm py-2">
-                  <FiTrash2 /> Delete
+                  <FiTrash2 /> {t(locale, 'delete')}
                 </button>
               </div>
             </div>
@@ -222,9 +222,9 @@ export default function SponsorsPage() {
 
         {sponsors.length === 0 && (
           <div className="p-12 text-center text-neutral-500 dark:text-neutral-400">
-            <p className="mb-4">No sponsors yet.</p>
+            <p className="mb-4">{t(locale, 'admin_no_sponsors')}</p>
             <Link href={`/${locale}/admin/sponsors/new` as any} className="btn btn-primary gap-2">
-              <FiPlus /> Add Your First Sponsor
+              <FiPlus /> {t(locale, 'admin_add_first_sponsor')}
             </Link>
           </div>
         )}

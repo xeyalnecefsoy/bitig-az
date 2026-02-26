@@ -1,7 +1,7 @@
 "use client"
 import { useState, useMemo, useEffect } from 'react'
 import { useSocial } from '@/context/social'
-import { FiSend, FiAlertCircle, FiCheckCircle, FiX, FiBook, FiImage, FiPlus } from 'react-icons/fi'
+import { FiSend, FiAlertCircle, FiCheckCircle, FiX, FiBook, FiImage, FiPlus, FiBarChart2 } from 'react-icons/fi'
 import { useLocale } from '@/context/locale'
 import { t } from '@/lib/i18n'
 import * as Popover from '@radix-ui/react-popover'
@@ -89,6 +89,8 @@ type DraftState = {
   imageFiles: File[];
   imagePreviews: string[];
   selectedBook: any;
+  pollOptions: string[];
+  pollDurationHours: number;
   isValid: boolean;
 }
 
@@ -141,13 +143,18 @@ function ComposerItem({
   const validation = useMemo(() => {
     const charCount = draft.value.trim().length
     const emojiCount = countEmojis(draft.value)
-    const hasMedia = !!draft.selectedBook || draft.imageFiles.length > 0
+    const hasMedia = !!draft.selectedBook || draft.imageFiles.length > 0 || (draft.pollOptions && draft.pollOptions.length >= 2)
+    
+    // Poll validation
+    const hasPoll = draft.pollOptions && draft.pollOptions.length > 0;
+    const isPollValid = !hasPoll || (draft.pollOptions.length >= 2 && draft.pollOptions.every(opt => opt.trim().length > 0));
+
     const isCharValid = charCount > 0 || hasMedia
     const isEmojiValid = emojiCount <= MAX_EMOJI
-    const isValid = isCharValid && isEmojiValid
+    const isValid = isCharValid && isEmojiValid && isPollValid
 
-    return { charCount, emojiCount, isCharValid, isEmojiValid, isValid }
-  }, [draft.value, draft.selectedBook, draft.imageFiles])
+    return { charCount, emojiCount, isCharValid, isEmojiValid, isPollValid, isValid }
+  }, [draft.value, draft.selectedBook, draft.imageFiles, draft.pollOptions])
 
   useEffect(() => {
     if (draft.isValid !== validation.isValid) {
@@ -344,7 +351,7 @@ function ComposerItem({
                   aria-label={t(locale, 'attach_image') || 'Şəkil'}
                 >
                   <FiImage className={showAvatarLayout ? 'w-[18px] h-[18px]' : 'w-3.5 h-3.5'} />
-                  {!showAvatarLayout && (t(locale, 'attach_image') || 'Şəkil')}
+                  {!showAvatarLayout && <span className="hidden sm:inline">{t(locale, 'attach_image') || 'Şəkil'}</span>}
                 </label>
               </div>
 
@@ -361,7 +368,7 @@ function ComposerItem({
                     disabled={isUploading || !!draft.selectedBook}
                   >
                     <FiBook className={showAvatarLayout ? 'w-[18px] h-[18px]' : 'w-3.5 h-3.5'} />
-                    {!showAvatarLayout && (t(locale, 'attach_book') || 'Kitab')}
+                    {!showAvatarLayout && <span className="hidden sm:inline">{t(locale, 'attach_book') || 'Kitab'}</span>}
                   </button>
                 </Popover.Trigger>
                 <Popover.Portal>
@@ -412,8 +419,113 @@ function ComposerItem({
                   </Popover.Content>
                 </Popover.Portal>
               </Popover.Root>
+
+              {/* Poll button */}
+              <button
+                type="button"
+                className={
+                  showAvatarLayout
+                    ? `flex items-center justify-center w-8 h-8 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${draft.pollOptions && draft.pollOptions.length > 0 ? 'bg-brand/10 text-brand' : 'text-neutral-500 hover:text-brand hover:bg-neutral-100 dark:hover:bg-neutral-800'}`
+                    : `flex items-center gap-1.5 text-xs font-medium cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${draft.pollOptions && draft.pollOptions.length > 0 ? 'text-brand' : 'text-neutral-500 hover:text-brand'}`
+                }
+                onClick={() => {
+                  if (draft.pollOptions && draft.pollOptions.length > 0) {
+                    onChange({ pollOptions: [] });
+                  } else {
+                    onChange({ pollOptions: ['', ''] });
+                  }
+                }}
+                disabled={isUploading}
+                title={t(locale, 'add_poll')}
+              >
+                <FiBarChart2 className={showAvatarLayout ? 'w-[18px] h-[18px]' : 'w-3.5 h-3.5'} />
+                {!showAvatarLayout && <span className="hidden sm:inline">{t(locale, 'add_poll')}</span>}
+              </button>
           </div>
         </div>
+        )}
+
+        {/* Poll Options Editor */}
+        {draft.pollOptions && draft.pollOptions.length > 0 && (
+          <div className="mt-4 p-4 rounded-xl border border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/30 space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-neutral-800 dark:text-neutral-200">Səsvermə</span>
+              <button 
+                type="button" 
+                onClick={() => onChange({ pollOptions: [] })}
+                className="p-1.5 text-neutral-400 hover:text-red-500 rounded-full hover:bg-white dark:hover:bg-neutral-800 transition-colors"
+                title="Səsverməni ləğv et"
+              >
+                <FiX size={16} />
+              </button>
+            </div>
+            
+            <div className="space-y-3">
+              {draft.pollOptions.map((opt, i) => (
+                <div key={i} className="flex items-center gap-2 group">
+                  <div className="w-5 h-5 rounded-full border border-neutral-300 dark:border-neutral-600 flex items-center justify-center shrink-0">
+                    <span className="text-[10px] text-neutral-400 font-medium">{i + 1}</span>
+                  </div>
+                  <input 
+                    type="text"
+                    value={opt}
+                    onChange={(e) => {
+                      const newOpts = [...draft.pollOptions!];
+                      newOpts[i] = e.target.value;
+                      onChange({ pollOptions: newOpts });
+                    }}
+                    placeholder={`Seçim ${i + 1}`}
+                    className="flex-1 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg px-3.5 py-2.5 text-sm focus:border-brand focus:ring-1 focus:ring-brand outline-none transition-all"
+                    maxLength={50}
+                  />
+                  {draft.pollOptions!.length > 2 && (
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        const newOpts = draft.pollOptions!.filter((_, idx) => idx !== i);
+                        onChange({ pollOptions: newOpts });
+                      }}
+                      className="p-2 text-neutral-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                      title="Seçimi sil"
+                    >
+                      <FiX size={16} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            
+            {draft.pollOptions.length < 4 && (
+              <button 
+                type="button"
+                onClick={() => onChange({ pollOptions: [...draft.pollOptions!, ''] })}
+                className="inline-flex items-center gap-1.5 text-brand text-sm font-medium hover:text-brand/80 transition-colors ml-7"
+              >
+                <div className="w-5 h-5 rounded-full bg-brand/10 flex items-center justify-center shrink-0">
+                  <FiPlus size={12} />
+                </div>
+                Yeni seçim əlavə et
+              </button>
+            )}
+
+            <div className="pt-3 mt-3 border-t border-neutral-200/60 dark:border-neutral-800/60 flex items-center gap-4">
+              <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Müddət</span>
+              <div className="relative">
+                <select 
+                  value={draft.pollDurationHours}
+                  onChange={(e) => onChange({ pollDurationHours: Number(e.target.value) })}
+                  className="appearance-none bg-neutral-100 dark:bg-neutral-800 border-none rounded-lg pl-3 pr-8 py-2 text-sm focus:ring-1 focus:ring-brand outline-none cursor-pointer text-neutral-800 dark:text-neutral-200"
+                >
+                  <option value={24}>1 Gün</option>
+                  <option value={72}>3 Gün</option>
+                  <option value={168}>1 Həftə</option>
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none text-neutral-500">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Media Previews */}
@@ -484,6 +596,8 @@ export function SocialComposer({
     imageFiles: [],
     imagePreviews: [],
     selectedBook: null,
+    pollOptions: [],
+    pollDurationHours: 24,
     isValid: false
   })
 
@@ -548,7 +662,9 @@ export function SocialComposer({
           draft.selectedBook?.id, 
           groupId, 
           imageUrls, 
-          previousPostId
+          previousPostId,
+          draft.pollOptions,
+          draft.pollDurationHours
         )
         
         if (newPostId) {
@@ -722,7 +838,7 @@ export function SocialComposer({
                         disabled={isUploading}
                         className="flex items-center gap-3 w-full text-left focus:outline-none group/add"
                       >
-                         <div className="flex items-center justify-center w-[22px] h-[22px] rounded-full border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 group-hover/add:border-brand transition-colors z-10 mx-[-1px]">
+                         <div className="flex items-center justify-center w-[22px] h-[22px] rounded-full border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 group-hover/add:border-brand transition-colors z-10">
                             <FiPlus className="w-3.5 h-3.5 text-neutral-400 group-hover/add:text-brand transition-colors" />
                          </div>
                          <span className="text-[15px] font-medium text-neutral-400 group-hover/add:text-brand transition-colors">

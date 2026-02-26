@@ -116,7 +116,7 @@ export default function AdminLayout({
               <NavLink 
                 href={`/${locale}/admin/sponsors`} 
                 icon={<FiDollarSign />} 
-                label="Sponsors"
+                label={t(locale, 'admin_sponsors')}
                 onClick={() => setSidebarOpen(false)}
               />
               <NavLink 
@@ -142,7 +142,7 @@ export default function AdminLayout({
                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all w-full"
                  >
                    <span className="text-lg"><FiLogOut /></span>
-                   Logout
+                   {t(locale, 'logout')}
                  </button>
                  <NavLink 
                    href={`/${locale}`} 

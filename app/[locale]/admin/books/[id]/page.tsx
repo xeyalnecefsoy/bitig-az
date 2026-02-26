@@ -167,6 +167,9 @@ export default function EditBookPage({ params }: { params: Promise<{ locale: str
       cover: coverUrl,
       genre: formData.get('genre'),
       length: formData.get('length'),
+      has_ambience: formData.get('has_ambience') === 'on',
+      has_sound_effects: formData.get('has_sound_effects') === 'on',
+      voice_type: formData.get('voice_type') || 'single',
     }
 
     const { error } = await supabase.from('books').update(updates).eq('id', bookId)
@@ -218,6 +221,26 @@ export default function EditBookPage({ params }: { params: Promise<{ locale: str
           <div>
             <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t(locale, 'admin_length_label')}</label>
             <input name="length" defaultValue={book.length} className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 dark:bg-neutral-900 dark:border-neutral-700" />
+          </div>
+
+          {/* New Advanced Filters */}
+          <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-neutral-200 dark:border-neutral-800 pt-4 mt-2">
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t(locale, 'admin_voice_type_label') || 'Voice Type'}</label>
+              <select name="voice_type" defaultValue={book.voice_type || 'single'} className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 dark:bg-neutral-900 dark:border-neutral-700">
+                <option value="single">{t(locale, 'voice_single') || 'Single Voice'}</option>
+                <option value="multiple">{t(locale, 'voice_multiple') || 'Multiple Voices'}</option>
+                <option value="radio_theater">{t(locale, 'voice_radio_theater') || 'Radio Theater'}</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-2 mt-6">
+              <input type="checkbox" name="has_ambience" id="has_ambience" defaultChecked={book.has_ambience} className="rounded border-neutral-300 text-brand focus:ring-brand" />
+              <label htmlFor="has_ambience" className="text-sm font-medium text-neutral-700 dark:text-neutral-300">{t(locale, 'admin_has_ambience') || 'Has Ambience'}</label>
+            </div>
+            <div className="flex items-center gap-2 mt-6">
+              <input type="checkbox" name="has_sound_effects" id="has_sound_effects" defaultChecked={book.has_sound_effects} className="rounded border-neutral-300 text-brand focus:ring-brand" />
+              <label htmlFor="has_sound_effects" className="text-sm font-medium text-neutral-700 dark:text-neutral-300">{t(locale, 'admin_has_sound_effects') || 'Has Sound Effects'}</label>
+            </div>
           </div>
 
           <div className="md:col-span-2">

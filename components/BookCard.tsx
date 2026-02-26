@@ -1,7 +1,7 @@
 "use client"
 import Link from 'next/link'
 import Image from 'next/image'
-import { FiPlay, FiShoppingCart, FiLock } from 'react-icons/fi'
+import { FiPlay, FiShoppingCart, FiLock, FiWind, FiMusic, FiMic, FiUsers, FiRadio } from 'react-icons/fi'
 import { useCart } from '@/context/cart'
 import type { Book } from '@/lib/data'
 import { useLocale } from '@/context/locale'
@@ -63,6 +63,28 @@ export function BookCard({ book, locale, disabled }: { book: any; locale: string
             <span className="font-medium text-neutral-700 dark:text-neutral-300">{book.rating}</span>
           </div>
         </div>
+        
+        <div className="flex flex-wrap items-center gap-2 mt-2 mb-3">
+          {book.voice_type && (
+            <span className="flex items-center gap-1.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 px-2 py-1 rounded text-[10px] sm:text-xs font-medium">
+              {book.voice_type === 'single' && <FiMic size={12} />}
+              {book.voice_type === 'multiple' && <FiUsers size={12} />}
+              {book.voice_type === 'radio_theater' && <FiRadio size={12} />}
+              {t(locale, `voice_${book.voice_type}`)}
+            </span>
+          )}
+          {book.has_ambience && (
+            <span className="flex items-center gap-1.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 px-2 py-1 rounded text-[10px] sm:text-xs font-medium" title={t(locale, 'has_ambience')}>
+              <FiWind size={12} />
+            </span>
+          )}
+          {book.has_sound_effects && (
+            <span className="flex items-center gap-1.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 px-2 py-1 rounded text-[10px] sm:text-xs font-medium" title={t(locale, 'has_sound_effects')}>
+              <FiMusic size={12} />
+            </span>
+          )}
+        </div>
+
         <Add id={book.id} />
       </div>
     </div>

@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { FiLock } from 'react-icons/fi'
 import { BookActions } from '@/components/BookActions'
+import { BackButton } from '@/components/BackButton'
 
 export default async function AudiobookDetailsPage({ params }: { params: Promise<{ locale: string; id: string }> }) {
   const { locale, id } = await params
@@ -33,6 +34,7 @@ export default async function AudiobookDetailsPage({ params }: { params: Promise
 
   return (
     <section className="container-max py-10">
+      <BackButton />
       <div className="grid gap-8 md:grid-cols-[300px_1fr] lg:gap-12">
         <div className="relative mx-auto aspect-[2/3] w-[240px] md:w-full overflow-hidden rounded-xl bg-neutral-100 dark:bg-neutral-800 shadow-lg">
           <Image
@@ -48,13 +50,36 @@ export default async function AudiobookDetailsPage({ params }: { params: Promise
           <h1 className="mb-2 text-3xl font-bold text-neutral-900 dark:text-white sm:text-4xl">{book.title}</h1>
           <div className="mb-6 text-lg text-neutral-600 dark:text-neutral-400">{book.author}</div>
           
-          <div className="mb-6 flex items-center gap-4 text-sm">
+          <div className="mb-6 flex flex-wrap items-center gap-4 text-sm">
             <div className="flex items-center gap-1">
               <span className="text-yellow-500">★</span>
               <span className="font-medium">{book.rating || 0}</span>
             </div>
             <div className="h-4 w-px bg-neutral-200 dark:bg-neutral-700" />
             <div>{book.length}</div>
+            
+            {(book.voice_type || book.has_ambience || book.has_sound_effects) && (
+              <>
+                <div className="h-4 w-px bg-neutral-200 dark:bg-neutral-700 hidden sm:block" />
+                <div className="flex flex-wrap items-center gap-3">
+                  {book.voice_type && (
+                    <span className="bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 px-2 py-1 flex items-center gap-1.5 rounded text-xs font-medium">
+                      {t(locale as any, `voice_${book.voice_type}`)}
+                    </span>
+                  )}
+                  {book.has_ambience && (
+                    <span className="bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium">
+                      🍃 {t(locale as any, 'has_ambience')}
+                    </span>
+                  )}
+                  {book.has_sound_effects && (
+                    <span className="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium">
+                      🔊 {t(locale as any, 'has_sound_effects')}
+                    </span>
+                  )}
+                </div>
+              </>
+            )}
           </div>
 
 
