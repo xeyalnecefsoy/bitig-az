@@ -136,19 +136,22 @@ export async function deleteAudiobookCover(url: string): Promise<{ success: bool
   return { success: true, error: null }
 }
 
-const MAX_AUDIO_SIZE = 100 * 1024 * 1024 // 100MB
-const ALLOWED_AUDIO_TYPES = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-m4a', 'audio/aac']
+const MAX_AUDIO_SIZE = 500 * 1024 * 1024 // 500MB
+const ALLOWED_AUDIO_TYPES = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-m4a', 'audio/aac', 'audio/ogg', 'audio/opus', 'audio/webm']
 
 export function validateAudioFile(file: File): { valid: boolean; error?: string } {
   // Some browsers might have different mime types for mp3, so we check extension too
   const isMp3 = file.name.toLowerCase().endsWith('.mp3')
+  const isM4a = file.name.toLowerCase().endsWith('.m4a')
+  const isOpus = file.name.toLowerCase().endsWith('.opus')
+  const isOgg = file.name.toLowerCase().endsWith('.ogg')
   
-  if (!ALLOWED_AUDIO_TYPES.includes(file.type) && !isMp3) {
-    return { valid: false, error: 'Invalid file type. Please upload an MP3, WAV, or AAC audio file.' }
+  if (!ALLOWED_AUDIO_TYPES.includes(file.type) && !isMp3 && !isM4a && !isOpus && !isOgg) {
+    return { valid: false, error: 'Invalid file type. Please upload an M4A, AAC, MP3, OPUS, or WAV audio file.' }
   }
   
   if (file.size > MAX_AUDIO_SIZE) {
-    return { valid: false, error: 'File too large. Maximum size is 100MB.' }
+    return { valid: false, error: 'File too large. Maximum size is 500MB.' }
   }
   
   return { valid: true }
@@ -181,6 +184,65 @@ export async function uploadAudioTrack(file: File): Promise<{ url: string | null
     .getPublicUrl(filePath)
 
   return { url: data.publicUrl, error: null }
+}
+
+export async function uploadAudioTrackWithProgress(
+  file: File,
+  bookId: string,
+  trackTitle: string,
+  onProgress: (percent: number) => void
+): Promise<{ r2Key: string | null; format: string; error: string | null }> {
+  const validation = validateAudioFile(file)
+  if (!validation.valid) {
+    return { r2Key: null, format: '', error: validation.error || 'Invalid file' }
+  }
+
+  return new Promise((resolve) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('bookId', bookId)
+    formData.append('trackTitle', trackTitle)
+
+    const xhr = new XMLHttpRequest()
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        const percent = Math.round((event.loaded / event.total) * 100)
+        onProgress(percent)
+      }
+    }
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const res = JSON.parse(xhr.responseText)
+          if (res.success) {
+            resolve({ r2Key: res.r2Key, format: res.format || '', error: null })
+          } else {
+            resolve({ r2Key: null, format: '', error: res.error || 'Upload failed' })
+          }
+        } catch {
+          resolve({ r2Key: null, format: '', error: 'Invalid server response' })
+        }
+      } else {
+        let errorMessage = 'Upload failed'
+        try {
+          const res = JSON.parse(xhr.responseText)
+          errorMessage = res.error || errorMessage
+        } catch {
+          // ignore
+        }
+        resolve({ r2Key: null, format: '', error: errorMessage })
+      }
+    }
+
+    xhr.onerror = () => {
+      resolve({ r2Key: null, format: '', error: 'Network error during upload' })
+    }
+
+    xhr.open('POST', '/api/audio/upload', true)
+    xhr.send(formData)
+  })
 }
 
 export async function deleteAudioTrack(url: string): Promise<{ success: boolean; error: string | null }> {

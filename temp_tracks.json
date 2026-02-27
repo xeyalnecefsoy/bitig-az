@@ -1,0 +1,80 @@
+[
+  {
+    "id": "40633bcc-b8ab-4130-9017-08feb9639682",
+    "book_id": "dunesaga",
+    "title": "Chapter 1",
+    "duration": 300,
+    "audio_url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+    "r2_key": null,
+    "format": "mp3",
+    "file_size": null,
+    "position": 1,
+    "is_preview": false,
+    "created_at": "2026-01-22T13:47:04.486212+00:00"
+  },
+  {
+    "id": "05c23285-4d54-4a89-b550-d168e6442c92",
+    "book_id": "atomic",
+    "title": "Chapter 1",
+    "duration": 300,
+    "audio_url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+    "r2_key": null,
+    "format": "mp3",
+    "file_size": null,
+    "position": 1,
+    "is_preview": false,
+    "created_at": "2026-01-22T13:47:04.486212+00:00"
+  },
+  {
+    "id": "fedc94a9-bca0-4e50-8478-e646253889b8",
+    "book_id": "hobbit",
+    "title": "Chapter 1",
+    "duration": 300,
+    "audio_url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+    "r2_key": null,
+    "format": "mp3",
+    "file_size": null,
+    "position": 1,
+    "is_preview": false,
+    "created_at": "2026-01-22T13:47:04.486212+00:00"
+  },
+  {
+    "id": "101313d6-d151-417f-b038-7ec9db8bbb33",
+    "book_id": "martian",
+    "title": "Chapter 1",
+    "duration": 300,
+    "audio_url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+    "r2_key": null,
+    "format": "mp3",
+    "file_size": null,
+    "position": 1,
+    "is_preview": false,
+    "created_at": "2026-01-22T13:47:04.486212+00:00"
+  },
+  {
+    "id": "254fcdd5-b157-4a9a-baaf-efe96980ca2c",
+    "book_id": "becoming",
+    "title": "Chapter 1",
+    "duration": 300,
+    "audio_url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+    "r2_key": null,
+    "format": "mp3",
+    "file_size": null,
+    "position": 1,
+    "is_preview": false,
+    "created_at": "2026-01-22T13:47:04.486212+00:00"
+  },
+  {
+    "id": "6560328d-13a9-4cba-a3d8-728a6450c734",
+    "book_id": "sapiens",
+    "title": "Chapter 1",
+    "duration": 300,
+    "audio_url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+    "r2_key": null,
+    "format": "mp3",
+    "file_size": null,
+    "position": 1,
+    "is_preview": false,
+    "created_at": "2026-01-22T13:47:04.486212+00:00"
+  }
+]

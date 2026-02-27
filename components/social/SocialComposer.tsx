@@ -533,7 +533,7 @@ function ComposerItem({
           <div className="mt-2 flex flex-wrap gap-2 items-start pt-2 border-t border-neutral-100 dark:border-neutral-800/50">
             {draft.imagePreviews.map((preview, previewIdx) => (
               <div key={preview} className="relative inline-block group/media shrink-0">
-                <img src={preview} alt="Preview" className="w-24 h-24 sm:w-28 sm:h-28 object-cover rounded-xl border border-neutral-200 dark:border-neutral-700 shadow-sm" />
+                <img src={preview} alt="Preview" className="h-20 sm:h-24 aspect-video object-cover rounded-xl border border-neutral-200 dark:border-neutral-700 shadow-sm" />
                 <button 
                   type="button" 
                   onClick={() => removeImage(previewIdx)}

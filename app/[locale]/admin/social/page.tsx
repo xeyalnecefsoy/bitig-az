@@ -1,5 +1,6 @@
 "use client"
 import { createClient } from '@/lib/supabase/client'
+import { DeleteConfirmModal } from '@/components/DeleteConfirmModal'
 import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { t, type Locale } from '@/lib/i18n'
@@ -9,6 +10,8 @@ export default function AdminSocialPage() {
   const [posts, setPosts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [locale, setLocale] = useState<Locale>('en')
+  const [deleteModal, setDeleteModal] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const pathname = usePathname()
   const supabase = createClient()
 
@@ -33,11 +36,19 @@ export default function AdminSocialPage() {
     setLoading(false)
   }
 
-  async function deletePost(postId: string) {
-    if (!confirm('Are you sure you want to delete this post? This will also delete all comments and likes.')) return
+  function confirmDelete(id: string) {
+    setDeletingId(id)
+    setDeleteModal(true)
+  }
+
+  async function handleDelete() {
+    if (!deletingId) return
     
-    const { error } = await supabase.from('posts').delete().eq('id', postId)
+    const { error } = await supabase.from('posts').delete().eq('id', deletingId)
     
+    setDeleteModal(false)
+    setDeletingId(null)
+
     if (error) {
       alert('Error: ' + error.message)
     } else {
@@ -150,7 +161,7 @@ export default function AdminSocialPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
                     <button
-                      onClick={() => deletePost(post.id)}
+                      onClick={() => confirmDelete(post.id)}
                       className="text-red-600 hover:text-red-900 dark:hover:text-red-400 p-1"
                       title="Delete post"
                     >
@@ -184,7 +195,7 @@ export default function AdminSocialPage() {
                   </p>
                 </div>
                 <button
-                  onClick={() => deletePost(post.id)}
+                  onClick={() => confirmDelete(post.id)}
                   className="text-red-600 hover:text-red-900 dark:hover:text-red-400 p-2"
                 >
                   <FiTrash2 />
@@ -209,6 +220,18 @@ export default function AdminSocialPage() {
           </div>
         )}
       </div>
+
+      <DeleteConfirmModal
+        isOpen={deleteModal}
+        title="Paylaşımı Sil"
+        message="Bu paylaşımı silmək istədiyinizə əminsiniz? Bu həm də bütün bəyənmələri və şərhləri siləcək."
+        onConfirm={handleDelete}
+        onCancel={() => {
+          setDeleteModal(false)
+          setDeletingId(null)
+        }}
+        isDeleting={false}
+      />
     </div>
   )
 }

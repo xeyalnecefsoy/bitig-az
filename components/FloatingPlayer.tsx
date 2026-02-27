@@ -53,7 +53,7 @@ export function FloatingPlayer() {
 
   if (expanded) {
     return (
-      <div className="fixed bottom-4 right-4 z-50 w-80 rounded-xl border border-neutral-200 bg-white p-3 shadow-2xl dark:border-neutral-800 dark:bg-neutral-900">
+      <div className="fixed bottom-20 right-4 z-50 w-80 rounded-xl border border-neutral-200 bg-white p-3 shadow-2xl dark:border-neutral-800 dark:bg-neutral-900">
         <div className="flex items-start justify-between gap-2 mb-2">
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-medium text-neutral-900 dark:text-neutral-100">{track.title ?? 'İndi oxunur'}</div>

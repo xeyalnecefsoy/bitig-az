@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Group } from '@/lib/social'
+import { DeleteConfirmModal } from '@/components/DeleteConfirmModal'
 import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiX, FiUsers, FiMessageCircle } from 'react-icons/fi'
 
 export default function AdminGroupsPage() {
@@ -19,6 +20,8 @@ export default function AdminGroupsPage() {
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [deleteModal, setDeleteModal] = useState(false)
+  const [deletingGroup, setDeletingGroup] = useState<Group | null>(null)
 
   useEffect(() => {
     fetchGroups()
@@ -116,13 +119,21 @@ export default function AdminGroupsPage() {
     setSaving(false)
   }
 
-  const handleDelete = async (group: Group) => {
-    if (!confirm(`"${group.name}" qrupunu silmək istədiyinizə əminsiniz?`)) return
+  const handleDeleteClick = (group: Group) => {
+    setDeletingGroup(group)
+    setDeleteModal(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!deletingGroup) return
 
     const { error } = await supabase
       .from('groups')
       .delete()
-      .eq('id', group.id)
+      .eq('id', deletingGroup.id)
+
+    setDeleteModal(false)
+    setDeletingGroup(null)
 
     if (!error) {
       fetchGroups()
@@ -228,7 +239,7 @@ export default function AdminGroupsPage() {
                           <FiEdit2 size={16} />
                         </button>
                         <button
-                          onClick={() => handleDelete(group)}
+                          onClick={() => handleDeleteClick(group)}
                           className="p-2 text-neutral-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                           title="Sil"
                         >
@@ -341,6 +352,18 @@ export default function AdminGroupsPage() {
           </div>
         </div>
       )}
+
+      <DeleteConfirmModal
+        isOpen={deleteModal}
+        title="İcmanı Sil"
+        message={`"${deletingGroup?.name}" qrupunu silmək istədiyinizə əminsiniz?`}
+        onConfirm={confirmDelete}
+        onCancel={() => {
+          setDeleteModal(false)
+          setDeletingGroup(null)
+        }}
+        isDeleting={false}
+      />
     </div>
   )
 }

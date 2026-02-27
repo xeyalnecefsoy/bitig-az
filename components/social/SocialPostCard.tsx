@@ -289,7 +289,7 @@ export function SocialPostCard({ postId, disableHover = false, isThread = false 
             {post.imageUrls.map((url, index) => (
               <div 
                 key={index}
-                className="w-full min-w-full shrink-0 relative aspect-[4/3] sm:aspect-video max-h-[400px] cursor-zoom-in overflow-hidden"
+                className="w-full min-w-full shrink-0 relative aspect-video sm:aspect-[21/9] max-h-[300px] cursor-zoom-in overflow-hidden bg-neutral-100 dark:bg-neutral-900"
                 onClick={(e) => {
                   e.stopPropagation()
                   setExpandedImage({ index, urls: post.imageUrls! })
@@ -479,6 +479,35 @@ export function SocialPostCard({ postId, disableHover = false, isThread = false 
               </div>
             </>
           )}
+
+          {/* Download Button */}
+          <button 
+            className="absolute top-4 right-16 sm:top-6 sm:right-20 p-2 text-white/70 hover:text-white bg-black/50 hover:bg-black/70 rounded-full transition-colors z-[101]"
+            title={t(locale, 'download_image') || 'Yüklə'}
+            onClick={async (e) => {
+              e.stopPropagation()
+              try {
+                const url = expandedImage.urls[expandedImage.index]
+                const response = await fetch(url)
+                const blob = await response.blob()
+                const blobUrl = window.URL.createObjectURL(blob)
+                const link = document.createElement('a')
+                link.href = blobUrl
+                // Extract filename from URL or fallback
+                const filename = url.split('/').pop()?.split('?')[0] || `bitig-image-${Date.now()}.jpg`
+                link.download = filename
+                document.body.appendChild(link)
+                link.click()
+                link.remove()
+                window.URL.revokeObjectURL(blobUrl)
+              } catch (error) {
+                console.error('Download failed:', error)
+                alert(t(locale, 'error_downloading') || 'Yükləmə zamanı xəta baş verdi.')
+              }
+            }}
+          >
+            <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          </button>
 
           <img 
             src={expandedImage.urls[expandedImage.index]} 

@@ -8,6 +8,7 @@ import { ThemeProvider } from '@/context/theme'
 import { AudioProvider } from '@/context/audio'
 import { SocialProvider } from '@/context/social'
 import { SpeedInsights } from '@vercel/speed-insights/next'
+import SystemAlertBanner from '@/components/system/SystemAlertBanner'
 
 const inter = Inter({ 
   subsets: ['latin', 'cyrillic'],
@@ -159,6 +160,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="az" suppressHydrationWarning>
       <body className={inter.className} suppressHydrationWarning>
+        <SystemAlertBanner />
         <AuthProvider>
           <ThemeProvider>
             <AudioProvider>

@@ -2,7 +2,7 @@
 import { createClient } from '@/lib/supabase/client'
 import { redirect, useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { FiHome, FiBook, FiUsers, FiPieChart, FiMenu, FiX, FiMessageCircle, FiLogOut, FiDollarSign } from 'react-icons/fi'
+import { FiHome, FiBook, FiUsers, FiPieChart, FiMenu, FiX, FiMessageCircle, FiLogOut, FiDollarSign, FiAlertCircle } from 'react-icons/fi'
 import { ThemeProvider } from '@/context/theme'
 import { t, type Locale } from '@/lib/i18n'
 import { useState, useEffect } from 'react'
@@ -129,6 +129,12 @@ export default function AdminLayout({
                 href={`/${locale}/admin/groups`} 
                 icon={<FiUsers />} 
                 label={t(locale, 'groups_title')}
+                onClick={() => setSidebarOpen(false)}
+              />
+              <NavLink 
+                href={`/${locale}/admin/alerts`} 
+                icon={<FiAlertCircle />} 
+                label={t(locale, 'admin_alerts')}
                 onClick={() => setSidebarOpen(false)}
               />
               <div className="pt-4 mt-4 border-t border-neutral-100 dark:border-neutral-800 space-y-1">

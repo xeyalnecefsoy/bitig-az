@@ -11,7 +11,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params
   return {
-    title: `${t(locale as Locale, 'dm_title')} | Bitig`,
+    title: t(locale as Locale, 'dm_title'),
     description: t(locale as Locale, 'dm_search'),
   }
 }

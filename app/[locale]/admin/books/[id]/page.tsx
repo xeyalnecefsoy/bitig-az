@@ -2,6 +2,7 @@
 import { createClient } from '@/lib/supabase/client'
 import { useRouter, usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
+import { DeleteConfirmModal } from '@/components/DeleteConfirmModal'
 import { FiSave, FiArrowLeft, FiUpload } from 'react-icons/fi'
 import Link from 'next/link'
 import { t, type Locale } from '@/lib/i18n'
@@ -102,10 +103,20 @@ export default function EditBookPage({ params }: { params: Promise<{ locale: str
     }
   }
 
-  async function handleDeleteTrack(trackId: string, r2Key: string | null, audioUrl: string | null) {
-    if (!confirm(t(locale, 'admin_confirm_delete_track'))) return
+  const [deleteModal, setDeleteModal] = useState(false)
+  const [deletingTrack, setDeletingTrack] = useState<{ id: string, r2Key: string | null, audioUrl: string | null } | null>(null)
+
+  function confirmDeleteTrack(trackId: string, r2Key: string | null, audioUrl: string | null) {
+    setDeletingTrack({ id: trackId, r2Key, audioUrl })
+    setDeleteModal(true)
+  }
+
+  async function handleDeleteTrackConfirm() {
+    if (!deletingTrack) return
 
     try {
+      const { id: trackId, r2Key, audioUrl } = deletingTrack
+
       // Delete from R2 if r2_key exists, otherwise from legacy storage
       if (r2Key) {
         // R2 deletion will be handled by the stream API or a separate delete endpoint
@@ -118,9 +129,13 @@ export default function EditBookPage({ params }: { params: Promise<{ locale: str
       const { error } = await supabase.from('book_tracks').delete().eq('id', trackId)
       if (error) throw error
 
+      setDeleteModal(false)
+      setDeletingTrack(null)
       loadBook(bookId)
     } catch (error: any) {
       alert('Error deleting track: ' + error.message)
+      setDeleteModal(false)
+      setDeletingTrack(null)
     }
   }
 
@@ -303,7 +318,7 @@ export default function EditBookPage({ params }: { params: Promise<{ locale: str
                   </div>
                   <button
                     type="button"
-                    onClick={() => handleDeleteTrack(track.id, track.r2_key, track.audio_url)}
+                    onClick={() => confirmDeleteTrack(track.id, track.r2_key, track.audio_url)}
                     className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                     title={t(locale, 'admin_delete_track')}
                   >
@@ -365,6 +380,18 @@ export default function EditBookPage({ params }: { params: Promise<{ locale: str
           </button>
         </div>
       </form>
+
+      <DeleteConfirmModal
+        isOpen={deleteModal}
+        title="Səs Faylını Sil"
+        message={t(locale, 'admin_confirm_delete_track')}
+        onConfirm={handleDeleteTrackConfirm}
+        onCancel={() => {
+          setDeleteModal(false)
+          setDeletingTrack(null)
+        }}
+        isDeleting={false}
+      />
     </div>
   )
 }

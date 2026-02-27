@@ -1,5 +1,6 @@
 "use client"
 import { useState, useEffect } from 'react'
+import { DeleteConfirmModal } from '@/components/DeleteConfirmModal'
 import { createClient } from '@/lib/supabase/client'
 import { FiPlus, FiEdit2, FiTrash2, FiEye, FiTrendingUp } from 'react-icons/fi'
 import Link from 'next/link'
@@ -9,6 +10,8 @@ import { t } from '@/lib/i18n'
 export default function SponsorsPage() {
   const [sponsors, setSponsors] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [deleteModal, setDeleteModal] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const locale = useLocale()
   const supabase = createClient()
 
@@ -35,11 +38,19 @@ export default function SponsorsPage() {
     loadSponsors()
   }
 
-  async function deleteSponsor(id: string) {
-    if (!confirm(t(locale, 'admin_delete_sponsor_confirm'))) return
+  function confirmDelete(id: string) {
+    setDeletingId(id)
+    setDeleteModal(true)
+  }
+
+  async function handleDelete() {
+    if (!deletingId) return
     
-    const { error } = await supabase.from('sponsors').delete().eq('id', id)
+    const { error } = await supabase.from('sponsors').delete().eq('id', deletingId)
     
+    setDeleteModal(false)
+    setDeletingId(null)
+
     if (error) {
       alert(t(locale, 'admin_sponsor_error') + ': ' + error.message)
     } else {
@@ -167,7 +178,7 @@ export default function SponsorsPage() {
                           <FiEdit2 size={16} />
                         </Link>
                         <button 
-                          onClick={() => deleteSponsor(sponsor.id)} 
+                          onClick={() => confirmDelete(sponsor.id)} 
                           className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                           title={t(locale, 'delete')}
                         >
@@ -212,7 +223,7 @@ export default function SponsorsPage() {
                 <Link href={`/${locale}/admin/sponsors/${sponsor.id}` as any} className="btn btn-outline flex-1 text-sm py-2">
                   <FiEdit2 /> {t(locale, 'admin_edit')}
                 </Link>
-                <button onClick={() => deleteSponsor(sponsor.id)} className="btn btn-outline text-red-600 flex-1 text-sm py-2">
+                <button onClick={() => confirmDelete(sponsor.id)} className="btn btn-outline text-red-600 flex-1 text-sm py-2">
                   <FiTrash2 /> {t(locale, 'delete')}
                 </button>
               </div>
@@ -229,6 +240,18 @@ export default function SponsorsPage() {
           </div>
         )}
       </div>
+
+      <DeleteConfirmModal
+        isOpen={deleteModal}
+        title="Sponsoru Sil"
+        message={t(locale, 'admin_delete_sponsor_confirm')}
+        onConfirm={handleDelete}
+        onCancel={() => {
+          setDeleteModal(false)
+          setDeletingId(null)
+        }}
+        isDeleting={false}
+      />
     </div>
   )
 }

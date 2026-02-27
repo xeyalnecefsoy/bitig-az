@@ -13,7 +13,7 @@ type PageProps = {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { locale } = await params;
   return {
-    title: `${t(locale as any, 'groups_title')} | Bitig Social`,
+    title: t(locale as any, 'groups_title'),
     description: t(locale as any, 'groups_desc'),
   };
 }

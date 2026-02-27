@@ -17,7 +17,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   return {
-    title: `${group.name} | Bitig Social`,
+    title: group.name,
     description: group.description,
   };
 }

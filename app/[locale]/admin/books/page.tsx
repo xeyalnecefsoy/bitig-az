@@ -1,5 +1,6 @@
 "use client"
 import { createClient } from '@/lib/supabase/client'
+import { DeleteConfirmModal } from '@/components/DeleteConfirmModal'
 import Link from 'next/link'
 import { FiPlus, FiTrash2, FiSearch, FiEdit2 } from 'react-icons/fi'
 import { useState, useEffect, useMemo } from 'react'
@@ -10,6 +11,8 @@ export default function AdminBooksPage({ params }: { params: Promise<{ locale: s
   const [books, setBooks] = useState<any[]>([])
   const [search, setSearch] = useState('')
   const [locale, setLocale] = useState<Locale>('en')
+  const [deleteModal, setDeleteModal] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const router = useRouter()
   const pathname = usePathname()
   const supabase = createClient()
@@ -25,9 +28,16 @@ export default function AdminBooksPage({ params }: { params: Promise<{ locale: s
     setBooks(data || [])
   }
 
-  async function deleteBook(id: string) {
-    if (!confirm(t(locale, 'admin_delete_confirm'))) return
-    await supabase.from('books').delete().eq('id', id)
+  function confirmDelete(id: string) {
+    setDeletingId(id)
+    setDeleteModal(true)
+  }
+
+  async function handleDelete() {
+    if (!deletingId) return
+    await supabase.from('books').delete().eq('id', deletingId)
+    setDeleteModal(false)
+    setDeletingId(null)
     loadBooks()
   }
 
@@ -101,7 +111,7 @@ export default function AdminBooksPage({ params }: { params: Promise<{ locale: s
                         <FiEdit2 />
                       </Link>
                       <button 
-                        onClick={() => deleteBook(book.id)} 
+                        onClick={() => confirmDelete(book.id)} 
                         className="text-red-600 hover:text-red-900 dark:hover:text-red-400 p-1"
                       >
                         <FiTrash2 />
@@ -145,7 +155,7 @@ export default function AdminBooksPage({ params }: { params: Promise<{ locale: s
                   <FiEdit2 />
                 </Link>
                 <button 
-                  onClick={() => deleteBook(book.id)} 
+                  onClick={() => confirmDelete(book.id)} 
                   className="text-red-600 hover:text-red-900 dark:hover:text-red-400 p-2 h-fit"
                 >
                   <FiTrash2 />
@@ -160,6 +170,18 @@ export default function AdminBooksPage({ params }: { params: Promise<{ locale: s
           )}
         </div>
       </div>
+
+      <DeleteConfirmModal
+        isOpen={deleteModal}
+        title="Səsli Kitabı Sil"
+        message={t(locale, 'admin_delete_confirm')}
+        onConfirm={handleDelete}
+        onCancel={() => {
+          setDeleteModal(false)
+          setDeletingId(null)
+        }}
+        isDeleting={false}
+      />
     </div>
   )
 }
