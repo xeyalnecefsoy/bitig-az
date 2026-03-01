@@ -18,3 +18,5 @@
 .DS_Store
 *.log
 .env*
+
+Group_Images/

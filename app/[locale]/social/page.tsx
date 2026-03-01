@@ -18,8 +18,8 @@ import { useEffect, useRef } from 'react'
 type SortOption = 'newest' | 'oldest' | 'popular'
 
 export default function SocialPage() {
-  const { posts, currentUser, following, loadMorePosts, hasMorePosts, loading } = useSocial()
-  const [tab, setTab] = useState<'feed' | 'following'>('feed')
+  const { posts, currentUser, following, loadMorePosts, loadForYouPosts, hasMorePosts, loading } = useSocial()
+  const [tab, setTab] = useState<'foryou' | 'feed' | 'following'>('foryou')
   const [loadingMore, setLoadingMore] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState<SortOption>('newest')
@@ -57,11 +57,23 @@ export default function SocialPage() {
     return () => clearTimeout(timer)
   }, [searchQuery])
 
+  // When tab changes, load appropriate posts
+  useEffect(() => {
+    if (tab === 'foryou') {
+      loadForYouPosts()
+    } else {
+      // Feed and following are handled by the main posts state currently loaded
+      // Ideally, we'd have dedicated loaders, but for now we fallback to standard loaded posts
+    }
+  }, [tab])
+
   // Filter and sort posts
   const filteredPosts = useMemo(() => {
-    let result = tab === 'feed' 
-      ? posts 
-      : posts.filter(p => following.includes(p.userId))
+    let result = posts 
+    
+    if (tab === 'following') {
+      result = posts.filter(p => following.includes(p.userId))
+    }
     
     // Search filter
     if (searchQuery.trim()) {
@@ -84,8 +96,8 @@ export default function SocialPage() {
     }
   }, [posts, tab, following, searchQuery, sortBy])
     
-  // If tab is following but user is guest, switch to feed
-  if (tab === 'following' && !currentUser) setTab('feed')
+  // If tab is following but user is guest, switch to foryou
+  if (tab === 'following' && !currentUser) setTab('foryou')
 
   const handleLoadMore = async () => {
     setLoadingMore(true)
@@ -100,17 +112,23 @@ export default function SocialPage() {
           <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">{t(locale, 'nav_social')}</h1>
         </div>
 
-        <div className="mb-6 flex gap-4 border-b border-neutral-200 dark:border-neutral-800">
+        <div className="mb-6 flex gap-4 border-b border-neutral-200 dark:border-neutral-800 overflow-x-auto pb-1 scrollbar-hide">
+          <button
+            onClick={() => setTab('foryou')}
+            className={`pb-2 whitespace-nowrap text-sm font-medium transition-colors ${tab === 'foryou' ? 'border-b-2 border-brand text-brand' : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200'}`}
+          >
+            Sizin Üçün
+          </button>
           <button
             onClick={() => setTab('feed')}
-            className={`pb-3 text-sm font-medium transition-colors ${tab === 'feed' ? 'border-b-2 border-brand text-brand' : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200'}`}
+            className={`pb-2 whitespace-nowrap text-sm font-medium transition-colors ${tab === 'feed' ? 'border-b-2 border-brand text-brand' : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200'}`}
           >
-            {t(locale, 'social_community_feed')}
+            Ən Yenilər
           </button>
           {currentUser && (
             <button
               onClick={() => setTab('following')}
-              className={`pb-3 text-sm font-medium transition-colors ${tab === 'following' ? 'border-b-2 border-brand text-brand' : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200'}`}
+              className={`pb-2 whitespace-nowrap text-sm font-medium transition-colors ${tab === 'following' ? 'border-b-2 border-brand text-brand' : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200'}`}
             >
               {t(locale, 'following_tab')}
             </button>

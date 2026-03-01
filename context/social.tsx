@@ -26,6 +26,7 @@ export type SocialState = {
   isFollowing: (userId: string) => boolean
   loading: boolean
   loadMorePosts: () => Promise<void>
+  loadForYouPosts: () => Promise<void>
   hasMorePosts: boolean
   notifications: Notification[]
   unreadCount: number
@@ -263,6 +264,119 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
       setPosts(mappedPosts)
     }
   }, [supabase, fetchAndMergeUsers])
+
+  // Load For You posts helper
+  const loadForYouPosts = useCallback(async (authUserId?: string) => {
+    const userIdToUse = authUserId || currentUser?.id;
+    if (!userIdToUse) {
+       await loadPosts(); // Fallback to normal feed if logged out
+       return;
+    }
+
+    const { data: postsData, error } = await supabase
+      .rpc('get_recommended_posts_v1', { p_user_id: userIdToUse })
+      .limit(15);
+      
+    if (error) {
+       console.error("Error loading recommended posts:", error);
+       // Fallback
+       await loadPosts(userIdToUse);
+       return;
+    }
+
+    if (postsData && postsData.length > 0) {
+      // Collect all user IDs involved
+      const userIds = new Set<string>()
+      
+      // Since it's an RPC, we need to fetch likes and comments manually or we can just fetch the detailed profiles.
+      // The RPC returns basic post rows. We need to enrich them.
+      // To keep it simple and match the `loadPosts` shape, we can just fetch the full posts data for the IDs returned by the RPC, keeping the order.
+      const postIds = postsData.map((p: any) => p.id);
+      
+      const { data: enrichedPostsData } = await supabase
+        .from('posts')
+        .select(`
+          *,
+          likes (user_id),
+          comments (
+            id, user_id, content, created_at
+          ),
+          polls (
+            expires_at,
+            poll_options (
+              id, text,
+              poll_votes (user_id)
+            )
+          )
+        `)
+        .in('id', postIds)
+
+      if (enrichedPostsData) {
+         // Sort enriched data back to original RPC order
+         const enrichedPostsMap = new Map(enrichedPostsData.map(p => [p.id, p]));
+         const sortedEnrichedPosts = postIds.map((id: string) => enrichedPostsMap.get(id)).filter(Boolean);
+
+         sortedEnrichedPosts.forEach((p: any) => {
+           if (p.user_id) userIds.add(p.user_id)
+           if (Array.isArray(p.comments)) {
+             p.comments.forEach((c: any) => {
+                if (c.user_id) userIds.add(c.user_id)
+             })
+           }
+         })
+         
+         await fetchAndMergeUsers(Array.from(userIds))
+
+         const bookIds = sortedEnrichedPosts
+           .filter((p: any) => p.mentioned_book_id)
+           .map((p: any) => p.mentioned_book_id)
+
+         let booksMap: Record<string, any> = {}
+         if (bookIds.length > 0) {
+           const { data: books } = await supabase
+             .from('books')
+             .select('*')
+             .in('id', bookIds)
+           
+           if (books) {
+             books.forEach(b => {
+               booksMap[b.id] = b
+             })
+           }
+         }
+
+         const mappedPosts: Post[] = sortedEnrichedPosts.map((p: any) => {
+             return {
+               id: p.id,
+               userId: p.user_id,
+               content: p.content,
+               imageUrls: p.image_urls,
+               parentPostId: p.parent_post_id,
+               createdAt: p.created_at,
+               likes: p.likes ? p.likes.length : 0,
+               likedByMe: userIdToUse && p.likes ? p.likes.some((l: any) => l.user_id === userIdToUse) : false,
+               comments: Array.isArray(p.comments) ? p.comments.map((c: any) => ({
+                 id: c.id,
+                 userId: c.user_id,
+                 content: c.content,
+                 createdAt: c.created_at
+               })) : [],
+               mentionedBookId: p.mentioned_book_id,
+               mentionedBook: p.mentioned_book_id && booksMap[p.mentioned_book_id] ? {
+                  id: booksMap[p.mentioned_book_id].id,
+                  title: booksMap[p.mentioned_book_id].title,
+                  coverUrl: booksMap[p.mentioned_book_id].cover || booksMap[p.mentioned_book_id].cover_url,
+                  author: booksMap[p.mentioned_book_id].author
+               } : undefined,
+               groupId: p.group_id,
+               // Simplify poll for now in recommendations
+               poll: undefined 
+             }
+         })
+         setPosts(mappedPosts)
+      }
+    }
+  }, [supabase, fetchAndMergeUsers, currentUser?.id, loadPosts])
 
   // Sadələşdirilmiş initialization - AuthProvider-dən user-i izləyir
   useEffect(() => {
@@ -840,11 +954,12 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     isFollowing,
     loading,
     loadMorePosts,
+    loadForYouPosts,
     hasMorePosts,
     notifications,
     unreadCount,
     markNotificationsAsRead
-  }), [currentUser, users, posts, following, loading, notifications, unreadCount])
+  }), [currentUser, users, posts, following, loading, notifications, unreadCount, loadForYouPosts])
 
   return <SocialCtx.Provider value={value}>{children}</SocialCtx.Provider>
 }

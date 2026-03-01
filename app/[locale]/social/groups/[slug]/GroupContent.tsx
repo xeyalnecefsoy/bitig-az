@@ -7,7 +7,7 @@ import { useSocial } from '@/context/social'
 import { SocialPostCard } from '@/components/social/SocialPostCard'
 import { SocialFeed } from '@/components/social/SocialFeed'
 import { SocialComposer } from '@/components/social/SocialComposer'
-import { FiUsers, FiMessageCircle, FiCheck, FiX, FiChevronDown } from 'react-icons/fi'
+import { FiUsers, FiMessageCircle, FiCheck, FiX, FiChevronDown, FiShare2 } from 'react-icons/fi'
 import { createClient } from '@/lib/supabase/client'
 
 // Gradient rəngləri
@@ -41,6 +41,7 @@ export function GroupContent({ group, locale }: GroupContentProps) {
   const [members, setMembers] = useState<any[]>([])
   const [loadingMembers, setLoadingMembers] = useState(false)
   const [sortBy, setSortBy] = useState<SortOption>('newest')
+  const [showToast, setShowToast] = useState(false)
   
   const gradient = getGradient(group.name)
   const initial = group.name.charAt(0).toUpperCase()
@@ -146,6 +147,26 @@ export function GroupContent({ group, locale }: GroupContentProps) {
     setIsJoining(false)
   }
 
+  const handleShare = async () => {
+    const shareData = {
+      title: group.name,
+      text: group.description,
+      url: window.location.href,
+    }
+    
+    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+      try {
+        await navigator.share(shareData)
+      } catch (err) {
+        console.error('Share failed:', err)
+      }
+    } else {
+      await navigator.clipboard.writeText(window.location.href)
+      setShowToast(true)
+      setTimeout(() => setShowToast(false), 2500)
+    }
+  }
+
   return (
     <div className="container-max py-6">
       {/* Back Link */}
@@ -158,16 +179,29 @@ export function GroupContent({ group, locale }: GroupContentProps) {
 
       {/* Group Header - REDESIGNED */}
       <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl overflow-hidden mb-6">
-        {/* Gradient Banner */}
-        <div className={`h-20 sm:h-28 bg-gradient-to-r ${gradient}`} />
+        {/* Banner Area */}
+        {group.cover_url ? (
+          <div className="h-28 sm:h-36 w-full relative overflow-hidden">
+            <img src={group.cover_url} alt={`${group.name} banner`} className="object-cover w-full h-full" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
+          </div>
+        ) : (
+          <div className={`h-20 sm:h-28 bg-gradient-to-r ${gradient}`} />
+        )}
         
         {/* Info Section - Proper positioning */}
         <div className="px-4 sm:px-6 pb-5 pt-3 bg-white dark:bg-neutral-900">
           <div className="flex flex-col sm:flex-row items-start gap-4">
             {/* Icon - pulled up into banner */}
-            <div className={`h-16 w-16 sm:h-20 sm:w-20 rounded-xl bg-gradient-to-br ${gradient} border-4 border-white dark:border-neutral-900 shadow-lg flex items-center justify-center shrink-0 -mt-12 sm:-mt-14`}>
-              <span className="text-2xl sm:text-3xl font-bold text-white">{initial}</span>
-            </div>
+            {group.icon_url ? (
+              <div className="h-16 w-16 sm:h-24 sm:w-24 shrink-0 rounded-2xl overflow-hidden border-4 border-white dark:border-neutral-900 shadow-lg -mt-10 sm:-mt-14 relative z-10">
+                <img src={group.icon_url} alt={group.name} className="object-cover w-full h-full" />
+              </div>
+            ) : (
+              <div className={`h-16 w-16 sm:h-20 sm:w-20 rounded-xl bg-gradient-to-br ${gradient} border-4 border-white dark:border-neutral-900 shadow-lg flex items-center justify-center shrink-0 -mt-12 sm:-mt-14 relative z-10`}>
+                <span className="text-2xl sm:text-3xl font-bold text-white">{initial}</span>
+              </div>
+            )}
             
             {/* Name & Stats - on white/dark background */}
             <div className="flex-1 min-w-0 sm:pt-0">
@@ -192,19 +226,38 @@ export function GroupContent({ group, locale }: GroupContentProps) {
               </p>
             </div>
 
-            {/* Join Button */}
-            <div className="w-full sm:w-auto mt-2 sm:mt-0">
+            {/* Action Buttons */}
+            <div className="w-full sm:w-auto mt-2 sm:mt-0 flex flex-row gap-2 relative">
+              <button 
+                onClick={handleShare}
+                className="px-4 py-2.5 rounded-xl font-medium transition-all bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700 flex items-center justify-center gap-2"
+                title="Paylaş"
+              >
+                <FiShare2 size={18} />
+                <span className="sm:hidden">Paylaş</span>
+              </button>
+
+              {/* Copy Toast attached to Share Button container */}
+              {showToast && (
+                <div className="absolute top-12 left-0 sm:left-auto sm:right-0 z-50 animate-in fade-in slide-in-from-top-2">
+                  <div className="bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 px-3 py-2 rounded-lg shadow-xl flex items-center gap-2 font-medium text-xs whitespace-nowrap">
+                    <FiCheck className="text-emerald-500 w-4 h-4 flex-shrink-0" />
+                    <span>{t(locale as any, 'link_copied') || 'Keçid kopyalandı'}</span>
+                  </div>
+                </div>
+              )}
+
               <button 
                 onClick={handleJoinLeave}
                 disabled={isJoining || !currentUser}
-                className={`w-full sm:w-auto px-6 py-2.5 rounded-xl font-medium transition-all disabled:opacity-50 ${
+                className={`flex-1 sm:w-auto px-6 py-2.5 rounded-xl font-medium transition-all disabled:opacity-50 ${
                   isMember 
                     ? 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700'
                     : 'bg-brand text-neutral-900 hover:bg-brand/90'
                 }`}
               >
                 {isJoining ? (
-                  <span className="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  <span className="flex justify-center w-full"><span className="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" /></span>
                 ) : isMember ? (
                   <span className="flex items-center justify-center gap-2">
                     <FiCheck size={16} />

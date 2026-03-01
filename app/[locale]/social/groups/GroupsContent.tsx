@@ -3,7 +3,7 @@ import { useState, useMemo } from 'react'
 import { Group } from '@/lib/social'
 import { t } from '@/lib/i18n'
 import { GroupCard } from '@/components/social/GroupCard'
-import { FiSearch, FiX, FiChevronDown } from 'react-icons/fi'
+import { FiSearch, FiX, FiChevronDown, FiUsers } from 'react-icons/fi'
 import Link from 'next/link'
 
 interface GroupsContentProps {
@@ -53,11 +53,14 @@ export function GroupsContent({ groups, locale }: GroupsContentProps) {
         ← {t(locale as any, 'nav_social')}
       </Link>
 
-      <div className="mb-8 text-center space-y-3">
-        <h1 className="text-3xl font-bold text-neutral-900 dark:text-white">
+      <div className="mb-10 text-center space-y-4">
+        <div className="inline-flex items-center justify-center p-3 sm:p-4 rounded-2xl bg-brand/10 dark:bg-brand/20 text-brand mb-2 ring-1 ring-brand/20 dark:ring-brand/30 shadow-inner">
+          <FiUsers className="w-8 h-8 sm:w-10 sm:h-10" />
+        </div>
+        <h1 className="text-3xl sm:text-4xl pr-1 font-bold text-neutral-900 dark:text-white tracking-tight">
           {t(locale as any, 'groups_title')}
         </h1>
-        <p className="text-neutral-600 dark:text-neutral-400 max-w-2xl mx-auto">
+        <p className="text-base sm:text-lg text-neutral-600 dark:text-neutral-400 max-w-2xl mx-auto leading-relaxed px-4">
           {t(locale as any, 'groups_desc')}
         </p>
       </div>
@@ -72,7 +75,7 @@ export function GroupsContent({ groups, locale }: GroupsContentProps) {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t(locale as any, 'search_groups_placeholder')}
-            className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand text-sm"
+            className="w-full pl-11 pr-11 py-3.5 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white/50 dark:bg-neutral-900/50 backdrop-blur-md text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm sm:text-base transition-all shadow-sm hover:border-neutral-300 dark:hover:border-neutral-700"
           />
           {searchQuery && (
             <button
@@ -89,7 +92,7 @@ export function GroupsContent({ groups, locale }: GroupsContentProps) {
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as SortOption)}
-            className="appearance-none w-full sm:w-auto bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-xl px-4 py-2.5 pr-10 text-sm text-neutral-700 dark:text-neutral-300 focus:outline-none focus:ring-2 focus:ring-brand/50 cursor-pointer"
+            className="appearance-none w-full sm:w-auto min-w-[160px] bg-white/50 dark:bg-neutral-900/50 backdrop-blur-md border border-neutral-200 dark:border-neutral-800 rounded-2xl px-5 py-3.5 pr-12 text-sm sm:text-base font-medium text-neutral-700 dark:text-neutral-300 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-all shadow-sm hover:border-neutral-300 dark:hover:border-neutral-700 cursor-pointer"
           >
             <option value="popular">{t(locale as any, 'sort_popular')}</option>
             <option value="newest">{t(locale as any, 'sort_newest')}</option>
@@ -114,10 +117,28 @@ export function GroupsContent({ groups, locale }: GroupsContentProps) {
       </div>
 
       {filteredGroups.length === 0 && (
-        <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">
-          {searchQuery 
-            ? t(locale as any, 'no_search_results')
-            : t(locale as any, 'no_groups_found')}
+        <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+          <div className="w-20 h-20 mb-6 rounded-full bg-neutral-100 dark:bg-neutral-800/50 flex items-center justify-center">
+            <FiSearch className="w-8 h-8 text-neutral-400" />
+          </div>
+          <h3 className="text-xl font-semibold text-neutral-900 dark:text-white mb-2">
+            {searchQuery 
+              ? t(locale as any, 'no_search_results')
+              : t(locale as any, 'no_groups_found')}
+          </h3>
+          <p className="text-neutral-500 dark:text-neutral-400 max-w-sm">
+            {searchQuery 
+              ? "Axtarışınıza uyğun heç bir icma tapılmadı. Zəhmət olmasa fərqli açar sözlərlə yenidən cəhd edin." 
+              : "Hazırda heç bir icma mövcud deyil. Tezliklə yeni icmalar əlavə olunacaq."}
+          </p>
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="mt-6 px-6 py-2.5 rounded-xl bg-brand/10 text-brand font-medium hover:bg-brand/20 transition-colors"
+            >
+              Axtarışı təmizlə
+            </button>
+          )}
         </div>
       )}
     </div>

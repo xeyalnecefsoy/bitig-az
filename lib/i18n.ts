@@ -852,6 +852,7 @@ export const messages: Record<Locale, Record<string, string>> = {
     unlike_post: "Bəyənməni geri al",
     // Groups
     groups_title: "İcmalar",
+    groups_desc: "Maraqlarınıza uyğun icmalara qoşulun və həmfikir insanlarla tanış olun.",
     group_members_count: "üzv",
     // System Alerts
     admin_alerts: "Sistem Bildirişləri",

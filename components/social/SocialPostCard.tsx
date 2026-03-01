@@ -706,10 +706,10 @@ function timeAgo(iso: string, locale: string = 'az') {
   }
   
   // Older than 24 hours - Show full date
-  // e.g. 15 Oct 2023 or 15 Oktyabr 2023
-  return new Intl.DateTimeFormat(locale === 'az' ? 'az-AZ' : 'en-US', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric'
-  }).format(date)
+  // e.g. 28/02/2026
+  const day = date.getDate().toString().padStart(2, '0');
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const year = date.getFullYear();
+  
+  return `${day}/${month}/${year}`;
 }
