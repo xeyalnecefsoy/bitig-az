@@ -62,6 +62,13 @@ export default function AudiobooksPage({ params: paramsPromise }: { params: Prom
         query = query.eq('has_sound_effects', true)
       }
 
+      const priceFilter = searchParams.get('price')
+      if (priceFilter === 'free') {
+        query = query.eq('price', 0)
+      } else if (priceFilter === 'paid') {
+        query = query.gt('price', 0)
+      }
+
       // 3. Sorting
       const sort = searchParams.get('sort')
       switch (sort) {
@@ -82,7 +89,27 @@ export default function AudiobooksPage({ params: paramsPromise }: { params: Prom
 
       const { data: booksData } = await query
 
-      setBooks(booksData || [])
+      let finalBooks = booksData || []
+
+      // In-memory length filter
+      const lengthFilter = searchParams.get('length')
+      if (lengthFilter) {
+        finalBooks = finalBooks.filter(book => {
+          if (!book.length) return false
+          const hMatch = book.length.match(/(\d+)\s*[hs]/i)
+          const mMatch = book.length.match(/(\d+)\s*[md]/i)
+          let totalMinutes = 0
+          if (hMatch) totalMinutes += parseInt(hMatch[1]) * 60
+          if (mMatch) totalMinutes += parseInt(mMatch[1])
+          
+          if (lengthFilter === 'short') return totalMinutes < 3 * 60
+          if (lengthFilter === 'medium') return totalMinutes >= 3 * 60 && totalMinutes <= 10 * 60
+          if (lengthFilter === 'long') return totalMinutes > 10 * 60
+          return true
+        })
+      }
+
+      setBooks(finalBooks)
       setLoading(false)
     }
     loadData()

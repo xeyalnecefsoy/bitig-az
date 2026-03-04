@@ -56,7 +56,7 @@ export function HeroCarousel() {
   }, [count])
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-neutral-100">
+    <div className="relative overflow-hidden rounded-[2rem] border border-neutral-100 dark:border-neutral-800 shadow-2xl group">
       <div className="relative w-full aspect-video">
         <Image 
           src={isMobile ? current.img : (current.imgLarge || current.img)}
@@ -69,23 +69,43 @@ export function HeroCarousel() {
           placeholder="blur"
           blurDataURL={current.blurDataUrl}
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-black/0" />
-        <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 lg:bottom-6 lg:left-6">
-          <h2 className="text-white text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold drop-shadow mb-1">
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8 lg:p-12">
+          <h2 className="text-white text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight mb-2 sm:mb-3 drop-shadow-md">
             {current.title}
           </h2>
-          <p className="text-white/90 text-sm sm:text-base drop-shadow">{current.subtitle}</p>
+          <p className="text-white/80 text-sm sm:text-base lg:text-lg max-w-2xl drop-shadow">
+            {current.subtitle}
+          </p>
         </div>
       </div>
-      <button aria-label="Prev" onClick={() => go(-1)} className="absolute left-2 top-1/2 -translate-y-1/2 grid place-items-center h-9 w-9 rounded-full bg-white/90 text-neutral-800 hover:bg-white">
-        <FiChevronLeft size={20} />
-      </button>
-      <button aria-label="Next" onClick={() => go(1)} className="absolute right-2 top-1/2 -translate-y-1/2 grid place-items-center h-9 w-9 rounded-full bg-white/90 text-neutral-800 hover:bg-white">
-        <FiChevronRight size={20} />
-      </button>
-      <div className="absolute inset-x-0 bottom-2 flex justify-center gap-1.5">
+      {/* Navigation Arrows */}
+      <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+        <button 
+          aria-label="Prev" 
+          onClick={() => go(-1)} 
+          className="grid place-items-center h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/20 hover:scale-105 transition-all"
+        >
+          <FiChevronLeft size={24} className="ml-[-2px]" />
+        </button>
+        <button 
+          aria-label="Next" 
+          onClick={() => go(1)} 
+          className="grid place-items-center h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/20 hover:scale-105 transition-all"
+        >
+          <FiChevronRight size={24} className="mr-[-2px]" />
+        </button>
+      </div>
+
+      {/* Indicators */}
+      <div className="absolute inset-x-0 bottom-6 sm:bottom-8 flex justify-center gap-2">
         {slides.map((s, i) => (
-          <span key={s.id} className={`h-1.5 rounded-full transition-all ${i === index ? 'w-6 bg-brand' : 'w-2 bg-white/70'}`} />
+          <button
+            key={s.id}
+            onClick={() => setIndex(i)}
+            aria-label={`Go to slide ${i + 1}`}
+            className={`h-1.5 rounded-full transition-all duration-300 ${i === index ? 'w-8 bg-brand' : 'w-2 bg-white/40 hover:bg-white/60'}`} 
+          />
         ))}
       </div>
     </div>

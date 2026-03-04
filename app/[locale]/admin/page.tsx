@@ -1,6 +1,6 @@
 "use client"
 import { createClient } from '@/lib/supabase/client'
-import { t, type Locale } from '@/lib/i18n'
+import { t, translateGenre, type Locale } from '@/lib/i18n'
 import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { FiTrendingUp, FiUsers, FiBook, FiMessageCircle, FiDollarSign, FiStar } from 'react-icons/fi'
@@ -63,7 +63,8 @@ export default function AdminDashboard() {
       const genreCount: Record<string, number> = {}
       booksData.forEach(book => {
         if (book.genre) {
-          genreCount[book.genre] = (genreCount[book.genre] || 0) + 1
+          const normalizedGenre = translateGenre(locale, book.genre)
+          genreCount[normalizedGenre] = (genreCount[normalizedGenre] || 0) + 1
         }
       })
 

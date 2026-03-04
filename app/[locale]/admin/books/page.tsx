@@ -2,14 +2,17 @@
 import { createClient } from '@/lib/supabase/client'
 import { DeleteConfirmModal } from '@/components/DeleteConfirmModal'
 import Link from 'next/link'
-import { FiPlus, FiTrash2, FiSearch, FiEdit2 } from 'react-icons/fi'
+import { FiPlus, FiTrash2, FiSearch, FiEdit2, FiTag, FiDollarSign, FiMic } from 'react-icons/fi'
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import { t, type Locale } from '@/lib/i18n'
+import { t, translateGenre, type Locale } from '@/lib/i18n'
 
 export default function AdminBooksPage({ params }: { params: Promise<{ locale: string }> }) {
   const [books, setBooks] = useState<any[]>([])
   const [search, setSearch] = useState('')
+  const [genreFilter, setGenreFilter] = useState('all')
+  const [priceFilter, setPriceFilter] = useState('all')
+  const [voiceFilter, setVoiceFilter] = useState('all')
   const [locale, setLocale] = useState<Locale>('en')
   const [deleteModal, setDeleteModal] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -41,14 +44,40 @@ export default function AdminBooksPage({ params }: { params: Promise<{ locale: s
     loadBooks()
   }
 
+  const genres = useMemo(() => {
+    const unique = new Set<string>()
+    books.forEach(b => {
+      if (b.genre) unique.add(translateGenre(locale as any, b.genre))
+    })
+    return Array.from(unique).sort((a, b) => a.localeCompare(b, 'az'))
+  }, [books, locale])
+
   const filtered = useMemo(() => {
+    let result = books
+    
+    if (genreFilter !== 'all') {
+      result = result.filter(b => b.genre && translateGenre(locale as any, b.genre) === genreFilter)
+    }
+    
+    if (priceFilter !== 'all') {
+      if (priceFilter === 'free') result = result.filter(b => b.price === 0)
+      if (priceFilter === 'paid') result = result.filter(b => b.price > 0)
+    }
+
+    if (voiceFilter !== 'all') {
+      result = result.filter(b => b.voice_type === voiceFilter)
+    }
+
     const q = search.toLowerCase().trim()
-    if (!q) return books
-    return books.filter(b => 
-      b.title?.toLowerCase().includes(q) || 
-      b.author?.toLowerCase().includes(q)
-    )
-  }, [books, search])
+    if (q) {
+      result = result.filter(b => 
+        b.title?.toLowerCase().includes(q) || 
+        b.author?.toLowerCase().includes(q) ||
+        (b.genre && translateGenre(locale as any, b.genre).toLowerCase().includes(q))
+      )
+    }
+    return result
+  }, [books, search, genreFilter, priceFilter, voiceFilter, locale])
 
   return (
     <div className="space-y-6">
@@ -59,15 +88,59 @@ export default function AdminBooksPage({ params }: { params: Promise<{ locale: s
         </Link>
       </div>
 
-      <div className="relative">
-        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
-        <input
-          type="text"
-          placeholder={t(locale, 'admin_search_placeholder')}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-sm"
-        />
+      <div className="flex flex-col xl:flex-row gap-4">
+        <div className="relative flex-1">
+          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+          <input
+            type="text"
+            placeholder={t(locale, 'admin_search_placeholder') || "Axtar..."}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-sm"
+          />
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <div className="relative flex-1 sm:w-48 sm:flex-none">
+            <FiTag className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+            <select
+              value={genreFilter}
+              onChange={(e) => setGenreFilter(e.target.value)}
+              className="w-full pl-9 pr-8 py-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-sm appearance-none"
+            >
+              <option value="all">{locale === 'az' ? 'Bütün Janrlar' : 'All Genres'}</option>
+              {genres.map(g => (
+                <option key={g} value={g}>{g}</option>
+              ))}
+            </select>
+          </div>
+          
+          <div className="relative flex-1 sm:w-40 sm:flex-none">
+            <FiDollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+            <select
+              value={priceFilter}
+              onChange={(e) => setPriceFilter(e.target.value)}
+              className="w-full pl-9 pr-8 py-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-sm appearance-none"
+            >
+              <option value="all">{t(locale, 'price_any') || 'Any Price'}</option>
+              <option value="free">{t(locale, 'price_free') || 'Free'}</option>
+              <option value="paid">{t(locale, 'price_paid') || 'Paid'}</option>
+            </select>
+          </div>
+
+          <div className="relative flex-1 sm:w-48 sm:flex-none">
+            <FiMic className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+            <select
+              value={voiceFilter}
+              onChange={(e) => setVoiceFilter(e.target.value)}
+              className="w-full pl-9 pr-8 py-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-sm appearance-none"
+            >
+              <option value="all">{t(locale, 'voice_any') || 'Any Voice'}</option>
+              <option value="single">{t(locale, 'voice_single')}</option>
+              <option value="multiple">{t(locale, 'voice_multiple')}</option>
+              <option value="radio_theater">{t(locale, 'voice_radio_theater')}</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       <div className="bg-white dark:bg-neutral-950 rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden">
@@ -96,7 +169,7 @@ export default function AdminBooksPage({ params }: { params: Promise<{ locale: s
                       </div>
                       <div className="ml-4">
                         <div className="text-sm font-medium text-neutral-900 dark:text-white">{book.title}</div>
-                        <div className="text-sm text-neutral-500 dark:text-neutral-400">{book.genre || 'N/A'}</div>
+                        <div className="text-sm text-neutral-500 dark:text-neutral-400">{book.genre ? translateGenre(locale, book.genre) : 'N/A'}</div>
                       </div>
                     </div>
                   </td>

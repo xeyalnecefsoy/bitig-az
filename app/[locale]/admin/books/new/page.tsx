@@ -7,12 +7,14 @@ import Link from 'next/link'
 import { t, type Locale } from '@/lib/i18n'
 import { uploadAudiobookCover, uploadAudioTrackWithProgress } from '@/lib/supabase/storage'
 import { Alert } from '@/components/ui/Alert'
+import { AutocompleteInput } from '@/components/admin/AutocompleteInput'
 
 export default function NewBookPage() {
   const [loading, setLoading] = useState(false)
   const [locale, setLocale] = useState<Locale>('en')
   const [coverFile, setCoverFile] = useState<File | null>(null)
   const [coverPreview, setCoverPreview] = useState<string>('')
+  const [voiceType, setVoiceType] = useState<string>('single')
   
   // Track files state
   const [audioFiles, setAudioFiles] = useState<File[]>([])
@@ -129,7 +131,24 @@ export default function NewBookPage() {
       description: formData.get('description'),
       cover: coverUrl,
       genre: formData.get('genre'),
-      length: formData.get('length'),
+      length: (() => {
+        const hVal = formData.get('hours')?.toString() || ''
+        const mVal = formData.get('minutes')?.toString() || ''
+        const hSuffix = locale === 'az' ? 's' : 'h'
+        const mSuffix = locale === 'az' ? 'd' : 'm'
+        const h = parseInt(hVal, 10)
+        const m = parseInt(mVal, 10)
+        
+        let lengthStr = ''
+        if (h > 0 && m > 0) {
+          lengthStr = `${h}${hSuffix} ${m}${mSuffix}`
+        } else if (h > 0) {
+          lengthStr = `${h}${hSuffix}`
+        } else if (m > 0) {
+          lengthStr = `${m}${mSuffix}`
+        }
+        return lengthStr
+      })(),
       has_ambience: formData.get('has_ambience') === 'on',
       has_sound_effects: formData.get('has_sound_effects') === 'on',
       voice_type: formData.get('voice_type') || 'single',
@@ -228,12 +247,21 @@ export default function NewBookPage() {
 
           <div>
             <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t(locale, 'admin_author_label')}</label>
-            <input name="author" required className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 dark:bg-neutral-900 dark:border-neutral-700" />
+            <AutocompleteInput
+              name="author"
+              field="author"
+              required
+              className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 dark:bg-neutral-900 dark:border-neutral-700"
+            />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t(locale, 'admin_genre_label')}</label>
-            <input name="genre" className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 dark:bg-neutral-900 dark:border-neutral-700" />
+            <AutocompleteInput
+              name="genre"
+              field="genre"
+              className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 dark:bg-neutral-900 dark:border-neutral-700"
+            />
           </div>
 
           <div>
@@ -241,20 +269,43 @@ export default function NewBookPage() {
             <input name="price" type="number" step="0.01" min="0" required className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 dark:bg-neutral-900 dark:border-neutral-700" />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t(locale, 'admin_length_label')}</label>
-            <input name="length" placeholder="5h 20m" className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 dark:bg-neutral-900 dark:border-neutral-700" />
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">{t(locale, 'admin_length_label') || 'Müddət (Length)'}</label>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <input 
+                  name="hours" 
+                  type="number" 
+                  min="0"
+                  placeholder={locale === 'az' ? 'Saat (məs: 5)' : 'Hours (e.g. 5)'} 
+                  className="block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm dark:bg-neutral-900 dark:border-neutral-700" 
+                />
+              </div>
+              <div>
+                <input 
+                  name="minutes" 
+                  type="number" 
+                  min="0"
+                  max="59"
+                  placeholder={locale === 'az' ? 'Dəqiqə (məs: 20)' : 'Minutes (e.g. 20)'} 
+                  className="block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm dark:bg-neutral-900 dark:border-neutral-700" 
+                />
+              </div>
+            </div>
           </div>
 
           {/* New Advanced Filters */}
           <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-neutral-200 dark:border-neutral-800 pt-4 mt-2">
             <div>
               <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{t(locale, 'admin_voice_type_label') || 'Voice Type'}</label>
-              <select name="voice_type" className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 dark:bg-neutral-900 dark:border-neutral-700">
+              <select name="voice_type" value={voiceType} onChange={(e) => setVoiceType(e.target.value)} className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 dark:bg-neutral-900 dark:border-neutral-700">
                 <option value="single">{t(locale, 'voice_single') || 'Single Voice'}</option>
                 <option value="multiple">{t(locale, 'voice_multiple') || 'Multiple Voices'}</option>
                 <option value="radio_theater">{t(locale, 'voice_radio_theater') || 'Radio Theater'}</option>
               </select>
+              <p className="mt-1.5 text-xs text-neutral-500 dark:text-neutral-400">
+                {t(locale, `voice_${voiceType}_desc`)}
+              </p>
             </div>
             <div className="flex items-center gap-2 mt-6">
               <input type="checkbox" name="has_ambience" id="has_ambience" className="rounded border-neutral-300 text-brand focus:ring-brand" />

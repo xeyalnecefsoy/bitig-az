@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import Image from 'next/image'
-import { t } from '@/lib/i18n'
+import { t, translateGenre } from '@/lib/i18n'
 import { AddToCartBtn } from './client'
 import { AudiobookPlayerWrapper } from '@/components/AudiobookPlayerWrapper'
 import { createClient } from '@/lib/supabase/server'
@@ -46,7 +46,7 @@ export default async function AudiobookDetailsPage({ params }: { params: Promise
           />
         </div>
         <div>
-          <div className="mb-2 text-sm font-medium text-brand">{book.genre}</div>
+          <div className="mb-2 text-sm font-medium text-brand">{translateGenre(locale as any, book.genre)}</div>
           <h1 className="mb-2 text-3xl font-bold text-neutral-900 dark:text-white sm:text-4xl">{book.title}</h1>
           <div className="mb-6 text-lg text-neutral-600 dark:text-neutral-400">{book.author}</div>
           

@@ -6,6 +6,7 @@ import { BookCard } from '@/components/BookCard'
 import { FiHeadphones, FiSearch } from 'react-icons/fi'
 
 import { useLocale } from '@/context/locale'
+import { translateGenre } from '@/lib/i18n'
 
 export default function BrowsePage() {
   const [q, setQ] = useState('')
@@ -68,7 +69,7 @@ export default function BrowsePage() {
         />
         <select value={genre} onChange={(e) => setGenre(e.target.value)} className="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm">
           {genres.map(g => (
-            <option key={g} value={g}>{g.charAt(0).toUpperCase() + g.slice(1)}</option>
+            <option key={g} value={g}>{g === 'all' ? 'All' : translateGenre(locale as any, g)}</option>
           ))}
         </select>
         <select value={String(minRating)} onChange={(e) => setMinRating(Number(e.target.value))} className="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm">

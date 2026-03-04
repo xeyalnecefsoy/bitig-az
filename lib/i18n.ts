@@ -395,11 +395,24 @@ export const messages: Record<Locale, Record<string, string>> = {
     filter_voice_type: "Voice Type",
     voice_any: "Any",
     voice_single: "Single Voice",
+    voice_single_desc: "The entire book is narrated by one person.",
     voice_multiple: "Multiple Voices",
+    voice_multiple_desc: "Different characters or chapters are narrated by different people.",
     voice_radio_theater: "Radio Theater",
+    voice_radio_theater_desc: "A full-cast dramatized adaptation with sound effects and music.",
     filter_atmosphere: "Atmosphere",
     has_ambience: "With Ambience",
     has_sound_effects: "With SFX",
+    filter_price: "Price",
+    price_any: "Any Price",
+    price_free: "Free",
+    price_paid: "Paid",
+    filter_length: "Length",
+    length_any: "Any Length",
+    length_short: "Short (< 3h)",
+    length_medium: "Medium (3-10h)",
+    length_long: "Long (> 10h)",
+    advanced_filters: "Advanced Filters",
     // Group Detail
     group_about: "About",
     group_members_label: "Members",
@@ -556,10 +569,22 @@ export const messages: Record<Locale, Record<string, string>> = {
     admin_track_title_ph: "Bölmə adı (məs: Fəsil 1)",
     admin_voice_type_label: "Səsləndirici Növü",
     voice_single: "Tək Səsləndirici",
+    voice_single_desc: "Bütün kitabı yalnız bir nəfər səsləndirir.",
     voice_multiple: "Çoxlu Səsləndirici",
+    voice_multiple_desc: "Fərqli personajlar və ya fəsillər fərqli şəxslər tərəfindən səsləndirilir.",
     voice_radio_theater: "Radio Teatrı",
+    voice_radio_theater_desc: "Səs aktyorlarının iştirakı, səs effektləri və musiqi ilə dramatikcəsinə səhnələşdirilir.",
     admin_has_ambience: "Arxa Fon Səsi (Ambience) var",
     admin_has_sound_effects: "Səs Effektləri var",
+    filter_price: "Qiymət",
+    price_any: "Hər hansı",
+    price_free: "Ödənişsiz",
+    price_paid: "Ödənişli",
+    filter_length: "Müddət",
+    length_any: "Hər hansı",
+    length_short: "Qısa (< 3s)",
+    length_medium: "Orta (3-10s)",
+    length_long: "Uzun (> 10s)",
     admin_saving: "Saxlanılır...",
     admin_error_creating: "Səsli kitab yaradılarkən xəta:",
     admin_user: "İstifadəçi",
@@ -985,3 +1010,60 @@ export function t(locale: Locale | string, key: string): string {
   return messages[safeLocale]?.[key] ?? messages[defaultLocale]?.[key] ?? key;
 }
 
+export const genreTranslations: Record<Locale, Record<string, string>> = {
+  en: {
+    "Fantastika": "Fantasy",
+    "Biznes": "Business",
+    "Şəxsi İnkişaf": "Self-Help",
+    "Psixologiya": "Psychology",
+    "Roman": "Novel",
+    "Tarix": "History",
+    "Uşaq ədəbiyyatı": "Children's Literature",
+    "Bədii": "Fiction",
+    "Qeyri-bədii": "Non-fiction",
+    "Nonfiction": "Nonfiction",
+    "Memuar": "Memoir",
+    "Sci-Fi": "Sci-Fi",
+    "Bioqrafiya": "Biography",
+    "Elm": "Science",
+    "Klassik": "Classics",
+    "Detektiv": "Mystery",
+    "Elmi-fantastika": "Science Fiction",
+    "Din": "Religion",
+    "Fəlsəfə": "Philosophy"
+  },
+  az: {
+    "Fantasy": "Fantastika",
+    "Business": "Biznes",
+    "Self-Help": "Şəxsi İnkişaf",
+    "Psychology": "Psixologiya",
+    "Novel": "Roman",
+    "History": "Tarix",
+    "Children's Literature": "Uşaq ədəbiyyatı",
+    "Fiction": "Bədii",
+    "Non-fiction": "Qeyri-bədii",
+    "Nonfiction": "Qeyri-bədii",
+    "Memoir": "Memuar",
+    "Sci-Fi": "Elmi-fantastika",
+    "Biography": "Bioqrafiya",
+    "Science": "Elm",
+    "Classics": "Klassik",
+    "Mystery": "Detektiv",
+    "Science Fiction": "Elmi-fantastika",
+    "Religion": "Din",
+    "Philosophy": "Fəlsəfə"
+  }
+};
+
+export const DEFAULT_GENRES_AZ = [
+  "Fantastika", "Biznes", "Şəxsi İnkişaf", "Psixologiya", "Roman", 
+  "Tarix", "Uşaq ədəbiyyatı", "Bədii", "Qeyri-bədii", "Bioqrafiya", 
+  "Elm", "Klassik", "Detektiv", "Elmi-fantastika", "Din", "Fəlsəfə", "Memuar"
+];
+
+export function translateGenre(locale: Locale, genre: string): string {
+  if (!genre) return genre;
+  // The user requested that we always show Azerbaijani genres globally, EVEN IF the locale is English.
+  // We use the `az` dictionary to map legacy "English" DB entries to "Azerbaijani".
+  return genreTranslations['az']?.[genre] || genreTranslations['az']?.[genre.toLowerCase()] || genreTranslations['az']?.[genre.charAt(0).toUpperCase() + genre.slice(1).toLowerCase()] || genre;
+}

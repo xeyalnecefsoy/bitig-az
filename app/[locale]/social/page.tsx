@@ -13,7 +13,7 @@ import { PostCardSkeleton } from '@/components/ui/Skeleton'
 
 import { createClient } from '@/lib/supabase/client'
 import { UserSearchResult, type SearchedUser } from '@/components/social/UserSearchResult'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useCallback } from 'react'
 
 type SortOption = 'newest' | 'oldest' | 'popular'
 
@@ -22,37 +22,60 @@ export default function SocialPage() {
   const [tab, setTab] = useState<'foryou' | 'feed' | 'following'>('foryou')
   const [loadingMore, setLoadingMore] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState<SortOption>('newest')
   const [searchedUsers, setSearchedUsers] = useState<SearchedUser[]>([])
+  const [userSearchFilter, setUserSearchFilter] = useState<'all' | 'following'>('all')
   const [isSearchingUsers, setIsSearchingUsers] = useState(false)
   const supabase = createClient()
   const locale = useLocale()
   
-  // User Search Effect
+  // User Search & Debounce Effect
   useEffect(() => {
-    if (!searchQuery.trim()) {
-      setSearchedUsers([])
-      return
-    }
-
     const timer = setTimeout(async () => {
+      setDebouncedSearchQuery(searchQuery)
+
+      if (!searchQuery.trim()) {
+        setSearchedUsers([])
+        setIsSearchingUsers(false)
+        return
+      }
+
       setIsSearchingUsers(true)
       try {
         const { data } = await supabase
           .from('profiles')
           .select('id, username, full_name, avatar_url, bio')
           .or(`username.ilike.%${searchQuery}%,full_name.ilike.%${searchQuery}%`)
-          .limit(5)
+          .order('full_name', { ascending: true })
+          .order('username', { ascending: true })
+          .limit(10)
         
         if (data) {
-          setSearchedUsers(data)
+          // Sort computationally: Give priority to users we ARE following (per user request), 
+          // while preserving the alphabetical order we got from the DB.
+          // Also always put the current user at the very end if they search themselves.
+          const sortedUsers = [...data].sort((a, b) => {
+             if (currentUser) {
+               if (a.id === currentUser.id) return 1;
+               if (b.id === currentUser.id) return -1;
+               
+               const aFollowed = following.includes(a.id);
+               const bFollowed = following.includes(b.id);
+               
+               if (aFollowed === bFollowed) return 0;
+               return aFollowed ? -1 : 1; // Followed users first
+             }
+             return 0;
+          });
+          setSearchedUsers(sortedUsers)
         }
       } catch (error) {
         console.error('Error searching users:', error)
       } finally {
         setIsSearchingUsers(false)
       }
-    }, 300)
+    }, 500)
 
     return () => clearTimeout(timer)
   }, [searchQuery])
@@ -76,34 +99,55 @@ export default function SocialPage() {
     }
     
     // Search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase()
+    if (debouncedSearchQuery.trim()) {
+      const query = debouncedSearchQuery.toLowerCase()
       result = result.filter(p => 
         p.content.toLowerCase().includes(query)
       )
     }
     
     // Sort
+    const sortedResult = [...result]
     switch (sortBy) {
       case 'newest':
-        return result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        return sortedResult.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       case 'oldest':
-        return result.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+        return sortedResult.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
       case 'popular':
-        return result.sort((a, b) => b.likes - a.likes)
+        return sortedResult.sort((a, b) => b.likes - a.likes)
       default:
-        return result
+        return sortedResult
     }
   }, [posts, tab, following, searchQuery, sortBy])
     
   // If tab is following but user is guest, switch to foryou
   if (tab === 'following' && !currentUser) setTab('foryou')
 
-  const handleLoadMore = async () => {
+  const handleLoadMore = useCallback(async () => {
+    if (loadingMore || !hasMorePosts) return
     setLoadingMore(true)
     await loadMorePosts()
     setLoadingMore(false)
-  }
+  }, [loadingMore, hasMorePosts, loadMorePosts])
+
+  const loadMoreRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMorePosts && !loadingMore && !searchQuery) {
+          handleLoadMore()
+        }
+      },
+      { threshold: 0.1, rootMargin: '100px' }
+    )
+
+    if (loadMoreRef.current) {
+      observer.observe(loadMoreRef.current)
+    }
+
+    return () => observer.disconnect()
+  }, [hasMorePosts, loadingMore, searchQuery, handleLoadMore])
 
   return (
     <section className="container-max py-6 sm:py-8 grid gap-6 lg:grid-cols-[2fr_1fr]">
@@ -164,6 +208,51 @@ export default function SocialPage() {
                 <FiX className="w-4 h-4" />
               </button>
             )}
+
+            {/* Floating User Search Results */}
+            {searchQuery && (searchedUsers.length > 0 || isSearchingUsers) && (
+              <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl shadow-lg z-50 overflow-hidden">
+                <div className="p-3 space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar">
+                  <div className="flex items-center justify-between px-1 mb-2">
+                    <h3 className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                      {t(locale, 'section_users')}
+                    </h3>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => setUserSearchFilter('all')}
+                        className={`text-xs px-2 py-1 rounded-md transition-colors ${userSearchFilter === 'all' ? 'bg-neutral-200 dark:bg-neutral-800 text-neutral-900 dark:text-white' : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'}`}
+                      >
+                        Hamısı
+                      </button>
+                      <button 
+                        onClick={() => setUserSearchFilter('following')}
+                        className={`text-xs px-2 py-1 rounded-md transition-colors ${userSearchFilter === 'following' ? 'bg-neutral-200 dark:bg-neutral-800 text-neutral-900 dark:text-white' : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'}`}
+                      >
+                        İzlədiklərim
+                      </button>
+                    </div>
+                  </div>
+                  {isSearchingUsers ? (
+                     <div className="flex items-center gap-2 p-3 text-sm text-neutral-500">
+                       <div className="w-4 h-4 border-2 border-brand border-t-transparent rounded-full animate-spin" />
+                       {t(locale, 'social_loading') || 'Axtarılır...'}
+                     </div>
+                  ) : (
+                    <div className="flex flex-col gap-1">
+                      {searchedUsers.filter(u => userSearchFilter === 'all' || following.includes(u.id)).length > 0 ? (
+                        searchedUsers.filter(u => userSearchFilter === 'all' || following.includes(u.id)).map(user => (
+                          <div key={user.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/50 rounded-lg transition-colors">
+                            <UserSearchResult user={user} />
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-3 text-sm text-neutral-500 text-center">Nəticə tapılmadı</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Sort Dropdown */}
@@ -182,37 +271,20 @@ export default function SocialPage() {
         </div>
 
         {/* Search Results Info */}
-        {searchQuery && (
-          <div className="space-y-6">
-            {/* Users Results */}
-            {(searchedUsers.length > 0 || isSearchingUsers) && (
-              <div className="space-y-2">
-                <h3 className="text-sm font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider px-1">
-                  {t(locale, 'section_users')}
-                </h3>
-                {isSearchingUsers ? (
-                   <div className="flex items-center gap-2 p-4 text-sm text-neutral-500">
-                     <div className="w-4 h-4 border-2 border-brand border-t-transparent rounded-full animate-spin" />
-                     {t(locale, 'social_loading')}
-                   </div>
-                ) : (
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {searchedUsers.map(user => (
-                      <UserSearchResult key={user.id} user={user} />
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Posts Header */}
-            <div className="flex items-center justify-between px-1">
-              <h3 className="text-sm font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
-                {t(locale, 'section_posts')}
-              </h3>
-              <span className="text-sm text-neutral-500">
-                {filteredPosts.length} {t(locale, 'search_results_count')}
-              </span>
+        {debouncedSearchQuery && (
+          <div className="space-y-4 mb-6">
+            <div className="bg-brand/5 dark:bg-brand/10 p-5 rounded-2xl border border-brand/20 flex gap-4 items-start">
+               <div className="p-2 bg-brand/10 dark:bg-brand/20 rounded-xl text-brand">
+                 <FiSearch className="w-5 h-5" />
+               </div>
+               <div>
+                  <h2 className="font-semibold text-neutral-900 dark:text-white text-lg">
+                    "{debouncedSearchQuery}" üçün tapılan paylaşımlar
+                  </h2>
+                  <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
+                    "{debouncedSearchQuery}" kəliməsinə görə {filteredPosts.length > 0 ? `${filteredPosts.length} nəticə tapıldı` : 'heç bir nəticə tapılmadı'}. Axtarışı təmizləyərək yenidən normal axına (Feed) qayıda bilərsiniz.
+                  </p>
+               </div>
             </div>
           </div>
         )}
@@ -245,15 +317,14 @@ export default function SocialPage() {
           </div>
         )}
         
-        {hasMorePosts && !searchQuery && (
-          <div className="flex justify-center py-4">
-            <button 
-              onClick={handleLoadMore}
-              disabled={loadingMore}
-              className="btn btn-outline"
-            >
-              {loadingMore ? t(locale, 'social_loading') : t(locale, 'social_load_more')}
-            </button>
+        {hasMorePosts && !debouncedSearchQuery && (
+          <div ref={loadMoreRef} className="flex justify-center py-8">
+            {loadingMore && (
+              <div className="flex items-center gap-2 text-sm text-neutral-500">
+                <div className="w-5 h-5 border-2 border-brand border-t-transparent rounded-full animate-spin" />
+                {t(locale, 'social_loading') || 'Yüklənir...'}
+              </div>
+            )}
           </div>
         )}
       </div>

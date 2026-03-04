@@ -4,13 +4,9 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { FiSearch, FiFilter, FiX } from 'react-icons/fi'
 import { useDebounce } from 'use-debounce'
 import { useLocale } from '@/context/locale'
-import { t } from '@/lib/i18n'
+import { t, translateGenre, DEFAULT_GENRES_AZ } from '@/lib/i18n'
 
-const GENRES = [
-  'Fiction', 'Non-fiction', 'Sci-Fi', 'Fantasy', 'Mystery', 
-  'Biography', 'History', 'Self-help', 'Business', 'Romance',
-  'Classic', 'Poetry', 'Drama'
-]
+const GENRES = DEFAULT_GENRES_AZ
 
 const SORT_OPTIONS = [
   { value: 'newest', label: 'newest' },
@@ -102,7 +98,7 @@ export function SearchAndFilter() {
                     onClick={() => updateFilter('genre', genre)}
                     className={`px-3 py-1.5 rounded-lg text-sm transition-colors font-medium border ${currentGenre === genre ? 'bg-brand text-white border-brand' : 'bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800'}`}
                   >
-                    {genre}
+                    {translateGenre(locale, genre)}
                   </button>
                 ))}
               </div>
@@ -120,7 +116,7 @@ export function SearchAndFilter() {
                     onClick={() => updateFilter('voice_type', null)}
                     className={`px-3 py-1.5 rounded-lg text-sm transition-colors font-medium border ${!searchParams.get('voice_type') ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800'}`}
                   >
-                    {t(locale, 'voice_any')}
+                    {t(locale, 'voice_any') || 'Any'}
                   </button>
                   {['single', 'multiple', 'radio_theater'].map(vt => (
                     <button
@@ -129,6 +125,54 @@ export function SearchAndFilter() {
                       className={`px-3 py-1.5 rounded-lg text-sm transition-colors font-medium border ${searchParams.get('voice_type') === vt ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800'}`}
                     >
                       {t(locale, `voice_${vt}`)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Price Filter */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-3">
+                  {t(locale, 'filter_price') || 'Price'}
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => updateFilter('price', null)}
+                    className={`px-3 py-1.5 rounded-lg text-sm transition-colors font-medium border ${!searchParams.get('price') ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800'}`}
+                  >
+                    {t(locale, 'price_any') || 'Any'}
+                  </button>
+                  {['free', 'paid'].map(p => (
+                    <button
+                      key={p}
+                      onClick={() => updateFilter('price', p)}
+                      className={`px-3 py-1.5 rounded-lg text-sm transition-colors font-medium border ${searchParams.get('price') === p ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800'}`}
+                    >
+                      {t(locale, `price_${p}`) || p}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Length Filter */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-3">
+                  {t(locale, 'filter_length') || 'Length'}
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => updateFilter('length', null)}
+                    className={`px-3 py-1.5 rounded-lg text-sm transition-colors font-medium border ${!searchParams.get('length') ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800'}`}
+                  >
+                    {t(locale, 'length_any') || 'Any'}
+                  </button>
+                  {['short', 'medium', 'long'].map(l => (
+                    <button
+                      key={l}
+                      onClick={() => updateFilter('length', l)}
+                      className={`px-3 py-1.5 rounded-lg text-sm transition-colors font-medium border ${searchParams.get('length') === l ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800'}`}
+                    >
+                      {t(locale, `length_${l}`) || l}
                     </button>
                   ))}
                 </div>
