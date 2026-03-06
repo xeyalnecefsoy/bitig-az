@@ -1,6 +1,6 @@
 "use client"
 import { createContext, useContext, useEffect, useMemo, useState, useCallback, useRef } from 'react'
-import { type Post, type User, type Comment, type Notification, DEFAULT_AVATAR } from '@/lib/social'
+import { type Post, type User, type Comment, type Notification } from '@/lib/social'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/auth'
@@ -78,7 +78,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         id: profile.id,
         name: profile.full_name || profile.username || 'Anonymous', // Prefer full name
         username: profile.username || 'anonymous',
-        avatar: profile.avatar_url || DEFAULT_AVATAR,
+        avatar: profile.avatar_url || `/api/avatar?name=${encodeURIComponent(profile.username || profile.full_name || profile.id)}`,
         bio: profile.bio,
         joinedAt: profile.updated_at
       }
@@ -108,7 +108,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         id: userId,
         name: userMetadata.full_name || userMetadata.name || userMetadata.username || 'Anonymous',
         username: userMetadata.username || 'anonymous',
-        avatar: userMetadata.avatar_url || userMetadata.picture || DEFAULT_AVATAR,
+        avatar: userMetadata.avatar_url || userMetadata.picture || `/api/avatar?name=${encodeURIComponent(userMetadata.username || userMetadata.full_name || userMetadata.name || userId)}`,
         bio: '',
         joinedAt: new Date().toISOString()
       }
@@ -139,7 +139,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
           id: p.id,
           name: p.full_name || p.username || 'Anonymous',
           username: p.username || 'anonymous',
-          avatar: p.avatar_url || DEFAULT_AVATAR,
+          avatar: p.avatar_url || `/api/avatar?name=${encodeURIComponent(p.username || p.full_name || p.id)}`,
           bio: p.bio,
           joinedAt: p.updated_at
         }))
@@ -239,6 +239,8 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
           id: p.id,
           userId: p.user_id,
           content: p.content,
+          status: p.status,
+          rejectedAt: p.rejected_at,
           imageUrls: p.image_urls,
           parentPostId: p.parent_post_id,
           createdAt: p.created_at,
@@ -408,11 +410,13 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
              ...n,
              actor: n.actor ? {
                username: n.actor.username,
-               avatar_url: n.actor.avatar_url || DEFAULT_AVATAR
+               avatar_url: n.actor.avatar_url || `/api/avatar?name=${encodeURIComponent(n.actor.username || n.actor_id)}`
              } : undefined
            }))
-           setNotifications(mappedNotifs)
-           setUnreadCount(mappedNotifs.filter((n: any) => !n.read).length)
+           // Ensure we only keep latest 30
+           const finalNotifs = mappedNotifs.slice(0, 30)
+           setNotifications(finalNotifs)
+           setUnreadCount(finalNotifs.filter((n: any) => !n.read).length)
         }
 
         // Subscribe to notifications
@@ -439,10 +443,13 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
                   ...newNotif,
                   actor: newNotif.actor ? {
                     username: newNotif.actor.username,
-                    avatar_url: newNotif.actor.avatar_url || DEFAULT_AVATAR
+                    avatar_url: newNotif.actor.avatar_url || `/api/avatar?name=${encodeURIComponent(newNotif.actor.username || newNotif.actor_id)}`
                   } : undefined
                 }
-                setNotifications(prev => [mappedNew, ...prev])
+                setNotifications(prev => {
+                  const newArray = [mappedNew, ...prev]
+                  return newArray.slice(0, 30)
+                })
                 setUnreadCount(prev => prev + 1)
              }
           }
@@ -469,7 +476,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
               id: p.id,
               name: p.username || 'Anonymous',
               username: p.username || 'anonymous',
-              avatar: p.avatar_url || DEFAULT_AVATAR,
+              avatar: p.avatar_url || `/api/avatar?name=${encodeURIComponent(p.username || p.id)}`,
               bio: p.bio,
               joinedAt: p.updated_at
             }))
@@ -851,6 +858,8 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
           id: p.id,
           userId: p.user_id,
           content: p.content,
+          status: p.status,
+          rejectedAt: p.rejected_at,
           imageUrls: p.image_urls,
           createdAt: p.created_at,
           likes: p.likes.length,

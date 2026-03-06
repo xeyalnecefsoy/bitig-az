@@ -1,6 +1,6 @@
 "use client"
 import { useState, useEffect, useRef } from 'react'
-import { FiBell } from 'react-icons/fi'
+import { FiBell, FiAlertTriangle } from 'react-icons/fi'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import type { Route } from 'next'
@@ -10,7 +10,7 @@ import { useSocial } from '@/context/social'
 
 type Notification = {
   id: string
-  type: 'like' | 'comment' | 'follow' | 'system'
+  type: 'like' | 'comment' | 'follow' | 'system' | 'mod_rejected' | 'mod_deleted'
   actor_id: string
   entity_id: string
   read: boolean
@@ -50,6 +50,8 @@ export function NotificationsBtn() {
       case 'comment': return t(locale as Locale, 'notif_commented')
       case 'follow': return t(locale as Locale, 'notif_followed')
       case 'system': return t(locale as Locale, 'notif_message')
+      case 'mod_rejected': return t(locale as Locale, 'notif_mod_rejected')
+      case 'mod_deleted': return t(locale as Locale, 'notif_mod_deleted')
       default: return t(locale as Locale, 'notif_interacted')
     }
   }
@@ -85,14 +87,24 @@ export function NotificationsBtn() {
                   className={`flex items-start gap-3 px-4 py-3 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors ${!n.read ? 'bg-brand/5 dark:bg-brand/10' : ''}`}
                   onClick={() => setIsOpen(false)}
                 >
-                  <img
-                    src={n.actor?.avatar_url}
-                    alt="Avatar"
-                    className="h-8 w-8 rounded-full object-cover mt-1"
-                  />
+                  {(n.type === 'mod_rejected' || n.type === 'mod_deleted') ? (
+                    <div className="h-8 w-8 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 flex items-center justify-center mt-1 shrink-0">
+                      <FiAlertTriangle size={16} />
+                    </div>
+                  ) : (
+                    <img
+                      src={n.actor?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${n.actor_id}`}
+                      alt="Avatar"
+                      className="h-8 w-8 rounded-full object-cover mt-1 shrink-0"
+                    />
+                  )}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-neutral-900 dark:text-neutral-100">
-                      <span className="font-medium">{n.actor?.username || t(locale as Locale, 'someone')}</span>
+                      {(n.type === 'mod_rejected' || n.type === 'mod_deleted') ? (
+                        <span className="font-semibold text-red-600 dark:text-red-400">{t(locale as Locale, 'system_alert')}</span>
+                      ) : (
+                        <span className="font-medium">{n.actor?.username || t(locale as Locale, 'someone')}</span>
+                      )}
                       {' '}
                       {getNotificationText(n.type)}
                     </p>

@@ -10,10 +10,10 @@ import { RichText } from './RichText'
 import { ReportModal } from '@/components/ReportModal'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { useRef } from 'react'
-import { DEFAULT_AVATAR } from '@/lib/social'
 import { calculatePollPercentages } from '@/lib/pollUtils'
 import { FiEdit2, FiCopy, FiMessageSquare } from 'react-icons/fi'
 import * as Popover from '@radix-ui/react-popover'
+import toast from 'react-hot-toast'
 
 export function SocialPostFull({ initialPost }: { initialPost: Post }) {
   const locale = useLocale()
@@ -27,7 +27,7 @@ export function SocialPostFull({ initialPost }: { initialPost: Post }) {
     id: post.userId,
     name: 'Unknown',
     username: 'unknown',
-    avatar: DEFAULT_AVATAR,
+    avatar: `/api/avatar?name=${post.userId}`,
     bio: ''
   }
 
@@ -38,6 +38,30 @@ export function SocialPostFull({ initialPost }: { initialPost: Post }) {
 
   return (
     <div className="max-w-3xl mx-auto">
+      {post.status === 'rejected' && currentUser?.id === post.userId && (
+        <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 rounded-lg flex flex-col gap-1.5 text-sm font-medium border border-red-100 dark:border-red-900/30">
+          <div className="flex items-center gap-2">
+            <FiAlertTriangle className="shrink-0" />
+            {t(locale, 'post_hidden_alert') || "Sistem Bildirişi: Bu paylaşım qaydaları pozduğu üçün gizlədilib."}
+          </div>
+          {post.rejectedAt && (
+            <div className="text-xs text-red-500/80 dark:text-red-400/70 pl-6">
+              {t(locale, 'post_auto_delete_warning') || "Bu paylaşım 30 gün ərzində avtomatik silinəcək."}{' '}
+              <span className="font-semibold">
+                {(() => {
+                  const deleteDate = new Date(post.rejectedAt)
+                  deleteDate.setDate(deleteDate.getDate() + 30)
+                  const now = new Date()
+                  const daysLeft = Math.max(0, Math.ceil((deleteDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
+                  return locale === 'az' 
+                    ? `(${daysLeft} gün qalıb)` 
+                    : `(${daysLeft} days left)`
+                })()}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
       <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl overflow-hidden shadow-sm">
         {/* Post Header */}
         <div className="p-4 sm:p-6 pb-0 flex items-start gap-4">
@@ -82,14 +106,14 @@ export function SocialPostFull({ initialPost }: { initialPost: Post }) {
                   onClick={() => {
                     const url = `${window.location.origin}/${locale}/social/post/${post.id}`
                     navigator.clipboard.writeText(url)
-                    alert(t(locale, 'link_copied') || "Link kopyalandı!")
+                    toast.success(t(locale, 'link_copied') || "Link kopyalandı!")
                   }}
                   className="w-full text-left p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition-colors text-sm text-neutral-700 dark:text-neutral-300 font-medium flex items-center gap-2"
                 >
                   <FiCopy size={14} className="opacity-70" /> {t(locale, 'copy_link') || "URL kopyala"}
                 </button>
                 <button
-                  onClick={() => alert("Report logic here")}
+                  onClick={() => toast("Report logic here")}
                   className="w-full text-left p-2 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-md transition-colors text-sm text-red-600 dark:text-red-400 font-medium border-t border-neutral-100 dark:border-neutral-800 mt-1 pt-1 flex items-center gap-2"
                 >
                   <FiAlertTriangle size={14} className="opacity-70" /> {t(locale, 'report_post') || "Şikayət et"}
@@ -248,7 +272,7 @@ function CommentItem({ id, postId, userId, content, createdAt, postOwnerId, onRe
     id: userId,
     name: 'Unknown',
     username: 'unknown',
-    avatar: DEFAULT_AVATAR,
+    avatar: `/api/avatar?name=${userId}`,
     bio: ''
   }
   const locale = useLocale()

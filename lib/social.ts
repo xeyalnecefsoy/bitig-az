@@ -67,6 +67,8 @@ export type Post = {
   parentPostId?: string
   createdAt: string
   updatedAt?: string | null
+  status?: string
+  rejectedAt?: string | null
   likes: number
   likedByMe?: boolean
   comments: Comment[]
