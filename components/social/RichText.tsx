@@ -1,10 +1,12 @@
+"use client"
 import Link from 'next/link'
-import { Fragment } from 'react'
+import { Fragment, useState } from 'react'
 
 interface RichTextProps {
   content: string
   locale: string
   className?: string
+  truncateLimit?: number
 }
 
 // Matches:
@@ -15,10 +17,55 @@ interface RichTextProps {
 // 5. Bare domains like danyeri.az, example.net (word.domain)
 const URL_REGEX = /(`[^`]+`|@[a-zA-Z0-9_]{3,20}|https?:\/\/[^\s]+|www\.[^\s]+|[a-zA-Z0-9-]+\.[a-zA-Z]{2,6}(?:\/[^\s]*)?)/g;
 
-export function RichText({ content, locale, className = '' }: RichTextProps) {
+export function RichText({ content, locale, className = '', truncateLimit }: RichTextProps) {
+  const [isExpanded, setIsExpanded] = useState(false)
+
   if (!content) return null
 
-  const parts = content.split(URL_REGEX)
+  let displayContent = content
+  let isTruncated = false
+
+  if (!isExpanded) {
+    let breakIndex = -1;
+    if (truncateLimit && content.length > truncateLimit) {
+      breakIndex = truncateLimit;
+    }
+    
+    // Check for excessive newlines (e.g., more than 6 lines)
+    if (truncateLimit) {
+      let newlineCount = 0;
+      for (let i = 0; i < content.length; i++) {
+          if (content[i] === '\n') {
+              newlineCount++;
+              if (newlineCount > 6) {
+                  if (breakIndex === -1 || i < breakIndex) {
+                      breakIndex = i;
+                  }
+                  break;
+              }
+          }
+      }
+    }
+
+    if (breakIndex !== -1 && breakIndex < content.length) {
+      // Avoid breaking mid-word if possible
+      const nextSpace = content.indexOf(' ', breakIndex);
+      const nextNewline = content.indexOf('\n', breakIndex);
+      let safeBreak = breakIndex;
+      
+      if (nextSpace !== -1 && nextSpace - breakIndex < 30) {
+          safeBreak = nextSpace;
+      }
+      if (nextNewline !== -1 && nextNewline < safeBreak) {
+          safeBreak = nextNewline;
+      }
+
+      displayContent = content.slice(0, safeBreak).trim() + '... '
+      isTruncated = true
+    }
+  }
+
+  const parts = displayContent.split(URL_REGEX)
 
   return (
     <div className={className}>
@@ -96,6 +143,24 @@ export function RichText({ content, locale, className = '' }: RichTextProps) {
         // 4. Normal text
         return <Fragment key={i}>{part}</Fragment>
       })}
+      
+      {isTruncated && (
+        <button
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsExpanded(true); }}
+          className="text-brand font-medium hover:underline ml-1"
+        >
+          {locale === 'az' ? 'Daha çox' : 'Read more'}
+        </button>
+      )}
+      
+      {isExpanded && truncateLimit && (content.length > truncateLimit || (content.match(/\n/g) || []).length > 6) && (
+        <button
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsExpanded(false); }}
+          className="text-brand font-medium hover:underline ml-1 block mt-2"
+        >
+          {locale === 'az' ? 'Daha az' : 'Show less'}
+        </button>
+      )}
     </div>
   )
 }
