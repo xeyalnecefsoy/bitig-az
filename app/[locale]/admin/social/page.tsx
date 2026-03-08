@@ -134,13 +134,12 @@ export default function AdminSocialPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-2">
-                      {post.profiles?.avatar_url ? (
-                        <img src={post.profiles.avatar_url} alt="" className="h-8 w-8 rounded-full" />
-                      ) : (
-                        <div className="h-8 w-8 rounded-full bg-neutral-200 dark:bg-neutral-800 flex items-center justify-center">
-                          <FiUser className="text-neutral-500" size={16} />
-                        </div>
-                      )}
+                      <img 
+                        src={post.profiles?.avatar_url || `/api/avatar?name=${encodeURIComponent(post.profiles?.username || post.user_id || 'unknown')}`} 
+                        alt="" 
+                        className="h-8 w-8 rounded-full" 
+                        referrerPolicy="no-referrer"
+                      />
                       <span className="text-sm text-neutral-700 dark:text-neutral-300">
                         {post.profiles?.username || 'Unknown'}
                       </span>
@@ -179,13 +178,12 @@ export default function AdminSocialPage() {
           {posts.map((post) => (
             <div key={post.id} className="p-4">
               <div className="flex items-start gap-3 mb-3">
-                {post.profiles?.avatar_url ? (
-                  <img src={post.profiles.avatar_url} alt="" className="h-10 w-10 rounded-full" />
-                ) : (
-                  <div className="h-10 w-10 rounded-full bg-neutral-200 dark:bg-neutral-800 flex items-center justify-center">
-                    <FiUser className="text-neutral-500" />
-                  </div>
-                )}
+                  <img 
+                    src={post.profiles?.avatar_url || `/api/avatar?name=${encodeURIComponent(post.profiles?.username || post.user_id || 'unknown')}`} 
+                    alt="" 
+                    className="h-10 w-10 rounded-full" 
+                    referrerPolicy="no-referrer"
+                  />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-neutral-900 dark:text-white">
                     {post.profiles?.username || 'Unknown'}

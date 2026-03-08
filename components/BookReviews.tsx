@@ -271,7 +271,7 @@ export function BookReviews({ bookId, locale }: { bookId: string; locale: Locale
               <div className="flex items-start gap-3">
                 <UserHoverCard userId={review.user_id}>
                   <img
-                    src={review.profiles.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${review.user_id}`}
+                    src={review.profiles.avatar_url || `/api/avatar?name=${encodeURIComponent(review.profiles.username || review.user_id)}`}
                     alt={review.profiles.username}
                     className="w-10 h-10 rounded-full object-cover"
                   />

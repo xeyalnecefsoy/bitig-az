@@ -27,7 +27,7 @@ export function UserSearchResult({ user }: UserSearchResultProps) {
     <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors border border-transparent hover:border-neutral-100 dark:hover:border-neutral-800">
       <Link href={profileHref as any} className="shrink-0">
         <img 
-          src={user.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`}
+          src={user.avatar_url || `/api/avatar?name=${encodeURIComponent(user.username || user.id)}`}
           alt={user.username}
           className="w-12 h-12 rounded-full object-cover bg-neutral-100 dark:bg-neutral-800"
           referrerPolicy="no-referrer"

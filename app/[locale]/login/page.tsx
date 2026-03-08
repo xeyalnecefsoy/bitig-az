@@ -76,7 +76,7 @@ export default function LoginPage() {
                  username: email.split('@')[0],
                  full_name: fullName,
                  age: parseInt(age),
-                 avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`,
+                 avatar_url: `/api/avatar?name=${user.id}`,
                  updated_at: new Date().toISOString()
              })
         }

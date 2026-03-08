@@ -375,7 +375,7 @@ export function GroupContent({ group, locale }: GroupContentProps) {
                       onClick={() => setShowMembers(false)}
                     >
                       <img 
-                        src={m.profiles?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${m.profiles?.id}`}
+                        src={m.profiles?.avatar_url || `/api/avatar?name=${encodeURIComponent(m.profiles?.username || m.profiles?.id)}`}
                         alt=""
                         className="w-10 h-10 rounded-full object-cover"
                       />

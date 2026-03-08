@@ -2,7 +2,7 @@ import { FiAlertCircle, FiCheckCircle, FiInfo, FiX } from 'react-icons/fi'
 
 interface AlertProps {
   type: 'error' | 'success' | 'info'
-  message: string
+  message: React.ReactNode
   onClose?: () => void
 }
 

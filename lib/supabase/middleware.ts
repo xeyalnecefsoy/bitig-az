@@ -45,13 +45,33 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (
-    !user &&
-    !request.nextUrl.pathname.startsWith('/login') &&
-    !request.nextUrl.pathname.startsWith('/auth')
-  ) {
-    // no user, potentially redirect?
-    // for now we just return the response, we might want to protect routes later
+  // 🔒 Server-side admin route protection
+  const pathname = request.nextUrl.pathname
+  const isAdminRoute = /^\/[a-z]{2}\/admin/.test(pathname)
+
+  if (isAdminRoute) {
+    if (!user) {
+      // Not logged in → redirect to login
+      const locale = pathname.split('/')[1] || 'az'
+      const loginUrl = request.nextUrl.clone()
+      loginUrl.pathname = `/${locale}/login`
+      return NextResponse.redirect(loginUrl)
+    }
+
+    // Check role from database
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (!profile || !['admin', 'coadmin'].includes(profile.role)) {
+      // Not admin → redirect to homepage
+      const locale = pathname.split('/')[1] || 'az'
+      const homeUrl = request.nextUrl.clone()
+      homeUrl.pathname = `/${locale}`
+      return NextResponse.redirect(homeUrl)
+    }
   }
 
   return supabaseResponse

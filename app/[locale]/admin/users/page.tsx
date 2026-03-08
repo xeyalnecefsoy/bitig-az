@@ -140,7 +140,7 @@ export default function AdminUsersPage() {
                         className="flex items-center gap-3 group"
                       >
                         <img
-                          src={user.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`}
+                          src={user.avatar_url || `/api/avatar?name=${encodeURIComponent(user.username || user.id)}`}
                           alt=""
                           className="h-8 w-8 rounded-full object-cover group-hover:ring-2 ring-brand transition-all"
                           referrerPolicy="no-referrer"

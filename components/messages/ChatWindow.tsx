@@ -16,26 +16,13 @@ import Link from 'next/link'
 function UserAvatar({ user, size = 40 }: { user: any, size?: number }) {
   const [imgError, setImgError] = useState(false)
   
-  const getInitials = (name: string) => {
-    if (!name) return '?'
-    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-  }
-  
-  if (!user?.avatar_url || imgError) {
-    return (
-      <div 
-        className="flex items-center justify-center rounded-full bg-brand/20 text-brand font-bold"
-        style={{ width: size, height: size, fontSize: size * 0.4 }}
-      >
-        {getInitials(user?.full_name || user?.username || '?')}
-      </div>
-    )
-  }
+  const facehashUrl = `/api/avatar?name=${encodeURIComponent(user?.username || user?.full_name || user?.id || 'unknown')}`
+  const src = (!imgError && user?.avatar_url) ? user.avatar_url : facehashUrl
   
   return (
     <img
-      src={user.avatar_url}
-      alt={user.full_name || user.username}
+      src={src}
+      alt={user?.full_name || user?.username || '?'}
       referrerPolicy="no-referrer"
       onError={() => setImgError(true)}
       className="rounded-full object-cover bg-neutral-200"

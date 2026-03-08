@@ -4,6 +4,7 @@ import { t, translateGenre, type Locale } from '@/lib/i18n'
 import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { FiTrendingUp, FiUsers, FiBook, FiMessageCircle, FiDollarSign, FiStar } from 'react-icons/fi'
+import { Skeleton } from '@/components/ui/Skeleton'
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<any>(null)
@@ -24,8 +25,8 @@ export default function AdminDashboard() {
     const thirtyDaysAgo = date.toISOString()
 
     const [current, past] = await Promise.all([
-      supabase.from(table).select('*', { count: 'exact', head: true }),
-      supabase.from(table).select('*', { count: 'exact', head: true }).lt('created_at', thirtyDaysAgo)
+      supabase.from(table).select('id', { count: 'exact', head: true }),
+      supabase.from(table).select('id', { count: 'exact', head: true }).lt('created_at', thirtyDaysAgo)
     ])
 
     const currentCount = current.count || 0
@@ -42,16 +43,16 @@ export default function AdminDashboard() {
   async function loadStats() {
     try {
       // 1. Fetch Key Metrics with Trends
-      const [users, posts, books, reviews, comments, likes] = await Promise.all([
+      const [users, posts, booksDataRows, reviews, comments, likes] = await Promise.all([
         getGrowth('profiles'),
         getGrowth('posts'),
-        supabase.from('books').select('id, genre, rating, title, author'), // Fetch basic info for calcs
+        supabase.from('books').select('id, genre, rating, title, author'), // Need title/author for Top Books
         getGrowth('book_reviews'),
-        supabase.from('comments').select('*', { count: 'exact', head: true }),
-        supabase.from('likes').select('*', { count: 'exact', head: true }),
+        supabase.from('comments').select('id', { count: 'exact', head: true }),
+        supabase.from('likes').select('id', { count: 'exact', head: true }),
       ])
 
-      const booksData = books.data || []
+      const booksData = booksDataRows.data || []
       const totalBooks = booksData.length
       
       // Calculate Avg Rating
@@ -69,7 +70,7 @@ export default function AdminDashboard() {
       })
 
       // Top Books (already fetched, just sort)
-      const topBooks = [...booksData]
+      const topBooks = booksData
         .sort((a, b) => (b.rating || 0) - (a.rating || 0))
         .slice(0, 5)
 
@@ -103,8 +104,45 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand"></div>
+      <div className="space-y-6 animate-in fade-in duration-300">
+        <div>
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-4 w-32 mt-2" />
+        </div>
+        
+        {/* Main Stats Grid Skeleton */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="card p-6">
+              <div className="flex justify-between mb-4">
+                <Skeleton className="h-5 w-24" />
+                <Skeleton className="h-10 w-10 rounded-lg" />
+              </div>
+              <Skeleton className="h-8 w-16 mb-2" />
+              <Skeleton className="h-3 w-32" />
+            </div>
+          ))}
+        </div>
+
+        {/* Secondary Stats Skeleton */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="card p-6">
+              <div className="flex justify-between mb-4">
+                <Skeleton className="h-5 w-24" />
+                <Skeleton className="h-5 w-5 rounded-full" />
+              </div>
+              <Skeleton className="h-8 w-16 mb-2" />
+              <Skeleton className="h-3 w-32" />
+            </div>
+          ))}
+        </div>
+        
+        {/* Charts Row Skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="card p-6 h-64"><Skeleton className="h-full w-full" /></div>
+          <div className="card p-6 h-64"><Skeleton className="h-full w-full" /></div>
+        </div>
       </div>
     )
   }

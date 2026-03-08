@@ -1,7 +1,7 @@
 "use client"
 import { useState, useMemo, useEffect } from 'react'
 import { useSocial } from '@/context/social'
-import { FiSend, FiAlertCircle, FiCheckCircle, FiX, FiBook, FiImage, FiPlus, FiBarChart2 } from 'react-icons/fi'
+import { FiSend, FiAlertCircle, FiCheckCircle, FiX, FiBook, FiImage, FiPlus, FiBarChart2, FiChevronLeft, FiChevronRight } from 'react-icons/fi'
 import { useLocale } from '@/context/locale'
 import { t } from '@/lib/i18n'
 import * as Popover from '@radix-ui/react-popover'
@@ -12,8 +12,9 @@ import { useMentions } from '@/hooks/useMentions'
 import { MentionDropdown } from '@/components/social/MentionDropdown'
 import { uploadPostImage } from '@/lib/supabase/storage'
 import * as Dialog from '@radix-ui/react-dialog'
-
+import toast from 'react-hot-toast'
 const MAX_EMOJI = 5
+const MAX_CHARS = 2000
 const EMOJI_REGEX = /[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]/gu
 
 function countEmojis(text: string): number {
@@ -149,7 +150,7 @@ function ComposerItem({
     const hasPoll = draft.pollOptions && draft.pollOptions.length > 0;
     const isPollValid = !hasPoll || (draft.pollOptions.length >= 2 && draft.pollOptions.every(opt => opt.trim().length > 0));
 
-    const isCharValid = charCount > 0 || hasMedia
+    const isCharValid = (charCount > 0 && charCount <= MAX_CHARS) || (hasMedia && charCount <= MAX_CHARS)
     const isEmojiValid = emojiCount <= MAX_EMOJI
     const isValid = isCharValid && isEmojiValid && isPollValid
 
@@ -185,7 +186,7 @@ function ComposerItem({
     if (files.length === 0) return
     
     if (draft.imageFiles.length + files.length > 4) {
-      alert('Maksimum 4 şəkil əlavə edə bilərsiniz.')
+      toast.error('Maksimum 4 şəkil əlavə edə bilərsiniz.')
       const toAdd = 4 - draft.imageFiles.length
       files.splice(toAdd)
       if (files.length === 0) return
@@ -198,7 +199,7 @@ function ComposerItem({
       for (const originalFile of files) {
          const file = await compressImage(originalFile)
          if (file.size > 5 * 1024 * 1024) {
-           alert(t(locale, 'error_file_too_large') || 'Bəzi fayllar çox böyükdür (maks 5MB) və kifayət qədər kiçildilə bilmədi.')
+           toast.error(t(locale, 'error_file_too_large') || 'Bəzi fayllar çox böyükdür (maks 5MB) və kifayət qədər kiçildilə bilmədi.')
            continue
          }
          compressedFiles.push(file)
@@ -216,6 +217,45 @@ function ComposerItem({
     }
   }
 
+  const handlePaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = Array.from(e.clipboardData.items)
+    const files = items
+      .filter(item => item.type.startsWith('image/'))
+      .map(item => item.getAsFile())
+      .filter((f): f is File => f !== null)
+      
+    if (files.length === 0) return
+
+    if (draft.imageFiles.length + files.length > 4) {
+      toast.error('Maksimum 4 şəkil əlavə edə bilərsiniz.')
+      const toAdd = 4 - draft.imageFiles.length
+      files.splice(toAdd)
+      if (files.length === 0) return
+    }
+
+    try {
+      const compressedFiles: File[] = []
+      const previews: string[] = []
+
+      for (const originalFile of files) {
+         const file = await compressImage(originalFile)
+         if (file.size > 5 * 1024 * 1024) {
+           toast.error(t(locale, 'error_file_too_large') || 'Bəzi fayllar çox böyükdür (maks 5MB) və kifayət qədər kiçildilə bilmədi.')
+           continue
+         }
+         compressedFiles.push(file)
+         previews.push(URL.createObjectURL(file))
+      }
+      
+      onChange({
+        imageFiles: [...draft.imageFiles, ...compressedFiles],
+        imagePreviews: [...draft.imagePreviews, ...previews]
+      })
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
   const removeImage = (imgIndex: number) => {
     const newFiles = draft.imageFiles.filter((_, i) => i !== imgIndex)
     const newPreviews = draft.imagePreviews.filter((url, i) => {
@@ -226,6 +266,7 @@ function ComposerItem({
   }
 
   const [isFocused, setIsFocused] = useState(false)
+  const [expandedImage, setExpandedImage] = useState<{ index: number, urls: string[] } | null>(null)
   // If we are in the base composer (not modal), we ONLY render the first item with NO avatars.
   // If we ARE in the modal, we render avatars and connecting lines.
   const showAvatarLayout = isModalConfig;
@@ -285,6 +326,7 @@ function ComposerItem({
               handleMentionInputChange(e)
             }}
             onKeyDown={(e) => handleMentionKeyDown(e, draft.value, (val) => onChange({ value: val }))}
+            onPaste={handlePaste}
             placeholder={
               isFirst && !showAvatarLayout
                 ? t(locale, 'social_write_placeholder') || "Paylaşım yazın..."
@@ -316,6 +358,18 @@ function ComposerItem({
         {showToolbar && (
           <div className={`mt-1 flex flex-wrap items-center gap-3 justify-between ${showAvatarLayout ? 'pb-2 border-b border-transparent group-focus-within:border-neutral-100 dark:group-focus-within:border-neutral-800' : ''}`}>
             <div className="flex gap-3 text-sm">
+               {/* Char count check */}
+               {validation.charCount > 0 && (
+                  <span className={`inline-flex items-center text-xs font-medium ${
+                    validation.charCount > MAX_CHARS 
+                      ? 'text-red-500' 
+                      : validation.charCount > MAX_CHARS - 100 
+                        ? 'text-amber-500' 
+                        : 'text-neutral-400'
+                  }`}>
+                    {validation.charCount}/{MAX_CHARS}
+                  </span>
+               )}
                {/* Emoji count check */}
                {validation.emojiCount > 0 && (
                   <span className={`inline-flex items-center gap-1 ${
@@ -533,7 +587,12 @@ function ComposerItem({
           <div className="mt-2 flex flex-wrap gap-2 items-start pt-2 border-t border-neutral-100 dark:border-neutral-800/50">
             {draft.imagePreviews.map((preview, previewIdx) => (
               <div key={preview} className="relative inline-block group/media shrink-0">
-                <img src={preview} alt="Preview" className="h-20 sm:h-24 aspect-video object-cover rounded-xl border border-neutral-200 dark:border-neutral-700 shadow-sm" />
+                <img 
+                  src={preview} 
+                  alt="Preview" 
+                  className="h-20 sm:h-24 aspect-video object-cover rounded-xl border border-neutral-200 dark:border-neutral-700 shadow-sm cursor-zoom-in" 
+                  onClick={() => setExpandedImage({ index: previewIdx, urls: draft.imagePreviews })}
+                />
                 <button 
                   type="button" 
                   onClick={() => removeImage(previewIdx)}
@@ -569,6 +628,65 @@ function ComposerItem({
           </div>
         )}
       </div>
+
+      {/* Expanded Image Modal / Lightbox */}
+      {expandedImage && (
+        <div 
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/95 p-4 sm:p-8 cursor-zoom-out animate-in fade-in duration-200"
+          onClick={(e) => {
+            e.stopPropagation()
+            setExpandedImage(null)
+          }}
+        >
+          <button 
+            className="absolute top-4 right-4 sm:top-6 sm:right-6 p-2 text-white/70 hover:text-white bg-black/50 hover:bg-black/70 rounded-full transition-colors z-[10000]"
+            onClick={(e) => {
+              e.stopPropagation()
+              setExpandedImage(null)
+            }}
+          >
+            <FiX size={24} />
+          </button>
+          
+          {/* Navigation Controls */}
+          {expandedImage.urls.length > 1 && (
+            <>
+              {expandedImage.index > 0 && (
+                <button
+                  className="absolute left-4 sm:left-8 top-1/2 -translate-y-1/2 p-3 text-white/70 hover:text-white bg-black/50 hover:bg-black/70 rounded-full transition-colors z-[10000]"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setExpandedImage(prev => prev ? { ...prev, index: prev.index - 1 } : null)
+                  }}
+                >
+                  <FiChevronLeft size={32} />
+                </button>
+              )}
+              {expandedImage.index < expandedImage.urls.length - 1 && (
+                <button
+                  className="absolute right-4 sm:right-8 top-1/2 -translate-y-1/2 p-3 text-white/70 hover:text-white bg-black/50 hover:bg-black/70 rounded-full transition-colors z-[10000]"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setExpandedImage(prev => prev ? { ...prev, index: prev.index + 1 } : null)
+                  }}
+                >
+                  <FiChevronRight size={32} />
+                </button>
+              )}
+              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/50 text-white text-sm px-4 py-2 rounded-full backdrop-blur-md">
+                {expandedImage.index + 1} / {expandedImage.urls.length}
+              </div>
+            </>
+          )}
+
+          <img 
+            src={expandedImage.urls[expandedImage.index]} 
+            alt="Expanded view" 
+            className="max-w-full max-h-[90vh] object-contain rounded-md shadow-2xl transition-all duration-300"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   )
 }
@@ -683,7 +801,7 @@ export function SocialComposer({
       
     } catch (err: any) {
        console.error(err)
-       alert('Xəta baş verdi. Zəhmət olmasa yenidən cəhd edin.')
+       toast.error('Xəta baş verdi. Zəhmət olmasa yenidən cəhd edin.')
     } finally {
       setIsUploading(false)
     }

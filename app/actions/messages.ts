@@ -130,10 +130,12 @@ export async function getConversations() {
 }
 
 export async function getMessages(conversationId: string) {
-  // Console log removed to reduce noise, but can be enabled for debugging
-  // console.log('[Action: getMessages] fetching for:', conversationId)
   const supabase = await createClient()
-  
+  const { data: { user } } = await supabase.auth.getUser()
+
+  // 🔒 Auth check
+  if (!user) return []
+
   const { data, error } = await supabase
     .from('direct_messages')
     .select('*')
@@ -267,12 +269,16 @@ export async function searchUsers(query: string) {
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) return []
-  if (!query || query.length < 1) return []
+
+  // 🔒 Sanitize query to prevent PostgREST filter injection
+  const sanitized = query.replace(/[%_(),.'"\\]/g, '').trim()
+  if (!sanitized || sanitized.length < 2) return []
 
   const { data: users, error } = await supabase
     .from('profiles')
     .select('id, username, full_name, avatar_url')
-    .or(`username.ilike.%${query}%,full_name.ilike.%${query}%`)
+    .or(`username.ilike.%${sanitized}%,full_name.ilike.%${sanitized}%`)
+    .neq('id', user.id)
     .limit(10)
 
   if (error) {
@@ -343,6 +349,16 @@ export async function deleteConversation(conversationId: string) {
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) return { error: 'Unauthorized' }
+
+  // 🔒 Verify user is a participant of this conversation
+  const { data: participant } = await supabase
+    .from('conversation_participants')
+    .select('id')
+    .eq('conversation_id', conversationId)
+    .eq('user_id', user.id)
+    .single()
+
+  if (!participant) return { error: 'Forbidden' }
 
   // Delete the conversation
   // This will cascade delete messages and participants due to FK constraints

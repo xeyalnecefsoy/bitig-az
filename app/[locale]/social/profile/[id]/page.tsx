@@ -7,7 +7,6 @@ import Link from 'next/link'
 import { FiUser, FiLock } from 'react-icons/fi'
 import { t, type Locale } from '@/lib/i18n'
 import { RankBadge } from '@/components/RankBadge'
-import { DEFAULT_AVATAR } from '@/lib/social'
 
 export default async function SocialProfilePage({ params }: { params: Promise<{ locale: string; id: string }> }) {
   const { id, locale } = await params
@@ -80,7 +79,7 @@ export default async function SocialProfilePage({ params }: { params: Promise<{ 
         <div className="container-max px-4 sm:px-6 -mt-12 sm:-mt-16 relative z-10">
           <div className="flex flex-col items-center text-center">
              <img
-                src={profile.avatar_url || DEFAULT_AVATAR}
+                src={profile.avatar_url || `/api/avatar?name=${encodeURIComponent(profile.username || profile.full_name || profile.id)}`}
                 alt={profile.username}
                 className="h-24 w-24 sm:h-32 sm:w-32 rounded-full object-cover border-4 border-white dark:border-neutral-900 shadow-lg bg-white dark:bg-neutral-900"
                 referrerPolicy="no-referrer"

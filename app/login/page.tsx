@@ -54,7 +54,7 @@ export default function LoginPage() {
              await supabase.from('profiles').insert({
                  id: user.id,
                  username: email.split('@')[0],
-                 avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`,
+                 avatar_url: `/api/avatar?name=${user.id}`,
                  updated_at: new Date().toISOString()
              })
         }

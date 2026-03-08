@@ -20,3 +20,10 @@
 .env*
 
 Group_Images/
+
+# Windows reserved device names
+nul
+
+# Test files
+telegram-test.js
+test-edge.js

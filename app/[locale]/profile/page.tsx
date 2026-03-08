@@ -329,7 +329,7 @@ export default function MyProfilePage() {
               <div className="flex flex-col items-center gap-3">
                 <div className="relative">
                   <img 
-                    src={avatarPreview || currentUser.avatar_url} 
+                    src={avatarPreview || currentUser.avatar_url || `/api/avatar?name=${encodeURIComponent(currentUser.username || currentUser.full_name || currentUser.id)}`} 
                     alt="Avatar" 
                     className="h-24 w-24 rounded-full object-cover border-2 border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900" 
                     referrerPolicy="no-referrer" 
@@ -407,7 +407,7 @@ export default function MyProfilePage() {
                  {/* Avatar (Overlapping) */}
                  <div className="-mt-12 mb-3">
                    <img 
-                      src={currentUser.avatar_url} 
+                      src={currentUser.avatar_url || `/api/avatar?name=${encodeURIComponent(currentUser.username || currentUser.full_name || currentUser.id)}`} 
                       alt={currentUser.username} 
                       className="h-24 w-24 rounded-full object-cover border-4 border-white dark:border-neutral-900 bg-white dark:bg-neutral-900 shadow-md" 
                       referrerPolicy="no-referrer" 

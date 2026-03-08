@@ -137,6 +137,12 @@ export default function AdminLayout({
                 label={t(locale, 'admin_alerts')}
                 onClick={() => setSidebarOpen(false)}
               />
+              <NavLink 
+                href={`/${locale}/admin/moderation`} 
+                icon={<FiAlertCircle style={{ color: '#ef4444' }} />} 
+                label={t(locale, 'admin_moderation')}
+                onClick={() => setSidebarOpen(false)}
+              />
               <div className="pt-4 mt-4 border-t border-neutral-100 dark:border-neutral-800 space-y-1">
                  <button
                    onClick={async () => {

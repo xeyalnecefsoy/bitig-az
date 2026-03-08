@@ -50,7 +50,7 @@ export function UserHoverCard({ userId, children, disabled = false, className = 
           id: profile.id,
           name: profile.username || 'Anonymous',
           username: profile.username || 'anonymous',
-          avatar: profile.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.id}`,
+          avatar: profile.avatar_url || `/api/avatar?name=${encodeURIComponent(profile.username || profile.full_name || profile.id)}`,
           bio: profile.bio,
           joinedAt: profile.updated_at,
           followers: followersCount || 0,

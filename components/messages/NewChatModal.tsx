@@ -92,13 +92,12 @@ export function NewChatModal({
                   disabled={starting}
                   className="w-full flex items-center gap-3 p-3 hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-lg transition-colors text-left"
                 >
-                  {user.avatar_url ? (
-                    <img src={user.avatar_url} alt={user.username} className="w-10 h-10 rounded-full object-cover" />
-                  ) : (
-                    <div className="w-10 h-10 rounded-full bg-brand/10 text-brand flex items-center justify-center">
-                      <FiUser />
-                    </div>
-                  )}
+                  <img 
+                    src={user.avatar_url || `/api/avatar?name=${encodeURIComponent(user.username || user.full_name || user.id)}`} 
+                    alt={user.username} 
+                    className="w-10 h-10 rounded-full object-cover" 
+                    referrerPolicy="no-referrer"
+                  />
                   <div>
                     <div className="font-semibold dark:text-white">{user.full_name || user.username}</div>
                     <div className="text-xs text-neutral-500">@{user.username}</div>

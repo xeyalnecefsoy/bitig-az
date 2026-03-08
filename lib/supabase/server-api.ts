@@ -114,7 +114,7 @@ export async function getUser(id: string): Promise<User | null> {
     id: data.id,
     name: data.username || 'Anonymous',
     username: data.username || 'anonymous',
-    avatar: data.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${data.id}`,
+    avatar: data.avatar_url || `/api/avatar?name=${encodeURIComponent(data.username || data.id)}`,
     bio: data.bio,
     joinedAt: data.updated_at
   } as User

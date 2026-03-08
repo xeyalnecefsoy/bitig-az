@@ -89,7 +89,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
       
       {/* Resource hints for external domains */}
       <link rel="preconnect" href="https://images.unsplash.com" />
-      <link rel="dns-prefetch" href="https://api.dicebear.com" />
+
       <link rel="dns-prefetch" href="https://gqqbjzakyjevgpjvnlmb.supabase.co" />
       
       <div>
