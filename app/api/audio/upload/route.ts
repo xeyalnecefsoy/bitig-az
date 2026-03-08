@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse form data
-    const formData = await request.formData()
+    const formData: any = await request.formData()
     const file = formData.get('file') as File
     const bookId = formData.get('bookId') as string
     const trackTitle = formData.get('trackTitle') as string

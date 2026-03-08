@@ -52,6 +52,8 @@
     "node_modules",
     "capacitor.config.ts",
     "android",
-    "ios"
+    "ios",
+    "bitig-mobile",
+    "supabase"
   ]
 }

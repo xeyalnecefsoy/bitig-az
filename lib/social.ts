@@ -12,7 +12,7 @@ export type User = {
 
 export type Notification = {
   id: string
-  type: 'like' | 'comment' | 'follow' | 'system'
+  type: 'like' | 'comment' | 'follow' | 'system' | 'mod_rejected' | 'mod_deleted'
   actor_id: string
   entity_id: string
   read: boolean
