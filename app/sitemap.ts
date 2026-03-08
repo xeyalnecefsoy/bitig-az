@@ -1,5 +1,6 @@
 import { MetadataRoute } from 'next'
 import { createClient } from '@/lib/supabase/server'
+import { seoGuides } from '@/lib/seoGuides'
 
 const BASE_URL = 'https://bitig.az'
 
@@ -10,6 +11,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const locales = ['az', 'en']
   const staticPages = [
     '',           // Home page
+    '/blog',
     '/audiobooks',
     '/social',
     '/cart',
@@ -75,6 +77,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   }
 
+  const blogEntries: MetadataRoute.Sitemap = locales.flatMap((locale) =>
+    seoGuides.map((guide) => ({
+      url: `${BASE_URL}/${locale}/blog/${guide.slug}`,
+      lastModified: new Date(guide.updatedAt),
+      changeFrequency: 'monthly',
+      priority: locale === 'az' ? 0.75 : 0.65,
+    }))
+  )
+
   // Combine all entries
-  return [...staticEntries, ...bookEntries, ...postEntries]
+  return [...staticEntries, ...blogEntries, ...bookEntries, ...postEntries]
 }

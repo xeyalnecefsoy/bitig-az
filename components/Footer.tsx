@@ -3,6 +3,8 @@ import Image from 'next/image'
 import { t, type Locale } from '@/lib/i18n'
 
 export function Footer({ locale }: { locale: Locale }) {
+  const blogText = locale === 'az' ? 'Bələdçilər' : 'Guides'
+
   return (
     <footer className="border-t border-neutral-100 dark:border-neutral-800 mt-16">
       <div className="container-max py-10 pb-28 sm:pb-10 text-sm text-neutral-600 dark:text-neutral-300 grid gap-8 sm:grid-cols-[1fr_auto]">
@@ -14,6 +16,7 @@ export function Footer({ locale }: { locale: Locale }) {
           {/* Removed Related Header */}
           <nav className="flex sm:justify-end gap-4 text-sm">
             <Link href={`/${locale}/audiobooks` as any} className="hover:text-brand">{t(locale, 'nav_audiobooks')}</Link>
+            <Link href={`/${locale}/blog`} className="hover:text-brand">{blogText}</Link>
             <Link href={`/${locale}/social` as any} className="hover:text-brand">{t(locale, 'nav_social')}</Link>
             <Link href={`/${locale}/profile` as any} className="hover:text-brand">{t(locale, 'nav_profile')}</Link>
           </nav>

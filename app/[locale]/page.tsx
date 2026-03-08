@@ -9,6 +9,7 @@ import { AdBanner } from '@/components/ads/AdBanner'
 import { ContinueListeningSection } from '@/components/ContinueListeningSection'
 import { FiMessageCircle, FiUsers, FiBookOpen, FiArrowRight } from 'react-icons/fi'
 import type { Metadata } from 'next'
+import { seoGuides } from '@/lib/seoGuides'
 
 // Revalidate the page every 60 seconds for faster TTFB
 export const revalidate = 60
@@ -25,6 +26,21 @@ const homeMetadata = {
     keywords: ['Bitig', 'audiobook', 'audiobooks', 'Azerbaijan', 'listen to books', 'free audiobooks'],
   },
 }
+
+const blogSectionCopy = {
+  az: {
+    title: 'Bitig Blog: Səsli kitab bələdçiləri',
+    description: 'Səsli kitab, platforma imkanları və dinləmə vərdişləri barədə faydalı məqalələri oxuyun.',
+    hubCta: 'Bütün bələdçilərə bax',
+    guideCta: 'Məqaləni oxu',
+  },
+  en: {
+    title: 'Bitig Blog: Audiobook guides',
+    description: 'Read practical articles about audiobooks, platform features, and better listening habits.',
+    hubCta: 'View all guides',
+    guideCta: 'Read article',
+  },
+} satisfies Record<Locale, Record<string, string>>
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
   const { locale } = await params
@@ -69,6 +85,8 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   }
   
   const supabase = await createClient()
+  const copy = blogSectionCopy[locale]
+  const featuredGuides = seoGuides.slice(0, 3)
   
   // Fetch books from database
   const { data: books } = await supabase
@@ -124,6 +142,29 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
         <div className="grid gap-4 grid-cols-2 sm:gap-6 sm:grid-cols-3 lg:grid-cols-4">
           {books?.map((b: Book) => (
             <BookCard key={b.id} book={b} locale={locale} />
+          ))}
+        </div>
+      </section>
+
+      <section className="container-max py-12">
+        <div className="flex items-end justify-between gap-4 mb-6">
+          <div className="max-w-2xl">
+            <h2 className="text-2xl font-semibold mb-2">{copy.title}</h2>
+            <p className="text-neutral-600 dark:text-neutral-300">{copy.description}</p>
+          </div>
+          <Link href={`/${locale}/blog`} className="text-brand hover:underline shrink-0">
+            {copy.hubCta}
+          </Link>
+        </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          {featuredGuides.map((guide) => (
+            <article key={guide.slug} className="rounded-2xl border border-neutral-200 dark:border-neutral-800 p-5 bg-white dark:bg-neutral-900">
+              <h3 className="text-lg font-semibold mb-2">{guide.title[locale]}</h3>
+              <p className="text-sm text-neutral-600 dark:text-neutral-300 mb-4">{guide.excerpt[locale]}</p>
+              <Link href={`/${locale}/blog/${guide.slug}`} className="text-sm text-brand hover:underline">
+                {copy.guideCta}
+              </Link>
+            </article>
           ))}
         </div>
       </section>
@@ -200,4 +241,3 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
     </>
   )
 }
-
