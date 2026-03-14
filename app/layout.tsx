@@ -12,6 +12,7 @@ import { Suspense } from 'react'
 import SystemAlertBanner from '@/components/system/SystemAlertBanner'
 import { CustomToaster } from '@/components/system/CustomToaster'
 import { Analytics } from '@/components/system/Analytics'
+import { AnalyticsScripts } from '@/components/system/AnalyticsScripts'
 
 const inter = Inter({ 
   subsets: ['latin', 'cyrillic'],
@@ -188,6 +189,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
         />
+        <AnalyticsScripts />
         <Suspense fallback={null}>
           <Analytics />
         </Suspense>
