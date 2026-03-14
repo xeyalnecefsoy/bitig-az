@@ -43,6 +43,13 @@ export default async function PrivacyPage({ params }: { params: Promise<{ locale
           Veb saytımızda istifadəçi təcrübəsini yaxşılaşdırmaq üçün kookilərdən istifadə olunur. Brauzer ayarlarınızdan
           kookiləri idarə edə bilərsiniz.
         </p>
+
+        <h3>6. Analitika Alətləri</h3>
+        <p>
+          Platformamızın istifadəsini analiz etmək və xidməti təkmilləşdirmək üçün Google Analytics və Microsoft Clarity
+          istifadə edirik. Bu alətlər səhifə baxışları, cihaz növü, sessiya davranışı və klik nümunələri kimi statistik
+          məlumatları emal edə bilər.
+        </p>
       </div>
     </div>
   )

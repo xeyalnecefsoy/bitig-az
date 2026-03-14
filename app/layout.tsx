@@ -8,8 +8,10 @@ import { ThemeProvider } from '@/context/theme'
 import { AudioProvider } from '@/context/audio'
 import { SocialProvider } from '@/context/social'
 import { SpeedInsights } from '@vercel/speed-insights/next'
+import { Suspense } from 'react'
 import SystemAlertBanner from '@/components/system/SystemAlertBanner'
 import { CustomToaster } from '@/components/system/CustomToaster'
+import { Analytics } from '@/components/system/Analytics'
 
 const inter = Inter({ 
   subsets: ['latin', 'cyrillic'],
@@ -186,9 +188,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
         />
+        <Suspense fallback={null}>
+          <Analytics />
+        </Suspense>
         <SpeedInsights />
       </body>
     </html>
   )
 }
-
