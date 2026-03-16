@@ -1,7 +1,9 @@
 import Script from 'next/script'
 
-const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ?? 'G-1D0V1F9YP'
-const CLARITY_PROJECT_ID = process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID ?? 'vvs8j7xjaq'
+const DEFAULT_GA_MEASUREMENT_ID = 'G-D1D0V1F9YP'
+const RAW_GA_MEASUREMENT_ID = (process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ?? DEFAULT_GA_MEASUREMENT_ID).trim()
+const GA_MEASUREMENT_ID = RAW_GA_MEASUREMENT_ID === 'G-1D0V1F9YP' ? DEFAULT_GA_MEASUREMENT_ID : RAW_GA_MEASUREMENT_ID
+const CLARITY_PROJECT_ID = (process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID ?? 'vvs8j7xjaq').trim()
 
 export function AnalyticsScripts() {
   if (process.env.NODE_ENV !== 'production') {

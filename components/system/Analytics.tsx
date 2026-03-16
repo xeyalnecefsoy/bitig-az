@@ -11,7 +11,9 @@ declare global {
   }
 }
 
-const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ?? 'G-1D0V1F9YP'
+const DEFAULT_GA_MEASUREMENT_ID = 'G-D1D0V1F9YP'
+const RAW_GA_MEASUREMENT_ID = (process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ?? DEFAULT_GA_MEASUREMENT_ID).trim()
+const GA_MEASUREMENT_ID = RAW_GA_MEASUREMENT_ID === 'G-1D0V1F9YP' ? DEFAULT_GA_MEASUREMENT_ID : RAW_GA_MEASUREMENT_ID
 
 export function Analytics() {
   const pathname = usePathname()
