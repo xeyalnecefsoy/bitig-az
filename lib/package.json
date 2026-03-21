@@ -1,0 +1,7 @@
+{
+  "name": "@bitig/i18n",
+  "version": "1.0.0",
+  "private": true,
+  "main": "i18n.ts",
+  "types": "i18n.ts"
+}

@@ -103,6 +103,11 @@ create table if not exists public.posts (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
+-- Quote posts (X-style); same as migrations/20260321120000_add_quoted_post_id.sql
+alter table public.posts
+  add column if not exists quoted_post_id uuid references public.posts(id) on delete set null;
+create index if not exists posts_quoted_post_id_idx on public.posts(quoted_post_id);
+
 alter table public.posts enable row level security;
 create policy "Posts are viewable by everyone" on posts for select using (true);
 create policy "Users can insert own posts" on posts for insert with check (auth.uid() = user_id);

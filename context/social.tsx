@@ -1,6 +1,6 @@
 "use client"
 import { createContext, useContext, useEffect, useMemo, useState, useCallback, useRef } from 'react'
-import { type Post, type User, type Comment, type Notification } from '@/lib/social'
+import { type Post, type User, type Comment, type Notification, type QuotedPostEmbed } from '@/lib/social'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/auth'
@@ -14,7 +14,7 @@ export type SocialState = {
   posts: Post[]
   like: (postId: string) => Promise<void>
   addComment: (postId: string, content: string) => Promise<void>
-  createPost: (content: string, mentionedBookId?: string, groupId?: string, imageUrls?: string[], parentPostId?: string, pollOptions?: string[], pollDurationHours?: number) => Promise<string | undefined>
+  createPost: (content: string, mentionedBookId?: string, groupId?: string, imageUrls?: string[], parentPostId?: string, pollOptions?: string[], pollDurationHours?: number, quotedPostId?: string) => Promise<string | undefined>
   voteOnPoll: (postId: string, optionId: string) => Promise<void>
   editPost: (postId: string, content: string) => Promise<void>
   deletePost: (postId: string) => Promise<void>
@@ -28,6 +28,8 @@ export type SocialState = {
   loadMorePosts: () => Promise<void>
   loadForYouPosts: () => Promise<void>
   hasMorePosts: boolean
+  /** Merge enriched post rows into context so SocialPostCard can resolve postId (profile, etc.). */
+  mergePostsFromSupabaseRows: (rows: any[]) => Promise<Post[]>
   notifications: Notification[]
   unreadCount: number
   markNotificationsAsRead: () => Promise<void>
@@ -155,6 +157,141 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     }
   }, [supabase]) // Removed users dependency
 
+  /** Batch-load embedded quoted posts and merge their authors into userIds. */
+  const loadQuotedMap = useCallback(
+    async (postsData: any[], userIds: Set<string>): Promise<Record<string, QuotedPostEmbed>> => {
+      const quotedIds = [...new Set(postsData.map((p: any) => p.quoted_post_id).filter(Boolean))]
+      if (quotedIds.length === 0) return {}
+      const { data: quotedRows } = await supabase
+        .from('posts')
+        .select('id, user_id, content, image_urls, created_at')
+        .in('id', quotedIds)
+      const quotedMap: Record<string, QuotedPostEmbed> = {}
+      if (quotedRows) {
+        for (const q of quotedRows) {
+          userIds.add(q.user_id)
+          quotedMap[q.id] = {
+            id: q.id,
+            userId: q.user_id,
+            content: q.content,
+            imageUrls: q.image_urls ?? undefined,
+            createdAt: q.created_at,
+          }
+        }
+      }
+      return quotedMap
+    },
+    [supabase],
+  )
+
+  /** Map Supabase post rows (with likes, comments, polls) to `Post[]` — shared by feed, load more, profile merge. */
+  const mapEnrichedPostRowsToPosts = useCallback(
+    async (postsData: any[], authUserId?: string | null): Promise<Post[]> => {
+      if (!postsData?.length) return []
+
+      const userIds = new Set<string>()
+      postsData.forEach(p => {
+        if (p.user_id) userIds.add(p.user_id)
+        if (Array.isArray(p.comments)) {
+          p.comments.forEach((c: any) => {
+            if (c.user_id) userIds.add(c.user_id)
+          })
+        }
+      })
+
+      const quotedMap = await loadQuotedMap(postsData, userIds)
+      await fetchAndMergeUsers(Array.from(userIds))
+
+      const bookIds = postsData.filter(p => p.mentioned_book_id).map(p => p.mentioned_book_id)
+      let booksMap: Record<string, any> = {}
+      if (bookIds.length > 0) {
+        const { data: books } = await supabase.from('books').select('*').in('id', bookIds)
+        if (books) {
+          books.forEach(b => {
+            booksMap[b.id] = b
+          })
+        }
+      }
+
+      return postsData.map(p => {
+        let pollData = undefined
+        const poll = Array.isArray(p.polls) ? p.polls[0] : p.polls
+        if (poll) {
+          const hasExpired = new Date(poll.expires_at) < new Date()
+          let totalVotes = 0
+          const options = (poll.poll_options || []).map((opt: any) => {
+            const votes = opt.poll_votes || []
+            totalVotes += votes.length
+            return {
+              id: opt.id,
+              text: opt.text,
+              votesCount: votes.length,
+              hasVoted: authUserId ? votes.some((v: any) => v.user_id === authUserId) : false,
+            }
+          })
+          pollData = {
+            expiresAt: poll.expires_at,
+            hasExpired,
+            totalVotes,
+            options,
+          }
+        }
+
+        const likesArr = Array.isArray(p.likes) ? p.likes : []
+
+        return {
+          id: p.id,
+          userId: p.user_id,
+          content: p.content,
+          status: p.status,
+          rejectedAt: p.rejected_at,
+          imageUrls: p.image_urls,
+          parentPostId: p.parent_post_id,
+          quotedPostId: p.quoted_post_id ?? undefined,
+          quotedPost: p.quoted_post_id ? quotedMap[p.quoted_post_id] : undefined,
+          createdAt: p.created_at,
+          likes: likesArr.length,
+          likedByMe: !!(authUserId && likesArr.some((l: any) => l.user_id === authUserId)),
+          comments: Array.isArray(p.comments)
+            ? p.comments.map((c: any) => ({
+                id: c.id,
+                userId: c.user_id,
+                content: c.content,
+                createdAt: c.created_at,
+              }))
+            : [],
+          mentionedBookId: p.mentioned_book_id,
+          mentionedBook:
+            p.mentioned_book_id && booksMap[p.mentioned_book_id]
+              ? {
+                  id: booksMap[p.mentioned_book_id].id,
+                  title: booksMap[p.mentioned_book_id].title,
+                  coverUrl: booksMap[p.mentioned_book_id].cover || booksMap[p.mentioned_book_id].cover_url,
+                  author: booksMap[p.mentioned_book_id].author,
+                }
+              : undefined,
+          groupId: p.group_id,
+          poll: pollData,
+        }
+      })
+    },
+    [supabase, fetchAndMergeUsers, loadQuotedMap],
+  )
+
+  const mergePostsFromSupabaseRows = useCallback(
+    async (rows: any[]): Promise<Post[]> => {
+      const mapped = await mapEnrichedPostRowsToPosts(rows, authUser?.id ?? null)
+      if (mapped.length === 0) return []
+      setPosts(prev => {
+        const byId = new Map(prev.map(p => [p.id, p]))
+        for (const p of mapped) byId.set(p.id, p)
+        return Array.from(byId.values())
+      })
+      return mapped
+    },
+    [authUser?.id, mapEnrichedPostRowsToPosts],
+  )
+
   // Load posts helper
   const loadPosts = useCallback(async (authUserId?: string) => {
     const { data: postsData } = await supabase
@@ -177,95 +314,10 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
       .limit(10)
 
     if (postsData && postsData.length > 0) {
-      // Collect all user IDs involved
-      const userIds = new Set<string>()
-      postsData.forEach(p => {
-        if (p.user_id) userIds.add(p.user_id)
-        if (Array.isArray(p.comments)) {
-          p.comments.forEach((c: any) => {
-             if (c.user_id) userIds.add(c.user_id)
-          })
-        }
-      })
-      
-      // Fetch missing profiles
-      await fetchAndMergeUsers(Array.from(userIds))
-
-      const bookIds = postsData
-        .filter(p => p.mentioned_book_id)
-        .map(p => p.mentioned_book_id)
-
-      let booksMap: Record<string, any> = {}
-      if (bookIds.length > 0) {
-        const { data: books } = await supabase
-          .from('books')
-          .select('*')
-          .in('id', bookIds)
-        
-        if (books) {
-          books.forEach(b => {
-            booksMap[b.id] = b
-          })
-        }
-      }
-
-      const mappedPosts: Post[] = postsData.map(p => {
-        let pollData = undefined;
-        // In one-to-one foreign key relationships without strictly unique definitions, Supabase sometimes returns arrays.
-        const poll = Array.isArray(p.polls) ? p.polls[0] : p.polls;
-        if (poll) {
-           const hasExpired = new Date(poll.expires_at) < new Date();
-           let totalVotes = 0;
-           const options = (poll.poll_options || []).map((opt: any) => {
-               const votes = opt.poll_votes || [];
-               totalVotes += votes.length;
-               return {
-                   id: opt.id,
-                   text: opt.text,
-                   votesCount: votes.length,
-                   hasVoted: authUserId ? votes.some((v: any) => v.user_id === authUserId) : false
-               }
-           });
-           
-           pollData = {
-               expiresAt: poll.expires_at,
-               hasExpired,
-               totalVotes,
-               options
-           }
-        }
-
-        return {
-          id: p.id,
-          userId: p.user_id,
-          content: p.content,
-          status: p.status,
-          rejectedAt: p.rejected_at,
-          imageUrls: p.image_urls,
-          parentPostId: p.parent_post_id,
-          createdAt: p.created_at,
-          likes: p.likes ? p.likes.length : 0,
-          likedByMe: authUserId && p.likes ? p.likes.some((l: any) => l.user_id === authUserId) : false,
-          comments: Array.isArray(p.comments) ? p.comments.map((c: any) => ({
-            id: c.id,
-            userId: c.user_id,
-            content: c.content,
-            createdAt: c.created_at
-          })) : [],
-          mentionedBookId: p.mentioned_book_id,
-          mentionedBook: p.mentioned_book_id && booksMap[p.mentioned_book_id] ? {
-             id: booksMap[p.mentioned_book_id].id,
-             title: booksMap[p.mentioned_book_id].title,
-             coverUrl: booksMap[p.mentioned_book_id].cover || booksMap[p.mentioned_book_id].cover_url,
-             author: booksMap[p.mentioned_book_id].author
-          } : undefined,
-          groupId: p.group_id,
-          poll: pollData
-        }
-      })
+      const mappedPosts = await mapEnrichedPostRowsToPosts(postsData, authUserId ?? null)
       setPosts(mappedPosts)
     }
-  }, [supabase, fetchAndMergeUsers])
+  }, [supabase, mapEnrichedPostRowsToPosts])
 
   // Load For You posts helper
   const loadForYouPosts = useCallback(async (authUserId?: string) => {
@@ -326,6 +378,8 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
              })
            }
          })
+
+         const quotedMapFy = await loadQuotedMap(sortedEnrichedPosts, userIds)
          
          await fetchAndMergeUsers(Array.from(userIds))
 
@@ -354,6 +408,8 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
                content: p.content,
                imageUrls: p.image_urls,
                parentPostId: p.parent_post_id,
+               quotedPostId: p.quoted_post_id ?? undefined,
+               quotedPost: p.quoted_post_id ? quotedMapFy[p.quoted_post_id] : undefined,
                createdAt: p.created_at,
                likes: p.likes ? p.likes.length : 0,
                likedByMe: userIdToUse && p.likes ? p.likes.some((l: any) => l.user_id === userIdToUse) : false,
@@ -378,7 +434,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
          setPosts(mappedPosts)
       }
     }
-  }, [supabase, fetchAndMergeUsers, currentUser?.id, loadPosts])
+  }, [supabase, fetchAndMergeUsers, currentUser?.id, loadPosts, loadQuotedMap])
 
   // Sadələşdirilmiş initialization - AuthProvider-dən user-i izləyir
   useEffect(() => {
@@ -544,7 +600,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const createPost = async (content: string, mentionedBookId?: string, groupId?: string, imageUrls?: string[], parentPostId?: string, pollOptions?: string[], pollDurationHours?: number): Promise<string | undefined> => {
+  const createPost = async (content: string, mentionedBookId?: string, groupId?: string, imageUrls?: string[], parentPostId?: string, pollOptions?: string[], pollDurationHours?: number, quotedPostId?: string): Promise<string | undefined> => {
     if (!currentUser) return undefined
 
     // Ensure content is strictly not completely empty to avoid Postgres `not null` or implicit checks failing
@@ -555,6 +611,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
       content: safeContent,
       image_urls: imageUrls,
       parent_post_id: parentPostId,
+      quoted_post_id: quotedPostId ?? null,
       mentioned_book_id: mentionedBookId,
       group_id: groupId
     }).select().single()
@@ -577,6 +634,36 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
               author: b.author
             }
          }
+      }
+
+      let quotedEmbed: QuotedPostEmbed | undefined
+      if (quotedPostId) {
+        const orig = posts.find(p => p.id === quotedPostId)
+        if (orig) {
+          quotedEmbed = {
+            id: orig.id,
+            userId: orig.userId,
+            content: orig.content,
+            imageUrls: orig.imageUrls,
+            createdAt: orig.createdAt,
+          }
+        } else {
+          const { data: q } = await supabase
+            .from('posts')
+            .select('id, user_id, content, image_urls, created_at')
+            .eq('id', quotedPostId)
+            .single()
+          if (q) {
+            quotedEmbed = {
+              id: q.id,
+              userId: q.user_id,
+              content: q.content,
+              imageUrls: q.image_urls ?? undefined,
+              createdAt: q.created_at,
+            }
+            await fetchAndMergeUsers([q.user_id])
+          }
+        }
       }
 
       let pollData = undefined;
@@ -623,6 +710,8 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         likedByMe: false,
         comments: [],
         parentPostId: data.parent_post_id,
+        quotedPostId: data.quoted_post_id ?? undefined,
+        quotedPost: quotedEmbed,
         mentionedBookId: data.mentioned_book_id,
         mentionedBook: mentionedBookDetails,
         groupId: data.group_id,
@@ -778,7 +867,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
   }
 
   const loadMorePosts = async () => {
-    const { data: { user: authUser } } = await supabase.auth.getUser()
+    const { data: { user: authUserFromSession } } = await supabase.auth.getUser()
     const { data: postsData } = await supabase
       .from('posts')
       .select(`
@@ -799,88 +888,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
       .range(posts.length, posts.length + 9)
 
     if (postsData && postsData.length > 0) {
-      // Collect all user IDs involved in new posts
-      const userIds = new Set<string>()
-      postsData.forEach(p => {
-        userIds.add(p.user_id)
-        p.comments.forEach((c: any) => userIds.add(c.user_id))
-      })
-      
-      // Fetch missing profiles
-      await fetchAndMergeUsers(Array.from(userIds))
-
-      // Fetch mentioned books for new batch
-      const bookIds = postsData
-        .filter(p => p.mentioned_book_id)
-        .map(p => p.mentioned_book_id)
-
-      let booksMap: Record<string, any> = {}
-      if (bookIds.length > 0) {
-        const { data: books } = await supabase
-          .from('books')
-          .select('*')
-          .in('id', bookIds)
-        
-        if (books) {
-          books.forEach(b => {
-            booksMap[b.id] = b
-          })
-        }
-      }
-
-      const mappedPosts: Post[] = postsData.map(p => {
-        let pollData = undefined;
-        // In one-to-one foreign key relationships without strictly unique definitions, Supabase sometimes returns arrays.
-        const poll = Array.isArray(p.polls) ? p.polls[0] : p.polls;
-        if (poll) {
-           const hasExpired = new Date(poll.expires_at) < new Date();
-           let totalVotes = 0;
-           const options = (poll.poll_options || []).map((opt: any) => {
-               const votes = opt.poll_votes || [];
-               totalVotes += votes.length;
-               return {
-                   id: opt.id,
-                   text: opt.text,
-                   votesCount: votes.length,
-                   hasVoted: authUser ? votes.some((v: any) => v.user_id === authUser.id) : false
-               }
-           });
-           
-           pollData = {
-               expiresAt: poll.expires_at,
-               hasExpired,
-               totalVotes,
-               options
-           }
-        }
-
-        return {
-          id: p.id,
-          userId: p.user_id,
-          content: p.content,
-          status: p.status,
-          rejectedAt: p.rejected_at,
-          imageUrls: p.image_urls,
-          createdAt: p.created_at,
-          likes: p.likes.length,
-          likedByMe: authUser ? p.likes.some((l: any) => l.user_id === authUser.id) : false,
-          comments: p.comments.map((c: any) => ({
-            id: c.id,
-            userId: c.user_id,
-            content: c.content,
-            createdAt: c.created_at
-          })),
-          mentionedBookId: p.mentioned_book_id,
-          mentionedBook: p.mentioned_book_id && booksMap[p.mentioned_book_id] ? {
-              id: booksMap[p.mentioned_book_id].id,
-              title: booksMap[p.mentioned_book_id].title,
-              coverUrl: booksMap[p.mentioned_book_id].cover || booksMap[p.mentioned_book_id].cover_url,
-              author: booksMap[p.mentioned_book_id].author
-          } : undefined,
-          groupId: p.group_id,
-          poll: pollData
-        }
-      })
+      const mappedPosts = await mapEnrichedPostRowsToPosts(postsData, authUserFromSession?.id ?? null)
       setPosts(prev => [...prev, ...mappedPosts])
     }
   }
@@ -965,10 +973,11 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     loadMorePosts,
     loadForYouPosts,
     hasMorePosts,
+    mergePostsFromSupabaseRows,
     notifications,
     unreadCount,
     markNotificationsAsRead
-  }), [currentUser, users, posts, following, loading, notifications, unreadCount, loadForYouPosts])
+  }), [currentUser, users, posts, following, loading, notifications, unreadCount, loadForYouPosts, mergePostsFromSupabaseRows])
 
   return <SocialCtx.Provider value={value}>{children}</SocialCtx.Provider>
 }

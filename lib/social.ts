@@ -59,12 +59,23 @@ export type Poll = {
   totalVotes: number
 }
 
+/** Embedded original post for quote reposts (X-style). */
+export type QuotedPostEmbed = {
+  id: string
+  userId: string
+  content: string
+  imageUrls?: string[]
+  createdAt: string
+}
+
 export type Post = {
   id: string
   userId: string
   content: string
   imageUrls?: string[]
   parentPostId?: string
+  quotedPostId?: string
+  quotedPost?: QuotedPostEmbed
   createdAt: string
   updatedAt?: string | null
   status?: string

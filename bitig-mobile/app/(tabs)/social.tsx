@@ -1,308 +1,313 @@
-import React, { useEffect, useState, useCallback } from 'react'
-import {
-  View, Text, FlatList, StyleSheet, useColorScheme, Pressable,
-  ActivityIndicator, RefreshControl, TextInput, Alert,
-} from 'react-native'
-import { Image } from 'expo-image'
-import { useRouter } from 'expo-router'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { View, StyleSheet, useColorScheme, Pressable, TextInput, Modal } from 'react-native'
+import { Feather } from '@expo/vector-icons'
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/Colors'
-import { supabase } from '@/lib/supabase'
-import { useAuth } from '@/context/auth'
-import { formatDistanceToNow } from '@/lib/utils'
+import { Typography } from '@/components/ui/Typography'
+import { SocialProvider, useSocial } from '@/context/social'
+import { SocialComposer } from '@/components/social/SocialComposer'
+import { SocialFeed } from '@/components/social/SocialFeed'
+import { SocialLoginPrompt } from '@/components/social/SocialLoginPrompt'
+import { useRouter } from 'expo-router'
 
-interface SocialPost {
-  id: string
-  user_id: string
-  content: string
-  image_urls: string[] | null
-  created_at: string
-  profiles: {
-    username: string
-    full_name: string | null
-    avatar_url: string | null
-  } | null
-  likes_count: number
-  comments_count: number
-  liked_by_me: boolean
-}
+type TabKey = 'foryou' | 'feed' | 'following'
+type SortKey = 'newest' | 'oldest' | 'popular'
 
-export default function SocialScreen() {
-  const [posts, setPosts] = useState<SocialPost[]>([])
-  const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
-  const [newPost, setNewPost] = useState('')
-  const [posting, setPosting] = useState(false)
-  const { user, profile } = useAuth()
+function SortDropdown({
+  value,
+  onChange,
+}: {
+  value: SortKey
+  onChange: (v: SortKey) => void
+}) {
+  const [open, setOpen] = useState(false)
   const colorScheme = useColorScheme()
   const isDark = colorScheme === 'dark'
   const colors = isDark ? Colors.dark : Colors.light
+
+  const label = value === 'newest' ? 'Ən yenilər' : value === 'oldest' ? 'Ən köhnələr' : 'Populyar'
+
+  return (
+    <View>
+      <Pressable
+        style={[styles.sortBtn, { borderColor: colors.border, backgroundColor: colors.surface }]}
+        onPress={() => setOpen(true)}
+      >
+        <Typography style={{ color: colors.text, fontSize: FontSize.sm }}>
+          {label}
+        </Typography>
+        <Feather name="chevron-down" size={16} color={colors.textTertiary} />
+      </Pressable>
+
+      <Modal visible={open} transparent animationType="fade">
+        <Pressable style={styles.modalOverlay} onPress={() => setOpen(false)}>
+          <View style={[styles.modalBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
+            {(['newest', 'oldest', 'popular'] as SortKey[]).map(key => (
+              <Pressable
+                key={key}
+                style={styles.modalItem}
+                onPress={() => {
+                  onChange(key)
+                  setOpen(false)
+                }}
+                onPressIn={(e: any) => e?.stopPropagation?.()}
+              >
+                <Typography style={{ color: key === value ? Colors.brand : colors.textSecondary, fontSize: FontSize.sm }}>
+                  {key === 'newest' ? 'Ən yenilər' : key === 'oldest' ? 'Ən köhnələr' : 'Populyar'}
+                </Typography>
+              </Pressable>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
+    </View>
+  )
+}
+
+function SocialScreenInner() {
   const router = useRouter()
+  const { currentUser, posts, following, loading, hasMorePosts, loadMorePosts, loadForYouPosts, loadFeedPosts } = useSocial()
+  const [tab, setTab] = useState<TabKey>('foryou')
+  const [refreshing, setRefreshing] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [sortBy, setSortBy] = useState<SortKey>('newest')
+
+  const colorScheme = useColorScheme()
+  const isDark = colorScheme === 'dark'
+  const colors = isDark ? Colors.dark : Colors.light
+
+  const filteredPosts = useMemo(() => {
+    let result = posts as any[]
+
+    const q = searchQuery.trim().toLowerCase()
+    if (q) {
+      result = result.filter(p => (p.content || '').toLowerCase().includes(q))
+    }
+
+    if (tab === 'following') {
+      result = result.filter(p => following.includes(p.userId))
+    }
+
+    const sorted = [...result]
+    if (sortBy === 'newest') {
+      sorted.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    } else if (sortBy === 'oldest') {
+      sorted.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+    } else if (sortBy === 'popular') {
+      sorted.sort((a, b) => (b.likes || 0) - (a.likes || 0))
+    }
+
+    return sorted
+  }, [following, posts, searchQuery, sortBy, tab])
 
   useEffect(() => {
-    loadPosts()
-  }, [])
-
-  async function loadPosts() {
-    const { data, error } = await supabase
-      .from('social_posts')
-      .select(`
-        id, user_id, content, image_urls, created_at,
-        profiles:user_id (username, full_name, avatar_url)
-      `)
-      .is('parent_post_id', null)
-      .order('created_at', { ascending: false })
-      .limit(30)
-
-    if (data) {
-      // Get likes count and user's likes
-      const postsWithMeta = await Promise.all(
-        data.map(async (post: any) => {
-          const { count: likesCount } = await supabase
-            .from('social_likes')
-            .select('id', { count: 'exact', head: true })
-            .eq('post_id', post.id)
-
-          const { count: commentsCount } = await supabase
-            .from('social_comments')
-            .select('id', { count: 'exact', head: true })
-            .eq('post_id', post.id)
-
-          let likedByMe = false
-          if (user) {
-            const { data: likeData } = await supabase
-              .from('social_likes')
-              .select('id')
-              .eq('post_id', post.id)
-              .eq('user_id', user.id)
-              .single()
-            likedByMe = !!likeData
-          }
-
-          return {
-            ...post,
-            likes_count: likesCount || 0,
-            comments_count: commentsCount || 0,
-            liked_by_me: likedByMe,
-          }
-        })
-      )
-      setPosts(postsWithMeta)
-    }
-    setLoading(false)
-  }
-
-  async function handleLike(postId: string) {
-    if (!user) {
-      router.push('/login' as any)
-      return
-    }
-
-    const post = posts.find(p => p.id === postId)
-    if (!post) return
-
-    if (post.liked_by_me) {
-      await supabase.from('social_likes').delete().eq('post_id', postId).eq('user_id', user.id)
-      setPosts(prev => prev.map(p => 
-        p.id === postId ? { ...p, liked_by_me: false, likes_count: p.likes_count - 1 } : p
-      ))
+    // Tab dəyişdikdə müvafiq post siyahısını yenilə
+    if (tab === 'foryou') {
+      loadForYouPosts()
     } else {
-      await supabase.from('social_likes').insert({ post_id: postId, user_id: user.id })
-      setPosts(prev => prev.map(p => 
-        p.id === postId ? { ...p, liked_by_me: true, likes_count: p.likes_count + 1 } : p
-      ))
+      loadFeedPosts()
     }
-  }
-
-  async function handlePost() {
-    if (!user || !newPost.trim()) return
-    setPosting(true)
-
-    const { error } = await supabase.from('social_posts').insert({
-      user_id: user.id,
-      content: newPost.trim(),
-    })
-
-    if (error) {
-      Alert.alert('Xəta', error.message)
-    } else {
-      setNewPost('')
-      loadPosts()
-    }
-    setPosting(false)
-  }
+  }, [loadFeedPosts, loadForYouPosts, tab])
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true)
-    await loadPosts()
-    setRefreshing(false)
-  }, [])
+    try {
+      if (tab === 'foryou') {
+        await loadForYouPosts()
+      } else {
+        await loadFeedPosts()
+      }
+    } finally {
+      setRefreshing(false)
+    }
+  }, [loadFeedPosts, loadForYouPosts, tab])
 
-  const renderPost = ({ item }: { item: SocialPost }) => {
-    const avatarUrl = item.profiles?.avatar_url || 
-      `https://bitig.az/api/avatar?name=${encodeURIComponent(item.profiles?.username || item.user_id)}`
+  const onEndReached = useCallback(async () => {
+    if (!hasMorePosts) return
+    await loadMorePosts()
+  }, [hasMorePosts, loadMorePosts])
 
-    return (
-      <View style={[styles.postCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <View style={styles.postHeader}>
-          <Image source={avatarUrl} style={styles.avatar} contentFit="cover" />
-          <View style={styles.postHeaderInfo}>
-            <Text style={[styles.postName, { color: colors.text }]}>
-              {item.profiles?.full_name || item.profiles?.username || 'İstifadəçi'}
-            </Text>
-            <Text style={[styles.postTime, { color: colors.textTertiary }]}>
-              @{item.profiles?.username} · {formatDistanceToNow(item.created_at)}
-            </Text>
-          </View>
-        </View>
-
-        <Text style={[styles.postContent, { color: colors.text }]}>{item.content}</Text>
-
-        {item.image_urls && item.image_urls.length > 0 && (
-          <Image 
-            source={item.image_urls[0]} 
-            style={styles.postImage} 
-            contentFit="cover"
-            transition={200}
-          />
-        )}
-
-        <View style={styles.postActions}>
-          <Pressable style={styles.actionButton} onPress={() => handleLike(item.id)}>
-            <Text style={{ fontSize: 16 }}>{item.liked_by_me ? '❤️' : '🤍'}</Text>
-            <Text style={[styles.actionCount, { color: colors.textSecondary }]}>{item.likes_count}</Text>
-          </Pressable>
-          <Pressable style={styles.actionButton}>
-            <Text style={{ fontSize: 16 }}>💬</Text>
-            <Text style={[styles.actionCount, { color: colors.textSecondary }]}>{item.comments_count}</Text>
-          </Pressable>
-        </View>
-      </View>
-    )
+  const handleGroupsPress = () => {
+    router.push('/social/groups' as any)
   }
 
-  if (loading) {
-    return (
-      <View style={[styles.container, styles.centered, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={Colors.brand} />
-      </View>
-    )
-  }
+  const listHeader = currentUser ? <SocialComposer /> : <SocialLoginPrompt />
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Composer */}
-      {user && (
-        <View style={[styles.composer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <TextInput
-            style={[styles.composerInput, { color: colors.text }]}
-            placeholder="Nə düşünürsünüz?"
-            placeholderTextColor={colors.textTertiary}
-            value={newPost}
-            onChangeText={setNewPost}
-            multiline
-            maxLength={500}
-          />
-          <Pressable
-            style={[styles.postButton, { 
-              backgroundColor: Colors.brand, 
-              opacity: newPost.trim() && !posting ? 1 : 0.5 
-            }]}
-            onPress={handlePost}
-            disabled={!newPost.trim() || posting}
-          >
-            <Text style={styles.postButtonText}>
-              {posting ? '...' : 'Paylaş'}
-            </Text>
-          </Pressable>
-        </View>
-      )}
+      <View style={styles.headerBlock}>
+        <Typography weight="bold" style={{ color: colors.text, fontSize: 28 }}>
+          Sosial
+        </Typography>
+      </View>
 
-      <FlatList
-        data={posts}
-        renderItem={renderPost}
-        keyExtractor={item => item.id}
-        contentContainerStyle={styles.listContent}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.brand} />
-        }
-        showsVerticalScrollIndicator={false}
+      <View style={[styles.tabRow, { borderBottomColor: colors.border }]}>
+        <Pressable
+          style={[styles.tabBtn, tab === 'foryou' && { borderBottomColor: Colors.brand, borderBottomWidth: 2 }]}
+          onPress={() => setTab('foryou')}
+        >
+          <Typography style={{ color: tab === 'foryou' ? Colors.brand : colors.textTertiary, fontWeight: '600' }}>
+            Sizin Üçün
+          </Typography>
+        </Pressable>
+
+        <Pressable
+          style={[styles.tabBtn, tab === 'feed' && { borderBottomColor: Colors.brand, borderBottomWidth: 2 }]}
+          onPress={() => setTab('feed')}
+        >
+          <Typography style={{ color: tab === 'feed' ? Colors.brand : colors.textTertiary, fontWeight: '600' }}>
+            Ən Yenilər
+          </Typography>
+        </Pressable>
+
+        {currentUser && (
+          <Pressable
+            style={[
+              styles.tabBtn,
+              tab === 'following' && { borderBottomColor: Colors.brand, borderBottomWidth: 2 },
+            ]}
+            onPress={() => setTab('following')}
+          >
+            <Typography
+              style={{ color: tab === 'following' ? Colors.brand : colors.textTertiary, fontWeight: '600' }}
+            >
+              İzlənilənlər
+            </Typography>
+          </Pressable>
+        )}
+
+        <Pressable style={styles.groupsBtn} onPress={handleGroupsPress}>
+          <Typography style={{ color: colors.textSecondary, fontWeight: '600' }}>İcmalar</Typography>
+          <Feather name="chevron-right" size={18} color={colors.textTertiary} />
+        </Pressable>
+      </View>
+
+      <View style={[styles.searchSection, { borderBottomColor: colors.border }]}>
+        <View style={[styles.searchBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Feather name="search" size={18} color={colors.textTertiary} />
+          <TextInput
+            style={[styles.searchInput, { color: colors.text }]}
+            placeholder="İstifadəçi və ya paylaşım axtar..."
+            placeholderTextColor={colors.textTertiary}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        </View>
+
+        <View style={{ marginTop: 12 }}>
+          <SortDropdown value={sortBy} onChange={setSortBy} />
+        </View>
+      </View>
+
+      <SocialFeed
+        posts={loading ? [] : (filteredPosts as any)}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
+        onEndReached={onEndReached}
+        hasMorePosts={hasMorePosts}
+        ListHeaderComponent={listHeader}
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={{ fontSize: 48, marginBottom: Spacing.md }}>💬</Text>
-            <Text style={[{ color: colors.textSecondary, fontSize: FontSize.md }]}>
-              Hələ heç bir post yoxdur
-            </Text>
-          </View>
+          loading ? (
+            <View style={styles.loadingPad}>
+              <Typography style={{ color: colors.textTertiary }}>Yüklənir...</Typography>
+            </View>
+          ) : (
+            <View style={styles.emptyState}>
+              <Feather name="message-circle" size={44} color={colors.textTertiary} />
+              <Typography
+                style={{ color: colors.textSecondary, marginTop: 10, fontSize: FontSize.md }}
+              >
+                Hələ heç bir post yoxdur
+              </Typography>
+            </View>
+          )
         }
       />
     </View>
   )
 }
 
+export default function SocialScreen() {
+  return <SocialScreenInner />
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  centered: { justifyContent: 'center', alignItems: 'center' },
-  composer: {
+  headerBlock: {
+    paddingHorizontal: 16,
+    paddingTop: 18,
+    paddingBottom: 10,
+  },
+  tabRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    padding: Spacing.md,
+    paddingHorizontal: 16,
+    paddingBottom: 10,
     borderBottomWidth: 1,
-    gap: Spacing.sm,
-  },
-  composerInput: {
-    flex: 1,
-    fontSize: FontSize.md,
-    maxHeight: 100,
-    paddingVertical: Spacing.sm,
-  },
-  postButton: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.lg,
-  },
-  postButtonText: { color: '#fff', fontWeight: '700', fontSize: FontSize.sm },
-  listContent: { paddingBottom: 20 },
-  postCard: {
-    padding: Spacing.lg,
-    borderBottomWidth: 0.5,
-  },
-  postHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: Spacing.md,
-    marginBottom: Spacing.md,
   },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  tabBtn: {
+    paddingBottom: 6,
+    paddingHorizontal: 6,
   },
-  postHeaderInfo: { flex: 1 },
-  postName: { fontSize: FontSize.md, fontWeight: '600' },
-  postTime: { fontSize: FontSize.xs, marginTop: 2 },
-  postContent: {
-    fontSize: FontSize.md,
-    lineHeight: 22,
-    marginBottom: Spacing.md,
+  groupsBtn: {
+    marginLeft: 'auto',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
-  postImage: {
-    width: '100%',
-    height: 200,
+  searchSection: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+  },
+  searchBox: {
+    borderWidth: 1,
     borderRadius: BorderRadius.lg,
-    marginBottom: Spacing.md,
-  },
-  postActions: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     flexDirection: 'row',
-    gap: Spacing['2xl'],
+    gap: 10,
+    alignItems: 'center',
   },
-  actionButton: {
+  searchInput: {
+    flex: 1,
+    paddingVertical: 0,
+  },
+  sortBtn: {
+    width: '100%',
+    borderWidth: 1,
+    borderRadius: BorderRadius.lg,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs,
+    justifyContent: 'space-between',
   },
-  actionCount: { fontSize: FontSize.sm },
-  emptyContainer: {
+  loadingPad: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
+    paddingTop: 60,
+  },
+  emptyState: {
     paddingTop: 100,
+    alignItems: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    padding: 18,
+  },
+  modalBox: {
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    padding: 10,
+    overflow: 'hidden',
+  },
+  modalItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
   },
 })

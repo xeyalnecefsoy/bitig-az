@@ -15,12 +15,14 @@ import { RankBadge } from '@/components/RankBadge'
 import { ProfileSkeleton } from '@/components/ui/Skeleton'
 import { Alert } from '@/components/ui/Alert'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
+import type { Post } from '@/lib/social'
+import { SOCIAL_POST_ENRICHED_SELECT } from '@/lib/socialPostSelect'
 
 export default function MyProfilePage() {
   const { close: closeAudio } = useAudio()
-  const { currentUser: globalUser, loading: globalLoading } = useSocial()
+  const { currentUser: globalUser, loading: globalLoading, mergePostsFromSupabaseRows } = useSocial()
   const [currentUser, setCurrentUser] = useState<any>(null)
-  const [posts, setPosts] = useState<any[]>([])
+  const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
@@ -86,17 +88,21 @@ export default function MyProfilePage() {
         setFollowingCount(following || 0)
       }
 
-      // Load initial posts
+      // Load initial posts (enriched + merge into SocialProvider so SocialPostCard / quote work)
       const { data: userPosts } = await supabase
         .from('posts')
-        .select('*')
+        .select(SOCIAL_POST_ENRICHED_SELECT)
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(10)
 
-      if (userPosts) {
-        setPosts(userPosts)
+      if (userPosts && userPosts.length > 0) {
+        const mapped = await mergePostsFromSupabaseRows(userPosts)
+        setPosts(mapped)
         setHasMore(userPosts.length === 10)
+      } else {
+        setPosts([])
+        setHasMore(false)
       }
     } catch (error) {
       console.error('Error loading profile:', error)
@@ -111,13 +117,14 @@ export default function MyProfilePage() {
 
     const { data: morePosts } = await supabase
       .from('posts')
-      .select('*')
+      .select(SOCIAL_POST_ENRICHED_SELECT)
       .eq('user_id', currentUser.id)
       .order('created_at', { ascending: false })
       .range(posts.length, posts.length + 9)
 
     if (morePosts && morePosts.length > 0) {
-      setPosts(prev => [...prev, ...morePosts])
+      const mapped = await mergePostsFromSupabaseRows(morePosts)
+      setPosts(prev => [...prev, ...mapped])
       setHasMore(morePosts.length === 10)
     } else {
       setHasMore(false)

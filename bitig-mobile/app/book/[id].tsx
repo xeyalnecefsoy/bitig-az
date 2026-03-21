@@ -1,15 +1,38 @@
 import React, { useEffect, useState } from 'react'
 import {
-  View, Text, ScrollView, StyleSheet, useColorScheme, Pressable,
-  ActivityIndicator, FlatList,
+  View,
+  ScrollView,
+  StyleSheet,
+  useColorScheme,
+  ActivityIndicator,
+  Pressable,
 } from 'react-native'
 import { Image } from 'expo-image'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/Colors'
 import { supabase } from '@/lib/supabase'
 import type { Book, BookTrack } from '@/lib/types'
-import { useAudio } from '@/context/audio'
-import { MiniPlayer } from '@/components/MiniPlayer'
+import { Feather } from '@expo/vector-icons'
+import { Typography } from '@/components/ui/Typography'
+import { Button } from '@/components/ui/Button'
+import { AudiobookPlayer } from '@/components/audiobook/AudiobookPlayer'
+import { MobileBookActions } from '@/components/audiobook/MobileBookActions'
+import { useAuth } from '@/context/auth'
+import { useCart } from '@/context/cart'
+import {
+  translateGenreAz,
+  translateVoiceType,
+  formatDurationFromSeconds,
+} from '@/lib/translateBookLabels'
+
+const BITIG_BASE_URL = 'https://bitig.az'
+
+export function resolveCover(cover?: string | null, coverUrl?: string | null) {
+  const src = cover || coverUrl
+  if (!src) return `${BITIG_BASE_URL}/logo.png`
+  if (src.startsWith('http')) return src
+  return `${BITIG_BASE_URL}${src}`
+}
 
 export default function BookDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
@@ -19,43 +42,41 @@ export default function BookDetailScreen() {
   const colorScheme = useColorScheme()
   const isDark = colorScheme === 'dark'
   const colors = isDark ? Colors.dark : Colors.light
+  const { user } = useAuth()
+  const { add: addToCart } = useCart()
   const router = useRouter()
-  const { playQueue, activeTrack, isPlaying, togglePlayback } = useAudio()
 
   useEffect(() => {
     if (id) loadBook()
   }, [id])
 
   async function loadBook() {
-    const { data: bookData } = await supabase
-      .from('books')
-      .select('*')
-      .eq('id', id)
-      .single()
+    const { data: bookData } = await supabase.from('books').select('*').eq('id', id).single()
 
-    if (bookData) setBook(bookData)
+    if (bookData) setBook(bookData as Book)
 
     const { data: trackData } = await supabase
       .from('book_tracks')
       .select('*')
       .eq('book_id', id)
-      .order('track_number')
+      .order('position', { ascending: true })
 
-    if (trackData) setTracks(trackData)
+    if (trackData) setTracks(trackData as BookTrack[])
     setLoading(false)
   }
 
-  async function handlePlayTrack(index: number) {
+  const lengthLabel = (b: Book) => {
+    if (b.length && String(b.length).trim()) return b.length
+    return formatDurationFromSeconds(b.duration)
+  }
+
+  const handleAddToCart = () => {
+    if (!user) {
+      router.push('/login')
+      return
+    }
     if (!book) return
-    const queue = tracks.map(t => ({
-      id: t.id,
-      url: t.audio_url,
-      title: t.title,
-      artist: book.author,
-      artwork: book.cover || 'https://bitig.az/logo.png',
-      duration: t.duration,
-    }))
-    await playQueue(queue, index)
+    addToCart(book.id)
   }
 
   if (loading) {
@@ -69,83 +90,159 @@ export default function BookDetailScreen() {
   if (!book) {
     return (
       <View style={[styles.container, styles.centered, { backgroundColor: colors.background }]}>
-        <Text style={{ color: colors.textSecondary, fontSize: FontSize.md }}>Kitab tapılmadı</Text>
+        <Typography style={{ color: colors.textSecondary, fontSize: FontSize.md }}>Kitab tapılmadı</Typography>
       </View>
     )
   }
 
+  const genreLabel = book.genre ? translateGenreAz(book.genre) : ''
+  const voiceLabel = translateVoiceType(book.voice_type)
+
+  const showPlayerBlock = Boolean(user && tracks.length > 0)
+
+  const priceBlock = (variant: 'hero' | 'abovePlayer') => (
+    <View style={[styles.priceRow, variant === 'hero' ? styles.priceRowHero : styles.priceRowAbovePlayer]}>
+      {book.price === 0 ? (
+        <Typography weight="bold" style={[styles.priceHero, { color: Colors.success }]}>
+          Pulsuz
+        </Typography>
+      ) : (
+        <>
+          {book.original_price != null && book.original_price > book.price ? (
+            <>
+              <Typography style={[styles.originalPrice, { color: colors.textTertiary }]}>
+                {book.original_price} ₼
+              </Typography>
+              <Typography weight="bold" style={[styles.priceHero, { color: Colors.brand }]}>
+                {book.price} ₼
+              </Typography>
+              <View style={styles.discountPill}>
+                <Typography style={{ color: '#fff', fontSize: FontSize.xs }} weight="bold">
+                  {Math.round(((book.original_price - book.price) / book.original_price) * 100)}% endirim
+                </Typography>
+              </View>
+            </>
+          ) : (
+            <Typography weight="bold" style={[styles.priceHero, { color: Colors.brand }]}>
+              {book.price} ₼
+            </Typography>
+          )}
+        </>
+      )}
+    </View>
+  )
+
   return (
-    <ScrollView 
+    <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={styles.scrollContent}
     >
-      {/* Cover & Info */}
       <View style={styles.header}>
         <Image
-          source={book.cover || 'https://placehold.co/200x300/1a1a1a/666?text=📚'}
+          source={resolveCover(book.cover, book.cover_url ?? null)}
           style={styles.cover}
           contentFit="cover"
           transition={200}
         />
         <View style={styles.info}>
-          <Text style={[styles.title, { color: colors.text }]}>{book.title}</Text>
-          <Text style={[styles.author, { color: colors.textSecondary }]}>{book.author}</Text>
-          
+          {genreLabel ? (
+            <Typography weight="semibold" style={[styles.genre, { color: Colors.brand }]}>
+              {genreLabel}
+            </Typography>
+          ) : null}
+          <Typography weight="bold" style={[styles.title, { color: colors.text }]}>
+            {book.title}
+          </Typography>
+          <Typography style={[styles.author, { color: colors.textSecondary }]}>{book.author}</Typography>
+
           <View style={styles.metaRow}>
-            {book.rating && (
+            {book.rating != null && (
               <View style={styles.ratingContainer}>
-                <Text style={styles.ratingIcon}>⭐</Text>
-                <Text style={[styles.ratingText, { color: colors.text }]}>{book.rating.toFixed(1)}</Text>
+                <Feather name="star" size={14} color="#f59e0b" />
+                <Typography weight="semibold" style={[styles.ratingText, { color: colors.text }]}>
+                  {book.rating.toFixed(1)}
+                </Typography>
               </View>
             )}
-            {book.duration && (
-              <Text style={[styles.duration, { color: colors.textTertiary }]}>
-                {Math.floor(book.duration / 3600)}s {Math.floor((book.duration % 3600) / 60)}d
-              </Text>
-            )}
+            {lengthLabel(book) ? (
+              <View style={styles.metaWithIcon}>
+                <Feather name="clock" size={12} color={colors.textTertiary} />
+                <Typography style={[styles.duration, { color: colors.textTertiary }]}>{lengthLabel(book)}</Typography>
+              </View>
+            ) : null}
           </View>
 
-          <Text style={[styles.price, { color: book.price === 0 ? Colors.success : Colors.brand }]}>
-            {book.price === 0 ? 'Pulsuz' : `${book.price} ₼`}
-          </Text>
+          <View style={styles.badgeRow}>
+            {voiceLabel ? (
+              <View style={[styles.badge, { backgroundColor: colors.surface }]}>
+                <Typography style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>{voiceLabel}</Typography>
+              </View>
+            ) : null}
+            {book.has_ambience ? (
+              <View style={[styles.badge, { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.2)' : 'rgba(245, 158, 11, 0.2)' }]}>
+                <Typography style={{ color: isDark ? '#fcd34d' : '#b45309', fontSize: FontSize.xs }}>🍃 Mühiti</Typography>
+              </View>
+            ) : null}
+            {book.has_sound_effects ? (
+              <View style={[styles.badge, { backgroundColor: isDark ? 'rgba(168, 85, 247, 0.2)' : 'rgba(168, 85, 247, 0.15)' }]}>
+                <Typography style={{ color: isDark ? '#d8b4fe' : '#7e22ce', fontSize: FontSize.xs }}>🔊 Effektlər</Typography>
+              </View>
+            ) : null}
+          </View>
+
+          {!showPlayerBlock ? priceBlock('hero') : null}
         </View>
       </View>
 
-      {/* Description */}
-      {book.description && (
-        <View style={[styles.section, { borderTopColor: colors.border }]}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Haqqında</Text>
-          <Text style={[styles.description, { color: colors.textSecondary }]}>{book.description}</Text>
+      {showPlayerBlock ? (
+        <View style={[styles.playerSection, { paddingHorizontal: Spacing.lg }]}>
+          {priceBlock('abovePlayer')}
+          <AudiobookPlayer book={book} tracks={tracks} resolveCover={resolveCover} />
         </View>
-      )}
+      ) : null}
 
-      {/* Tracks */}
-      {tracks.length > 0 && (
-        <View style={[styles.section, { borderTopColor: colors.border }]}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Fəsillər ({tracks.length})
-          </Text>
-          {tracks.map((track, index) => (
-            <Pressable 
-              key={track.id} 
-              style={[styles.trackItem, { borderBottomColor: colors.borderLight }]}
-            >
-              <View style={[styles.trackNumber, { backgroundColor: colors.surface }]}>
-                <Text style={[styles.trackNumberText, { color: colors.textTertiary }]}>{index + 1}</Text>
-              </View>
-              <View style={styles.trackInfo}>
-                <Text style={[styles.trackTitle, { color: colors.text }]} numberOfLines={1}>
-                  {track.title}
-                </Text>
-                <Text style={[styles.trackDuration, { color: colors.textTertiary }]}>
-                  {Math.floor(track.duration / 60)}:{String(track.duration % 60).padStart(2, '0')}
-                </Text>
-              </View>
-              <Text style={{ fontSize: 18, color: Colors.brand }}>▶</Text>
-            </Pressable>
-          ))}
+      {!user ? (
+        <View style={[styles.locked, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+          <View style={[styles.lockIcon, { backgroundColor: colors.background }]}>
+            <Feather name="lock" size={24} color={colors.textTertiary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Typography weight="semibold" style={{ color: colors.text }}>
+              Dinləmək üçün daxil olun
+            </Typography>
+            <Typography style={{ color: colors.textSecondary, fontSize: FontSize.sm, marginTop: 4 }}>
+              Audiokitabı dinləmək üçün hesab lazımdır.
+            </Typography>
+          </View>
+          <Button label="Daxil ol" onPress={() => router.push('/login')} />
         </View>
-      )}
+      ) : null}
+
+      {book.description ? (
+        <View style={[styles.section, { borderTopColor: colors.border }]}>
+          <Typography style={[styles.description, { color: colors.text }]}>{book.description}</Typography>
+        </View>
+      ) : null}
+
+      <View style={[styles.section, { borderTopColor: colors.border }]}>
+        <Pressable
+          onPress={handleAddToCart}
+          style={({ pressed }) => [
+            styles.cartBtn,
+            { backgroundColor: Colors.brand, opacity: pressed ? 0.9 : 1 },
+          ]}
+          accessibilityRole="button"
+        >
+          <Feather name="shopping-cart" size={18} color="#06140A" />
+          <Typography weight="semibold" style={{ color: '#06140A' }}>
+            Səbətə at
+          </Typography>
+        </Pressable>
+      </View>
+
+      <View style={[styles.section, { paddingTop: 0 }]}>
+        <MobileBookActions bookId={book.id} />
+      </View>
     </ScrollView>
   )
 }
@@ -153,7 +250,7 @@ export default function BookDetailScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   centered: { justifyContent: 'center', alignItems: 'center' },
-  scrollContent: { paddingBottom: 40 },
+  scrollContent: { paddingBottom: 48 },
   header: {
     flexDirection: 'row',
     padding: Spacing.lg,
@@ -166,12 +263,15 @@ const styles = StyleSheet.create({
   },
   info: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
+  },
+  genre: {
+    fontSize: FontSize.sm,
+    marginBottom: 4,
   },
   title: {
-    fontSize: FontSize.xl,
-    fontWeight: '700',
-    lineHeight: 26,
+    fontSize: FontSize['2xl'],
+    lineHeight: 28,
   },
   author: {
     fontSize: FontSize.md,
@@ -180,53 +280,102 @@ const styles = StyleSheet.create({
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: Spacing.md,
     marginTop: Spacing.md,
+  },
+  metaWithIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
   },
-  ratingIcon: { fontSize: 14 },
-  ratingText: { fontSize: FontSize.sm, fontWeight: '600' },
+  ratingText: { fontSize: FontSize.sm },
   duration: { fontSize: FontSize.xs },
-  price: {
-    fontSize: FontSize.lg,
-    fontWeight: '800',
+  badgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
     marginTop: Spacing.md,
+  },
+  badge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+  },
+  playerSection: {
+    marginTop: Spacing.md,
+    gap: Spacing.md,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+  },
+  priceRowHero: {
+    marginTop: Spacing.md,
+  },
+  priceRowAbovePlayer: {
+    marginBottom: Spacing.sm,
+  },
+  priceHero: {
+    fontSize: 28,
+    letterSpacing: -0.5,
+  },
+  price: {
+    fontSize: FontSize.xl,
+  },
+  originalPrice: {
+    fontSize: FontSize.md,
+    textDecorationLine: 'line-through',
+  },
+  discountPill: {
+    backgroundColor: '#ef4444',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.md,
   },
   section: {
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.lg,
-    borderTopWidth: 1,
+    borderTopWidth: StyleSheet.hairlineWidth,
     marginTop: Spacing.sm,
   },
   sectionTitle: {
     fontSize: FontSize.lg,
-    fontWeight: '700',
     marginBottom: Spacing.md,
   },
   description: {
     fontSize: FontSize.sm,
     lineHeight: 22,
   },
-  trackItem: {
+  locked: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: Spacing.md,
-    borderBottomWidth: 0.5,
     gap: Spacing.md,
+    marginHorizontal: Spacing.lg,
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.xl,
+    borderWidth: 1,
   },
-  trackNumber: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
+  lockIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  trackNumberText: { fontSize: FontSize.sm, fontWeight: '600' },
-  trackInfo: { flex: 1 },
-  trackTitle: { fontSize: FontSize.md, fontWeight: '500' },
-  trackDuration: { fontSize: FontSize.xs, marginTop: 2 },
+  cartBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.lg,
+  },
 })

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react'
 import {
-  View, Text, FlatList, StyleSheet, useColorScheme, Pressable,
+  View, FlatList, StyleSheet, useColorScheme, Pressable,
   TextInput, KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native'
 import { Image } from 'expo-image'
@@ -10,6 +10,9 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/auth'
 import { formatDistanceToNow } from '@/lib/utils'
 import type { DirectMessage } from '@/lib/types'
+import { Feather } from '@expo/vector-icons'
+import { Typography } from '@/components/ui/Typography'
+import { GlassSurface } from '@/components/ui/GlassSurface'
 
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
@@ -105,14 +108,14 @@ export default function ChatScreen() {
       <View style={[styles.messageBubble, isMe ? styles.myMessage : styles.theirMessage]}>
         <View style={[
           styles.bubble,
-          { backgroundColor: isMe ? Colors.brand : (isDark ? colors.surface : '#f0f0f0') }
+          { backgroundColor: isMe ? Colors.brand : colors.surface }
         ]}>
-          <Text style={[styles.messageText, { color: isMe ? '#fff' : colors.text }]}>
+          <Typography style={[styles.messageText, { color: isMe ? '#06140A' : colors.text }]}>
             {item.content}
-          </Text>
-          <Text style={[styles.messageTime, { color: isMe ? 'rgba(255,255,255,0.7)' : colors.textTertiary }]}>
+          </Typography>
+          <Typography style={[styles.messageTime, { color: isMe ? 'rgba(6,20,10,0.7)' : colors.textTertiary }]}>
             {new Date(item.created_at).toLocaleTimeString('az-AZ', { hour: '2-digit', minute: '2-digit' })}
-          </Text>
+          </Typography>
         </View>
       </View>
     )
@@ -148,7 +151,7 @@ export default function ChatScreen() {
         )}
 
         {/* Input */}
-        <View style={[styles.inputContainer, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
+        <GlassSurface style={[styles.inputContainer, { borderTopColor: colors.border }]} intensity={18}>
           <TextInput
             style={[styles.input, { color: colors.text, backgroundColor: colors.background, borderColor: colors.border }]}
             placeholder="Mesaj yazın..."
@@ -163,9 +166,9 @@ export default function ChatScreen() {
             onPress={handleSend}
             disabled={!newMessage.trim() || sending}
           >
-            <Text style={styles.sendButtonText}>➤</Text>
+            <Feather name="send" size={16} color="#06140A" />
           </Pressable>
-        </View>
+        </GlassSurface>
       </KeyboardAvoidingView>
     </>
   )
@@ -208,6 +211,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     fontSize: FontSize.md,
     maxHeight: 100,
+    fontFamily: 'Inter_400Regular',
   },
   sendButton: {
     width: 40,
@@ -216,5 +220,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  sendButtonText: { color: '#fff', fontSize: 18 },
 })

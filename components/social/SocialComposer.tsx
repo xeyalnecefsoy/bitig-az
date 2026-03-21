@@ -10,6 +10,7 @@ import { useDebounce } from 'use-debounce'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { useMentions } from '@/hooks/useMentions'
 import { MentionDropdown } from '@/components/social/MentionDropdown'
+import { QuotedPostCard } from '@/components/social/QuotedPostCard'
 import { uploadPostImage } from '@/lib/supabase/storage'
 import * as Dialog from '@radix-ui/react-dialog'
 import toast from 'react-hot-toast'
@@ -108,7 +109,8 @@ function ComposerItem({
   index,
   totalDrafts,
   isInlineReply,
-  isModalConfig
+  isModalConfig,
+  allowEmptyBody = false,
 }: {
   draft: DraftState,
   onChange: (updated: Partial<DraftState>) => void,
@@ -119,7 +121,8 @@ function ComposerItem({
   index: number,
   totalDrafts: number,
   isInlineReply: boolean,
-  isModalConfig?: boolean
+  isModalConfig?: boolean,
+  allowEmptyBody?: boolean,
 }) {
   const locale = useLocale()
   const { currentUser } = useSocial()
@@ -150,12 +153,15 @@ function ComposerItem({
     const hasPoll = draft.pollOptions && draft.pollOptions.length > 0;
     const isPollValid = !hasPoll || (draft.pollOptions.length >= 2 && draft.pollOptions.every(opt => opt.trim().length > 0));
 
-    const isCharValid = (charCount > 0 && charCount <= MAX_CHARS) || (hasMedia && charCount <= MAX_CHARS)
+    const isCharValid =
+      (charCount > 0 && charCount <= MAX_CHARS) ||
+      (hasMedia && charCount <= MAX_CHARS) ||
+      (!!allowEmptyBody && charCount <= MAX_CHARS)
     const isEmojiValid = emojiCount <= MAX_EMOJI
     const isValid = isCharValid && isEmojiValid && isPollValid
 
     return { charCount, emojiCount, isCharValid, isEmojiValid, isPollValid, isValid }
-  }, [draft.value, draft.selectedBook, draft.imageFiles, draft.pollOptions])
+  }, [draft.value, draft.selectedBook, draft.imageFiles, draft.pollOptions, allowEmptyBody])
 
   useEffect(() => {
     if (draft.isValid !== validation.isValid) {
@@ -697,16 +703,21 @@ function ComposerItem({
 export function SocialComposer({ 
   groupId, 
   replyToPostId, 
+  quotedPostId,
   onPostCreated, 
-  isInlineReply = false 
+  isInlineReply = false,
+  /** Quote modal: scrollable body + sticky Paylaş; no side button / no feed chrome */
+  quoteOverlayChrome = false,
 }: { 
   groupId?: string, 
-  replyToPostId?: string, 
+  replyToPostId?: string,
+  quotedPostId?: string,
   onPostCreated?: () => void, 
   isInlineReply?: boolean 
+  quoteOverlayChrome?: boolean
 }) {
   const locale = useLocale()
-  const { createPost, currentUser, loading } = useSocial()
+  const { createPost, currentUser, loading, posts, users } = useSocial()
   
   const createEmptyDraft = (): DraftState => ({
     id: Math.random().toString(36).substring(7),
@@ -761,6 +772,7 @@ export function SocialComposer({
 
     try {
       let previousPostId: string | undefined = replyToPostId
+      let draftIndex = 0
 
       for (const draft of drafts) {
         let imageUrls: string[] | undefined = undefined
@@ -775,21 +787,27 @@ export function SocialComposer({
           imageUrls = urls.length > 0 ? urls : undefined
         }
 
+        const useQuote = quotedPostId && draftIndex === 0
+        const parentForDraft = useQuote ? undefined : previousPostId
+        const quotedForDraft = useQuote ? quotedPostId : undefined
+
         const newPostId = await createPost(
-          draft.value.trim(), 
-          draft.selectedBook?.id, 
-          groupId, 
-          imageUrls, 
-          previousPostId,
+          draft.value.trim(),
+          draft.selectedBook?.id,
+          groupId,
+          imageUrls,
+          parentForDraft,
           draft.pollOptions,
-          draft.pollDurationHours
+          draft.pollDurationHours,
+          quotedForDraft,
         )
-        
+
         if (newPostId) {
           previousPostId = newPostId
         } else {
           throw new Error('Post creation returned no ID')
         }
+        draftIndex += 1
       }
 
       drafts.forEach(d => {
@@ -818,10 +836,15 @@ export function SocialComposer({
     setIsModalOpen(true)
   }
 
+  const isQuoteOverlay = quoteOverlayChrome && !!quotedPostId
+
   return (
     <>
       {/* ----------------- BASE VIEW (Non-Modal) ----------------- */}
-      <form className={`transition-all ${isInlineReply ? 'p-1' : 'card p-4 sm:p-5'}`} onSubmit={(e) => {
+      <form
+        id={isQuoteOverlay ? 'social-quote-compose-form' : undefined}
+        className={`transition-all ${isInlineReply ? 'p-1' : isQuoteOverlay ? 'p-0' : 'card p-4 sm:p-5'}`}
+        onSubmit={(e) => {
         // If the user tries to submit from base view but they have multiple drafts somehow, handle it nicely
         if (drafts.length > 1) {
            e.preventDefault();
@@ -830,13 +853,13 @@ export function SocialComposer({
         }
         handleSubmit(e);
       }}>
-        {!isInlineReply && (
+        {!isInlineReply && !isQuoteOverlay && (
           <label className="block text-sm text-neutral-600 dark:text-neutral-300 mb-2">
             {t(locale, 'social_share_label')}
           </label>
         )}
         
-        {!isInlineReply && (
+        {!isInlineReply && !isQuoteOverlay && (
           <div className="mb-3 p-2 rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
             <p className="text-xs text-amber-800 dark:text-amber-200 flex items-start gap-1.5">
               <span className="shrink-0 mt-0.5">💡</span> 
@@ -845,8 +868,8 @@ export function SocialComposer({
           </div>
         )}
 
-        {/* Primary container matching old design: flex gap-2 */}
-        <div className="flex gap-2 relative">
+        {/* Primary container: side-by-side submit (feed) or stacked + sticky Paylaş (quote modal) */}
+        <div className={isQuoteOverlay ? 'flex flex-col gap-3 relative' : 'flex gap-2 relative'}>
           <div className="flex-1 min-w-0">
             {/* Main Draft Container for Base View (Only show drafts[0]) */}
             <div className="flex flex-col relative w-full">
@@ -861,10 +884,11 @@ export function SocialComposer({
                  totalDrafts={1}
                  isInlineReply={isInlineReply}
                  isModalConfig={false}
+                 allowEmptyBody={!!quotedPostId}
                />
               
               {/* + Zəncirə əlavə et button in base view */}
-              {drafts[0].isValid && (
+              {drafts[0].isValid && !quotedPostId && (
                 <div className="mt-2 text-sm flex items-center">
                   <div className="relative">
                     <button 
@@ -882,7 +906,7 @@ export function SocialComposer({
             </div>
           </div>
 
-          {/* Global Submit button pinned to the right side of the flex container */}
+          {!isQuoteOverlay && (
           <button 
             type="submit"
             disabled={!drafts[0].isValid || isUploading}
@@ -893,7 +917,56 @@ export function SocialComposer({
                 ? (t(locale, 'uploading') || 'Yüklənir...') 
                 : (t(locale, 'social_post_button') || "Paylaş")}
           </button>
+          )}
         </div>
+
+        {/* Quoted original below your draft (X-style: commentary wraps / sits above the cited post) */}
+        {quotedPostId && (() => {
+          const qp = posts.find((p) => p.id === quotedPostId)
+          if (!qp) {
+            return (
+              <p className="mt-3 text-sm text-neutral-500 dark:text-neutral-400">{t(locale, 'composer_quote_hint')}</p>
+            )
+          }
+          const qAuthor = users.find((u) => u.id === qp.userId)
+          return (
+            <div className="mt-3">
+              <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-1 uppercase tracking-wide">
+                {t(locale, 'social_quoted_post')}
+              </p>
+              <QuotedPostCard
+                quoted={{
+                  id: qp.id,
+                  userId: qp.userId,
+                  content: qp.content,
+                  imageUrls: qp.imageUrls,
+                  createdAt: qp.createdAt,
+                }}
+                quotedAuthor={qAuthor ?? null}
+                locale={locale}
+              />
+            </div>
+          )
+        })()}
+
+        {isQuoteOverlay && (
+          <div className="sticky bottom-0 z-20 mt-4 flex justify-end border-t border-neutral-200 bg-white/95 py-3 pt-4 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/95">
+            <button
+              type="submit"
+              disabled={!drafts[0].isValid || isUploading}
+              className="btn btn-primary inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-full px-6 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+            >
+              {isUploading ? (
+                <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+              ) : (
+                <FiSend className="h-4 w-4" />
+              )}
+              {isUploading
+                ? (t(locale, 'uploading') || 'Yüklənir...')
+                : (t(locale, 'social_post_button') || 'Paylaş')}
+            </button>
+          </div>
+        )}
       </form>
 
       {/* ----------------- MODAL VIEW ----------------- */}
@@ -931,6 +1004,7 @@ export function SocialComposer({
                      totalDrafts={drafts.length}
                      isInlineReply={isInlineReply}
                      isModalConfig={true} // Triggers avatar rendering and compact styles
+                     allowEmptyBody={!!quotedPostId && i === 0}
                    />
                 ))}
 

@@ -23,6 +23,12 @@ export interface Profile {
   avatar_url: string | null
   bio: string | null
   role: string
+  banner_url?: string | null
+  books_read?: number
+  reviews_count?: number
+  review_likes_received?: number
+  created_at?: string
+  rank?: string | null
 }
 
 import { registerForPushNotificationsAsync } from '@/lib/notifications'
@@ -79,7 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function fetchProfile(userId: string) {
     const { data } = await supabase
       .from('profiles')
-      .select('id, username, full_name, avatar_url, bio, role')
+      .select('id, username, full_name, avatar_url, bio, role, banner_url, books_read, reviews_count, review_likes_received, created_at, rank')
       .eq('id', userId)
       .single()
     

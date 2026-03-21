@@ -1,10 +1,9 @@
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { SocialPostCard } from '@/components/social/SocialPostCard'
-import { SocialFeed } from '@/components/social/SocialFeed'
+import { ProfilePostsSection } from '@/components/social/ProfilePostsSection'
 import { MessageButton } from '@/components/messages/MessageButton'
 import Link from 'next/link'
-import { FiUser, FiLock } from 'react-icons/fi'
+import { FiLock } from 'react-icons/fi'
 import { t, type Locale } from '@/lib/i18n'
 import { RankBadge } from '@/components/RankBadge'
 
@@ -34,12 +33,10 @@ export default async function SocialProfilePage({ params }: { params: Promise<{ 
      redirect(`/${locale}/profile`)
   }
 
-  // Fetch posts
-  const { data: posts } = await supabase
+  const { count: postsCount } = await supabase
     .from('posts')
-    .select('*')
+    .select('*', { count: 'exact', head: true })
     .eq('user_id', profile.id)
-    .order('created_at', { ascending: false })
 
   const isGuest = !currentUser
 
@@ -123,7 +120,7 @@ export default async function SocialProfilePage({ params }: { params: Promise<{ 
                    </div>
                    <div className="w-px h-8 bg-neutral-200 dark:bg-neutral-800" />
                    <div className="text-center">
-                      <div className="font-bold text-neutral-900 dark:text-white text-lg">{posts?.length || 0}</div>
+                      <div className="font-bold text-neutral-900 dark:text-white text-lg">{postsCount ?? 0}</div>
                       <div className="text-neutral-500 dark:text-neutral-400 text-xs uppercase tracking-wide">{t(locale as Locale, 'posts')}</div>
                    </div>
                 </div>
@@ -192,13 +189,7 @@ export default async function SocialProfilePage({ params }: { params: Promise<{ 
             </div>
           </div>
         ) : (
-          posts?.length === 0 ? (
-            <div className="card p-8 text-center text-neutral-500 dark:text-neutral-400">
-              {t(locale as any, 'profile_no_posts')}
-            </div>
-          ) : (
-            <SocialFeed posts={posts || []} />
-          )
+          <ProfilePostsSection userId={profile.id} locale={locale as any} disableHover={true} />
         )}
       </div>
     </section>

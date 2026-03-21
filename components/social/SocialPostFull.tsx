@@ -1,19 +1,21 @@
 "use client"
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useSocial } from '@/context/social'
 import type { Post } from '@/lib/social'
 import Link from 'next/link'
-import { FiHeart, FiMessageCircle, FiTrash2, FiMoreHorizontal, FiCornerUpLeft, FiAlertTriangle, FiFlag } from 'react-icons/fi'
+import { FiHeart, FiMessageCircle, FiTrash2, FiMoreHorizontal, FiCornerUpLeft, FiAlertTriangle, FiFlag, FiRepeat, FiX, FiChevronLeft, FiChevronRight } from 'react-icons/fi'
 import { useLocale } from '@/context/locale'
 import { t } from '@/lib/i18n'
 import { RichText } from './RichText'
+import { SocialComposer } from './SocialComposer'
+import { QuotedPostCard } from './QuotedPostCard'
 import { ReportModal } from '@/components/ReportModal'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
-import { useRef } from 'react'
 import { calculatePollPercentages } from '@/lib/pollUtils'
 import { FiEdit2, FiCopy, FiMessageSquare } from 'react-icons/fi'
 import * as Popover from '@radix-ui/react-popover'
 import toast from 'react-hot-toast'
+import { createPortal } from 'react-dom'
 
 export function SocialPostFull({ initialPost }: { initialPost: Post }) {
   const locale = useLocale()
@@ -21,7 +23,14 @@ export function SocialPostFull({ initialPost }: { initialPost: Post }) {
   // Try to find updated post in context, fallback to initial
   const post = posts.find(p => p.id === initialPost.id) || initialPost
   const [comment, setComment] = useState('')
+  const [showQuoteComposer, setShowQuoteComposer] = useState(false)
+  const [portalReady, setPortalReady] = useState(false)
+  const [imageSlide, setImageSlide] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    setPortalReady(true)
+  }, [])
   
   const author = users.find(u => u.id === post.userId) || {
     id: post.userId,
@@ -130,6 +139,56 @@ export function SocialPostFull({ initialPost }: { initialPost: Post }) {
           </div>
         </div>
 
+        {post.imageUrls && post.imageUrls.length > 0 && (
+          <div className="px-4 sm:px-6 pb-4">
+            <div className="relative w-full overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-100 dark:bg-neutral-900">
+              <div
+                className="flex transition-transform duration-300 ease-in-out"
+                style={{ transform: `translateX(-${imageSlide * 100}%)` }}
+              >
+                {post.imageUrls.map((url, index) => (
+                  <div
+                    key={index}
+                    className="w-full min-w-full shrink-0 relative aspect-video sm:aspect-[21/9] max-h-[min(420px,50vh)] overflow-hidden bg-neutral-100 dark:bg-neutral-900"
+                  >
+                    <img
+                      src={url}
+                      alt=""
+                      className="absolute inset-0 h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                  </div>
+                ))}
+              </div>
+              {post.imageUrls.length > 1 && (
+                <>
+                  {imageSlide > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setImageSlide(s => s - 1)}
+                      className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 p-2 bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-sm transition-colors"
+                    >
+                      <FiChevronLeft className="w-5 h-5" />
+                    </button>
+                  )}
+                  {imageSlide < post.imageUrls.length - 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setImageSlide(s => s + 1)}
+                      className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 p-2 bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-sm transition-colors"
+                    >
+                      <FiChevronRight className="w-5 h-5" />
+                    </button>
+                  )}
+                  <div className="absolute top-3 right-3 bg-black/50 text-white text-xs px-2 py-1 rounded-full backdrop-blur-sm pointer-events-none">
+                    {imageSlide + 1} / {post.imageUrls.length}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Poll Rendering */}
         {post.poll && (
           <div className="px-4 sm:px-6 pb-4">
@@ -187,8 +246,57 @@ export function SocialPostFull({ initialPost }: { initialPost: Post }) {
           </div>
         )}
 
+        {post.mentionedBook && (
+          <div className="px-4 sm:px-6 pb-4">
+            <Link
+              href={`/${locale}/audiobooks/${post.mentionedBook.id}` as any}
+              className="block bg-neutral-50 dark:bg-neutral-800 rounded-xl overflow-hidden border border-neutral-100 dark:border-neutral-700 hover:border-brand/30 dark:hover:border-brand/30 transition-colors group max-w-sm"
+            >
+              <div className="flex items-center gap-3 p-3">
+                {post.mentionedBook.coverUrl ? (
+                  <img
+                    src={post.mentionedBook.coverUrl}
+                    className="h-14 w-10 object-cover rounded shadow-sm group-hover:scale-105 transition-transform shrink-0"
+                    alt={post.mentionedBook.title}
+                  />
+                ) : (
+                  <div className="h-14 w-10 bg-neutral-200 dark:bg-neutral-700 rounded flex items-center justify-center shrink-0">
+                    <span className="text-lg">📚</span>
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="text-[10px] text-brand font-medium mb-0.5 uppercase tracking-wide flex items-center gap-1">
+                    <span className="w-1 h-1 rounded-full bg-brand" />
+                    {t(locale, 'mentioned_book')}
+                  </div>
+                  <h4 className="font-medium text-sm text-neutral-900 dark:text-white truncate group-hover:text-brand transition-colors">
+                    {post.mentionedBook.title}
+                  </h4>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">{post.mentionedBook.author}</p>
+                </div>
+              </div>
+            </Link>
+          </div>
+        )}
+
+        {post.quotedPost && (
+          <div className="px-4 sm:px-6 pb-4">
+            <QuotedPostCard
+              quoted={post.quotedPost}
+              quotedAuthor={
+                users.find((u) => u.id === post.quotedPost!.userId) ?? {
+                  name: 'User',
+                  username: 'unknown',
+                  avatar: `/api/avatar?name=${post.quotedPost.userId}`,
+                }
+              }
+              locale={locale}
+            />
+          </div>
+        )}
+
         {/* Actions Bar */}
-        <div className="px-4 sm:px-6 py-3 border-t border-neutral-100 dark:border-neutral-800 flex items-center gap-6">
+        <div className="px-4 sm:px-6 py-3 border-t border-neutral-100 dark:border-neutral-800 flex items-center gap-6 flex-wrap">
           <button 
             onClick={() => like(post.id)} 
             className={`flex items-center gap-2 text-sm font-medium transition-colors ${post.likedByMe ? 'text-red-500' : 'text-neutral-500 dark:text-neutral-400 hover:text-red-500'}`}
@@ -200,8 +308,63 @@ export function SocialPostFull({ initialPost }: { initialPost: Post }) {
             <FiMessageCircle size={20} />
             {post.comments.length}
           </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (!currentUser) {
+                toast.error(t(locale, 'social_sign_in_prompt'))
+                return
+              }
+              setShowQuoteComposer(true)
+            }}
+            className="flex items-center gap-2 text-sm font-medium text-neutral-500 dark:text-neutral-400 hover:text-brand transition-colors"
+            title={t(locale, 'social_quote')}
+            aria-label={t(locale, 'social_quote')}
+          >
+            <FiRepeat size={20} />
+            {t(locale, 'social_quote')}
+          </button>
         </div>
       </div>
+
+      {portalReady &&
+        showQuoteComposer &&
+        currentUser &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-3 backdrop-blur-sm animate-in fade-in duration-200 sm:p-4"
+            role="presentation"
+            onClick={() => setShowQuoteComposer(false)}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              className="flex max-h-[min(92vh,880px)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-2xl animate-in zoom-in-95 duration-200 dark:border-neutral-800 dark:bg-neutral-950"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex shrink-0 items-center justify-between border-b border-neutral-100 px-4 py-3 dark:border-neutral-800">
+                <span className="font-semibold text-neutral-900 dark:text-white">{t(locale, 'social_quote')}</span>
+                <button
+                  type="button"
+                  onClick={() => setShowQuoteComposer(false)}
+                  className="rounded-full p-2 text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-white"
+                >
+                  <FiX size={20} />
+                </button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+                <SocialComposer
+                  quotedPostId={post.id}
+                  onPostCreated={() => setShowQuoteComposer(false)}
+                  isInlineReply={false}
+                  quoteOverlayChrome
+                />
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
 
       {/* Comments Section */}
       <div className="mt-6 space-y-6">

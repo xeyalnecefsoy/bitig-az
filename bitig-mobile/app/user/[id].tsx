@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import {
-  View, Text, ScrollView, StyleSheet, useColorScheme, Pressable,
+  View, ScrollView, StyleSheet, useColorScheme, Pressable,
   ActivityIndicator,
 } from 'react-native'
 import { Image } from 'expo-image'
@@ -8,7 +8,13 @@ import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/Colors'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/auth'
-import type { Profile } from '@/lib/types'
+import { useSocial } from '@/context/social'
+import type { Profile, Post } from '@/lib/types'
+import { resolveAvatarUrl } from '@/lib/avatar'
+import { SOCIAL_POST_ENRICHED_SELECT } from '@/lib/socialPostSelect'
+import { SocialPostCard } from '@/components/social/SocialPostCard'
+import { Typography } from '@/components/ui/Typography'
+import { Button } from '@/components/ui/Button'
 
 export default function UserProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
@@ -18,7 +24,9 @@ export default function UserProfileScreen() {
   const [followingCount, setFollowingCount] = useState(0)
   const [isFollowing, setIsFollowing] = useState(false)
   const [postsCount, setPostsCount] = useState(0)
+  const [userPosts, setUserPosts] = useState<Post[]>([])
   const { user } = useAuth()
+  const { mergePostsFromSupabaseRows } = useSocial()
   const colorScheme = useColorScheme()
   const isDark = colorScheme === 'dark'
   const colors = isDark ? Colors.dark : Colors.light
@@ -39,19 +47,19 @@ export default function UserProfileScreen() {
 
     // Counts
     const { count: followers } = await supabase
-      .from('social_follows')
+      .from('follows')
       .select('id', { count: 'exact', head: true })
       .eq('following_id', id)
     setFollowersCount(followers || 0)
 
     const { count: following } = await supabase
-      .from('social_follows')
+      .from('follows')
       .select('id', { count: 'exact', head: true })
       .eq('follower_id', id)
     setFollowingCount(following || 0)
 
     const { count: posts } = await supabase
-      .from('social_posts')
+      .from('posts')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', id)
     setPostsCount(posts || 0)
@@ -59,12 +67,26 @@ export default function UserProfileScreen() {
     // Check if current user follows this profile
     if (user && user.id !== id) {
       const { data } = await supabase
-        .from('social_follows')
+        .from('follows')
         .select('id')
         .eq('follower_id', user.id)
         .eq('following_id', id)
         .single()
       setIsFollowing(!!data)
+    }
+
+    const { data: postRows } = await supabase
+      .from('posts')
+      .select(SOCIAL_POST_ENRICHED_SELECT)
+      .eq('user_id', id)
+      .order('created_at', { ascending: false })
+      .limit(30)
+
+    if (postRows?.length) {
+      const mapped = await mergePostsFromSupabaseRows(postRows)
+      setUserPosts(mapped)
+    } else {
+      setUserPosts([])
     }
 
     setLoading(false)
@@ -74,12 +96,12 @@ export default function UserProfileScreen() {
     if (!user) { router.push('/login' as any); return }
 
     if (isFollowing) {
-      await supabase.from('social_follows').delete()
+      await supabase.from('follows').delete()
         .eq('follower_id', user.id).eq('following_id', id)
       setIsFollowing(false)
       setFollowersCount(prev => prev - 1)
     } else {
-      await supabase.from('social_follows').insert({
+      await supabase.from('follows').insert({
         follower_id: user.id,
         following_id: id,
       })
@@ -99,66 +121,76 @@ export default function UserProfileScreen() {
   if (!userProfile) {
     return (
       <View style={[styles.container, styles.centered, { backgroundColor: colors.background }]}>
-        <Text style={{ color: colors.textSecondary }}>İstifadəçi tapılmadı</Text>
+        <Typography style={{ color: colors.textSecondary }}>İstifadəçi tapılmadı</Typography>
       </View>
     )
   }
 
-  const avatarUrl = userProfile.avatar_url || 
-    `https://bitig.az/api/avatar?name=${encodeURIComponent(userProfile.username || userProfile.id)}`
+  const avatarUrl = resolveAvatarUrl(
+    userProfile.avatar_url,
+    userProfile.username || userProfile.id,
+  )
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Banner */}
-      <View style={[styles.banner, { backgroundColor: isDark ? '#1a1a2e' : '#e8f0fe' }]} />
+      <View style={[styles.banner, { backgroundColor: isDark ? 'rgba(74,216,96,0.10)' : 'rgba(74,216,96,0.16)' }]} />
 
       {/* Profile Info */}
       <View style={styles.profileSection}>
-        <Image source={avatarUrl} style={styles.avatar} contentFit="cover" />
-        <Text style={[styles.name, { color: colors.text }]}>
+        <Image source={{ uri: avatarUrl }} style={styles.avatar} contentFit="cover" />
+        <Typography weight="bold" style={[styles.name, { color: colors.text }]}>
           {userProfile.full_name || userProfile.username}
-        </Text>
-        <Text style={[styles.username, { color: colors.textSecondary }]}>
+        </Typography>
+        <Typography style={[styles.username, { color: colors.textSecondary }]}>
           @{userProfile.username}
-        </Text>
+        </Typography>
         {userProfile.bio && (
-          <Text style={[styles.bio, { color: colors.textSecondary }]}>{userProfile.bio}</Text>
+          <Typography style={[styles.bio, { color: colors.textSecondary }]}>{userProfile.bio}</Typography>
         )}
 
         {/* Stats */}
         <View style={styles.statsRow}>
           <View style={styles.stat}>
-            <Text style={[styles.statNumber, { color: colors.text }]}>{postsCount}</Text>
-            <Text style={[styles.statLabel, { color: colors.textTertiary }]}>Post</Text>
+            <Typography weight="bold" style={[styles.statNumber, { color: colors.text }]}>{postsCount}</Typography>
+            <Typography style={[styles.statLabel, { color: colors.textTertiary }]}>Post</Typography>
           </View>
           <View style={styles.stat}>
-            <Text style={[styles.statNumber, { color: colors.text }]}>{followersCount}</Text>
-            <Text style={[styles.statLabel, { color: colors.textTertiary }]}>İzləyici</Text>
+            <Typography weight="bold" style={[styles.statNumber, { color: colors.text }]}>{followersCount}</Typography>
+            <Typography style={[styles.statLabel, { color: colors.textTertiary }]}>İzləyici</Typography>
           </View>
           <View style={styles.stat}>
-            <Text style={[styles.statNumber, { color: colors.text }]}>{followingCount}</Text>
-            <Text style={[styles.statLabel, { color: colors.textTertiary }]}>İzləyir</Text>
+            <Typography weight="bold" style={[styles.statNumber, { color: colors.text }]}>{followingCount}</Typography>
+            <Typography style={[styles.statLabel, { color: colors.textTertiary }]}>İzləyir</Typography>
           </View>
         </View>
 
         {/* Follow button */}
         {user && user.id !== id && (
-          <Pressable
-            style={[styles.followButton, {
-              backgroundColor: isFollowing ? 'transparent' : Colors.brand,
-              borderColor: isFollowing ? colors.border : Colors.brand,
-              borderWidth: 1,
-            }]}
-            onPress={toggleFollow}
-          >
-            <Text style={[styles.followButtonText, {
-              color: isFollowing ? colors.text : '#fff',
-            }]}>
-              {isFollowing ? 'İzləyirsiniz' : 'İzlə'}
-            </Text>
-          </Pressable>
+          <View style={{ marginTop: Spacing.xl }}>
+            <Button
+              label={isFollowing ? 'İzləyirsiniz' : 'İzlə'}
+              variant={isFollowing ? 'secondary' : 'primary'}
+              onPress={toggleFollow}
+            />
+          </View>
         )}
       </View>
+
+      <Typography weight="bold" style={{ fontSize: FontSize.xl, color: colors.text, paddingHorizontal: Spacing.lg, marginBottom: Spacing.md }}>
+        Paylaşımlar
+      </Typography>
+      {userPosts.length === 0 ? (
+        <View style={{ paddingHorizontal: Spacing.lg, paddingBottom: Spacing['2xl'] }}>
+          <Typography style={{ color: colors.textSecondary }}>Paylaşım yoxdur</Typography>
+        </View>
+      ) : (
+        <View style={{ paddingBottom: Spacing['3xl'] }}>
+          {userPosts.map(p => (
+            <SocialPostCard key={p.id} post={p as any} />
+          ))}
+        </View>
+      )}
     </ScrollView>
   )
 }
@@ -180,7 +212,7 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: '#fff',
   },
-  name: { fontSize: FontSize.xl, fontWeight: '700', marginTop: Spacing.md },
+  name: { fontSize: FontSize.xl, marginTop: Spacing.md },
   username: { fontSize: FontSize.md, marginTop: Spacing.xs },
   bio: {
     fontSize: FontSize.sm,
@@ -195,13 +227,6 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xl,
   },
   stat: { alignItems: 'center' },
-  statNumber: { fontSize: FontSize.lg, fontWeight: '700' },
+  statNumber: { fontSize: FontSize.lg },
   statLabel: { fontSize: FontSize.xs, marginTop: 2 },
-  followButton: {
-    marginTop: Spacing.xl,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing['3xl'],
-    borderRadius: BorderRadius.full,
-  },
-  followButtonText: { fontSize: FontSize.md, fontWeight: '600' },
 })

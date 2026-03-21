@@ -1,7 +1,8 @@
 "use client"
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useSocial } from '@/context/social'
-import { FiHeart, FiMessageCircle, FiTrash2, FiX, FiChevronLeft, FiChevronRight, FiMoreHorizontal, FiEdit2, FiCopy, FiMessageSquare, FiAlertTriangle, FiFlag } from 'react-icons/fi'
+import { FiHeart, FiMessageCircle, FiTrash2, FiX, FiChevronLeft, FiChevronRight, FiMoreHorizontal, FiEdit2, FiCopy, FiMessageSquare, FiAlertTriangle, FiFlag, FiRepeat } from 'react-icons/fi'
 import { AiFillHeart } from 'react-icons/ai'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -14,6 +15,7 @@ import { RichText } from './RichText'
 
 import * as Popover from '@radix-ui/react-popover'
 import { SocialComposer } from './SocialComposer'
+import { QuotedPostCard } from './QuotedPostCard'
 import { calculatePollPercentages } from '@/lib/pollUtils'
 import toast from 'react-hot-toast'
 
@@ -30,8 +32,14 @@ export function SocialPostCard({ postId, disableHover = false, isThread = false 
   const [isEditing, setIsEditing] = useState(false)
   const [editContent, setEditContent] = useState(post?.content || '')
   const [showReplyComposer, setShowReplyComposer] = useState(false)
+  const [showQuoteComposer, setShowQuoteComposer] = useState(false)
+  const [portalReady, setPortalReady] = useState(false)
   const locale = useLocale()
-  
+
+  useEffect(() => {
+    setPortalReady(true)
+  }, [])
+
   if (!post) return null
 
   const author = users.find(u => u.id === post.userId) || {
@@ -248,6 +256,57 @@ export function SocialPostCard({ postId, disableHover = false, isThread = false 
         </div>
       )}
 
+      {post.imageUrls && post.imageUrls.length > 0 && (
+        <div className="relative mb-3 w-full rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-800 bg-neutral-100 dark:bg-neutral-900">
+          <div 
+            className="flex transition-transform duration-300 ease-in-out" 
+            style={{ transform: `translateX(-${currentSlide * 100}%)` }}
+          >
+            {post.imageUrls.map((url, index) => (
+              <div 
+                key={index}
+                className="w-full min-w-full shrink-0 relative aspect-video sm:aspect-[21/9] max-h-[300px] cursor-zoom-in overflow-hidden bg-neutral-100 dark:bg-neutral-900"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setExpandedImage({ index, urls: post.imageUrls! })
+                }}
+              >
+                <img 
+                  src={url} 
+                  alt={`Post image ${index + 1}`} 
+                  className="absolute inset-0 w-full h-full object-cover"
+                  loading="lazy"
+                />
+              </div>
+            ))}
+          </div>
+          
+          {post.imageUrls.length > 1 && (
+            <>
+              {currentSlide > 0 && (
+                <button 
+                  onClick={(e) => { e.stopPropagation(); setCurrentSlide(prev => prev - 1) }}
+                  className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 p-1.5 sm:p-2 bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-sm transition-colors"
+                >
+                  <FiChevronLeft className="w-5 h-5" />
+                </button>
+              )}
+              {currentSlide < post.imageUrls.length - 1 && (
+                <button 
+                  onClick={(e) => { e.stopPropagation(); setCurrentSlide(prev => prev + 1) }}
+                  className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 p-1.5 sm:p-2 bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-sm transition-colors"
+                >
+                  <FiChevronRight className="w-5 h-5" />
+                </button>
+              )}
+              <div className="absolute top-3 right-3 bg-black/50 text-white text-xs px-2 py-1 rounded-full backdrop-blur-sm pointer-events-none">
+                {currentSlide + 1} / {post.imageUrls.length}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       {/* Poll Rendering */}
       {post.poll && (
         <div className="mt-3 mb-4 bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700 rounded-xl p-4" onClick={(e) => e.stopPropagation()}>
@@ -304,57 +363,6 @@ export function SocialPostCard({ postId, disableHover = false, isThread = false 
           </div>
         </div>
       )}
-
-      {post.imageUrls && post.imageUrls.length > 0 && (
-        <div className="relative mb-3 w-full rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-800 bg-neutral-100 dark:bg-neutral-900">
-          <div 
-            className="flex transition-transform duration-300 ease-in-out" 
-            style={{ transform: `translateX(-${currentSlide * 100}%)` }}
-          >
-            {post.imageUrls.map((url, index) => (
-              <div 
-                key={index}
-                className="w-full min-w-full shrink-0 relative aspect-video sm:aspect-[21/9] max-h-[300px] cursor-zoom-in overflow-hidden bg-neutral-100 dark:bg-neutral-900"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setExpandedImage({ index, urls: post.imageUrls! })
-                }}
-              >
-                <img 
-                  src={url} 
-                  alt={`Post image ${index + 1}`} 
-                  className="absolute inset-0 w-full h-full object-cover"
-                  loading="lazy"
-                />
-              </div>
-            ))}
-          </div>
-          
-          {post.imageUrls.length > 1 && (
-            <>
-              {currentSlide > 0 && (
-                <button 
-                  onClick={(e) => { e.stopPropagation(); setCurrentSlide(prev => prev - 1) }}
-                  className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 p-1.5 sm:p-2 bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-sm transition-colors"
-                >
-                  <FiChevronLeft className="w-5 h-5" />
-                </button>
-              )}
-              {currentSlide < post.imageUrls.length - 1 && (
-                <button 
-                  onClick={(e) => { e.stopPropagation(); setCurrentSlide(prev => prev + 1) }}
-                  className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 p-1.5 sm:p-2 bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-sm transition-colors"
-                >
-                  <FiChevronRight className="w-5 h-5" />
-                </button>
-              )}
-              <div className="absolute top-3 right-3 bg-black/50 text-white text-xs px-2 py-1 rounded-full backdrop-blur-sm pointer-events-none">
-                {currentSlide + 1} / {post.imageUrls.length}
-              </div>
-            </>
-          )}
-        </div>
-      )}
       
       {post.mentionedBook && (
         <Link 
@@ -381,7 +389,24 @@ export function SocialPostCard({ postId, disableHover = false, isThread = false 
           </div>
         </Link>
       )}
-      <div className="mt-4 flex items-center gap-4 text-sm">
+
+      {/* Embedded quote below your text/media (X-style) */}
+      {post.quotedPost && (
+        <div className="mb-3" onClick={(e) => e.stopPropagation()}>
+          <QuotedPostCard
+            quoted={post.quotedPost}
+            quotedAuthor={
+              users.find((u) => u.id === post.quotedPost!.userId) ?? {
+                name: 'User',
+                username: 'unknown',
+                avatar: `/api/avatar?name=${post.quotedPost.userId}`,
+              }
+            }
+            locale={locale}
+          />
+        </div>
+      )}
+      <div className="mt-4 flex items-center gap-4 text-sm flex-wrap">
         <button
           onClick={() => like(post.id)}
           className="inline-flex items-center gap-2 text-neutral-700 dark:text-neutral-300 hover:text-brand"
@@ -393,6 +418,23 @@ export function SocialPostCard({ postId, disableHover = false, isThread = false 
         <Link href={`/${locale}/social/post/${post.id}` as any} className="inline-flex items-center gap-2 text-neutral-500 dark:text-neutral-400 hover:text-brand">
           <FiMessageCircle /> {post.comments.length}
         </Link>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            if (!currentUser) {
+              toast.error(t(locale, 'social_sign_in_prompt'))
+              return
+            }
+            setShowQuoteComposer(true)
+          }}
+          className="inline-flex items-center gap-2 text-neutral-500 dark:text-neutral-400 hover:text-brand"
+          title={t(locale, 'social_quote')}
+          aria-label={t(locale, 'social_quote')}
+        >
+          <FiRepeat /> {t(locale, 'social_quote')}
+        </button>
       </div>
       <div className="mt-4 space-y-3">
         {post.comments.slice(0, 3).map(c => (
@@ -408,6 +450,46 @@ export function SocialPostCard({ postId, disableHover = false, isThread = false 
         />
         <button className="btn btn-primary text-sm px-3">{t(locale, 'social_post_button')}</button>
       </form>
+
+      {/* Quote composer — portal to body so fixed positioning is never clipped by parent transforms */}
+      {portalReady &&
+        showQuoteComposer &&
+        currentUser &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-3 backdrop-blur-sm animate-in fade-in duration-200 sm:p-4"
+            role="presentation"
+            onClick={() => setShowQuoteComposer(false)}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              className="flex max-h-[min(92vh,880px)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-2xl animate-in zoom-in-95 duration-200 dark:border-neutral-800 dark:bg-neutral-950"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex shrink-0 items-center justify-between border-b border-neutral-100 px-4 py-3 dark:border-neutral-800">
+                <span className="font-semibold text-neutral-900 dark:text-white">{t(locale, 'social_quote')}</span>
+                <button
+                  type="button"
+                  onClick={() => setShowQuoteComposer(false)}
+                  className="rounded-full p-2 text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-white"
+                >
+                  <FiX size={20} />
+                </button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+                <SocialComposer
+                  quotedPostId={post.id}
+                  onPostCreated={() => setShowQuoteComposer(false)}
+                  isInlineReply={false}
+                  quoteOverlayChrome
+                />
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
 
       {/* Reply Modal */}
       {showReplyComposer && isOwnPost && (

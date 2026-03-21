@@ -5,30 +5,34 @@
 
 export const Colors = {
   // Brand
-  brand: '#2563eb',      // Primary blue
-  brandLight: '#3b82f6',
-  brandDark: '#1d4ed8',
+  brand: '#4AD860',
+  brandLight: '#59E173',
+  brandDark: '#36B14A',
 
   // Neutral
   light: {
-    background: '#ffffff',
-    surface: '#f5f5f5',
-    surfaceHover: '#e5e5e5',
-    border: '#e5e5e5',
+    background: '#ffffff', // neutral-0
+    surface: '#fafafa', // neutral-50
+    surfaceHover: '#f5f5f5', // neutral-100-ish
+    border: '#e5e5e5', // neutral-200
     borderLight: '#f0f0f0',
-    text: '#0a0a0a',
-    textSecondary: '#525252',
-    textTertiary: '#a3a3a3',
+    text: '#0a0a0a', // neutral-950
+    textSecondary: '#525252', // neutral-600
+    textTertiary: '#a3a3a3', // neutral-400
+    glass: 'rgba(255,255,255,0.72)',
+    glassStrong: 'rgba(255,255,255,0.88)',
   },
   dark: {
-    background: '#0a0a0a',
-    surface: '#171717',
-    surfaceHover: '#262626',
-    border: '#262626',
+    background: '#000000',
+    surface: '#171717', // neutral-900
+    surfaceHover: '#262626', // neutral-800
+    border: '#262626', // neutral-800
     borderLight: '#1a1a1a',
-    text: '#fafafa',
-    textSecondary: '#a3a3a3',
-    textTertiary: '#737373',
+    text: '#fafafa', // neutral-50
+    textSecondary: '#a3a3a3', // neutral-400
+    textTertiary: '#737373', // neutral-500
+    glass: 'rgba(10,10,10,0.72)',
+    glassStrong: 'rgba(10,10,10,0.88)',
   },
 
   // Status
