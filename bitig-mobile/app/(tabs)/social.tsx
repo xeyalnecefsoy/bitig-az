@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, StyleSheet, useColorScheme, Pressable, TextInput, Modal } from 'react-native'
 import { Feather } from '@expo/vector-icons'
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/Colors'
@@ -99,14 +99,20 @@ function SocialScreenInner() {
     return sorted
   }, [following, posts, searchQuery, sortBy, tab])
 
+  const loadForYouRef = useRef(loadForYouPosts)
+  const loadFeedRef = useRef(loadFeedPosts)
+  loadForYouRef.current = loadForYouPosts
+  loadFeedRef.current = loadFeedPosts
+
   useEffect(() => {
-    // Tab dəyişdikdə müvafiq post siyahısını yenilə
+    // Yalnız tab dəyişəndə lent yenilənsin; load* callback referentlərinin dəyişməsi tam reload edir
+    // və şərh əlavəindən sonra lokal state-i köhnə server cavabı ilə əvəz edə bilər.
     if (tab === 'foryou') {
-      loadForYouPosts()
+      void loadForYouRef.current()
     } else {
-      loadFeedPosts()
+      void loadFeedRef.current()
     }
-  }, [loadFeedPosts, loadForYouPosts, tab])
+  }, [tab])
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true)
@@ -200,6 +206,7 @@ function SocialScreenInner() {
 
       <SocialFeed
         posts={loading ? [] : (filteredPosts as any)}
+        listExtraData={posts}
         refreshing={refreshing}
         onRefresh={onRefresh}
         onEndReached={onEndReached}

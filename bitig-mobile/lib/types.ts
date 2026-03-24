@@ -90,6 +90,9 @@ export interface Comment {
   content: string
   createdAt: string
   updatedAt?: string | null
+  parentCommentId?: string | null
+  likes?: number
+  likedByMe?: boolean
 }
 
 export interface PollOption {

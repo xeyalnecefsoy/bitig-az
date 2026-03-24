@@ -2,8 +2,54 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { Alert } from 'react-native'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/auth'
-import { resolveAvatarUrl } from '@/lib/avatar'
 import type { User, Post, Comment, QuotedPostEmbed } from '@/lib/types'
+import { collectSubtreeCommentIds } from '@/lib/commentTree'
+import {
+  SOCIAL_POST_ENRICHED_SELECT,
+  SOCIAL_POST_FEED_SELECT_BARE,
+  SOCIAL_POST_FEED_SELECT_FALLBACK,
+  SOCIAL_POST_FEED_SELECT_MINIMAL,
+} from '@/lib/socialPostSelect'
+
+function formatSupabaseError(err: unknown): string {
+  if (err == null) return 'null'
+  if (typeof err === 'string') return err
+  if (typeof err === 'object') {
+    const e = err as Record<string, unknown>
+    const msg = e.message != null ? String(e.message) : ''
+    const code = e.code != null ? String(e.code) : ''
+    const details = e.details != null ? String(e.details) : ''
+    const hint = e.hint != null ? String(e.hint) : ''
+    const parts = [msg && `message: ${msg}`, code && `code: ${code}`, details && `details: ${details}`, hint && `hint: ${hint}`].filter(Boolean)
+    if (parts.length) return parts.join(' | ')
+  }
+  try {
+    return JSON.stringify(err)
+  } catch {
+    return String(err)
+  }
+}
+
+const FEED_SELECT_TIERS = [
+  { label: 'full+comment_likes+polls', select: SOCIAL_POST_ENRICHED_SELECT },
+  { label: 'no_comment_likes+polls', select: SOCIAL_POST_FEED_SELECT_FALLBACK },
+  { label: 'no_polls', select: SOCIAL_POST_FEED_SELECT_MINIMAL },
+  { label: 'bare_comments', select: SOCIAL_POST_FEED_SELECT_BARE },
+] as const
+
+async function runFeedPostQuery(
+  build: (select: string) => PromiseLike<{ data: unknown; error: unknown }>,
+) {
+  let lastError: unknown
+  for (let i = 0; i < FEED_SELECT_TIERS.length; i++) {
+    const tier = FEED_SELECT_TIERS[i]
+    const res = await build(tier.select)
+    if (!res.error) return res
+    lastError = res.error
+    console.warn(`[Social] Feed select tier ${i + 1}/${FEED_SELECT_TIERS.length} (${tier.label}) failed:`, formatSupabaseError(res.error))
+  }
+  return { data: null, error: lastError }
+}
 
 type PollOptionLike = {
   id: string
@@ -48,7 +94,8 @@ export type SocialState = {
   hasMorePosts: boolean
 
   like: (postId: string) => Promise<void>
-  addComment: (postId: string, content: string) => Promise<void>
+  likeComment: (commentId: string, postId: string) => Promise<void>
+  addComment: (postId: string, content: string, parentCommentId?: string | null) => Promise<void>
   createPost: (
     content: string,
     mentionedBookId?: string,
@@ -83,12 +130,31 @@ export type SocialState = {
 
 const SocialCtx = createContext<SocialState | null>(null)
 
+function mapCommentFromSupabase(c: any, authUserId?: string | null): Comment {
+  const cl = Array.isArray(c.comment_likes) ? c.comment_likes : []
+  return {
+    id: c.id,
+    userId: c.user_id,
+    content: c.content,
+    createdAt: c.created_at,
+    updatedAt: c.updated_at ?? null,
+    parentCommentId: c.parent_comment_id ?? null,
+    likes: cl.length,
+    likedByMe: !!(authUserId && cl.some((l: any) => l.user_id === authUserId)),
+  }
+}
+
 function mapProfileToUser(p: any): User {
+  const raw =
+    p.avatar_url != null && String(p.avatar_url).trim() !== '' && String(p.avatar_url).toLowerCase() !== 'null'
+      ? String(p.avatar_url).trim()
+      : ''
   return {
     id: p.id,
     name: p.full_name || p.username || 'Anonymous',
     username: p.username || 'anonymous',
-    avatar: resolveAvatarUrl(p.avatar_url, p.username || p.full_name || p.id),
+    /** Raw DB value; display via UserAvatar → resolveAvatarUrl (single resolution). */
+    avatar: raw,
     bio: p.bio,
     joinedAt: p.updated_at,
   } as User
@@ -140,9 +206,11 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     if (profiles && profiles.length > 0) {
       const newUsers: User[] = profiles.map(mapProfileToUser)
       setUsers(prev => {
-        const existingIds = new Set(prev.map(u => u.id))
-        const uniqueNewUsers = newUsers.filter(u => !existingIds.has(u.id))
-        return [...prev, ...uniqueNewUsers]
+        const byId = new Map(prev.map(u => [u.id, u]))
+        for (const u of newUsers) {
+          byId.set(u.id, u)
+        }
+        return Array.from(byId.values())
       })
     }
   }, [])
@@ -291,12 +359,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
           likes: Array.isArray(p.likes) ? p.likes.length : 0,
           likedByMe: authUserId && Array.isArray(p.likes) ? p.likes.some((l: any) => l.user_id === authUserId) : false,
           comments: Array.isArray(p.comments)
-            ? p.comments.map((c: any) => ({
-                id: c.id,
-                userId: c.user_id,
-                content: c.content,
-                createdAt: c.created_at,
-              }))
+            ? p.comments.map((c: any) => mapCommentFromSupabase(c, authUserId))
             : [],
           mentionedBook,
           groupId: p.group_id ?? undefined,
@@ -326,32 +389,16 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
 
   const loadPosts = useCallback(
     async (authUserId?: string | null) => {
-      const { data: postsData, error } = await supabase
-        .from('posts')
-        .select(`
-          *,
-          likes (user_id),
-          comments (
-            id, user_id, content, created_at
-          ),
-          polls (
-            expires_at,
-            poll_options (
-              id, text,
-              poll_votes (user_id)
-            )
-          )
-        `)
-        .order('created_at', { ascending: false })
-        .limit(10)
-
-      if (error) {
-        console.error('Error loading posts:', error)
+      const res = await runFeedPostQuery(select =>
+        supabase.from('posts').select(select).order('created_at', { ascending: false }).limit(10),
+      )
+      if (res.error) {
+        console.error('[Social] loadPosts failed (all select tiers):', formatSupabaseError(res.error))
         setPosts([])
         return
       }
-
-      const mapped = await mapPosts(postsData || [], authUserId ?? null)
+      const postsData = (res.data as any[]) || []
+      const mapped = await mapPosts(postsData, authUserId ?? null)
       setPosts(mapped)
     },
     [mapPosts],
@@ -373,28 +420,21 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (!recData || recData.length === 0) {
-      setPosts([])
+      // Tövsiyə boş olanda ümumi lentə keç — əks halda əvvəlki loadPosts nəticəsini silirdik
+      await loadPosts(userIdToUse)
       return
     }
 
     const postIds: string[] = (recData as any[]).map((p: any) => p.id)
-    const { data: enriched } = await supabase
-      .from('posts')
-      .select(`
-        *,
-        likes (user_id),
-        comments (
-            id, user_id, content, created_at
-        ),
-        polls (
-          expires_at,
-          poll_options (
-            id, text,
-            poll_votes (user_id)
-          )
-        )
-      `)
-      .in('id', postIds)
+    const enrichRes = await runFeedPostQuery(select =>
+      supabase.from('posts').select(select).in('id', postIds),
+    )
+    if (enrichRes.error) {
+      console.error('[Social] loadForYouPosts enrich failed:', formatSupabaseError(enrichRes.error))
+      await loadPosts(userIdToUse)
+      return
+    }
+    const enriched = enrichRes.data as any[] | null
 
     const enrichedMap = new Map((enriched || []).map((p: any) => [p.id, p]))
     const ordered = postIds.map(id => enrichedMap.get(id)).filter(Boolean)
@@ -413,31 +453,20 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
-    const { data: postsData, error } = await supabase
-      .from('posts')
-      .select(`
-        *,
-        likes (user_id),
-        comments (
-            id, user_id, content, created_at
-        ),
-        polls (
-          expires_at,
-          poll_options (
-            id, text,
-            poll_votes (user_id)
-          )
-        )
-      `)
-      .order('created_at', { ascending: false })
-      .range(posts.length, posts.length + 9)
-
-    if (error) {
-      console.error('Error loading more posts:', error)
+    const res = await runFeedPostQuery(select =>
+      supabase
+        .from('posts')
+        .select(select)
+        .order('created_at', { ascending: false })
+        .range(posts.length, posts.length + 9),
+    )
+    if (res.error) {
+      console.error('Error loading more posts:', formatSupabaseError(res.error))
       return
     }
+    const postsData = (res.data as any[]) || []
 
-    const mapped = await mapPosts(postsData || [], authUser?.id ?? null)
+    const mapped = await mapPosts(postsData, authUser?.id ?? null)
     setPosts(prev => [...prev, ...mapped])
   }, [authUser?.id, loadPosts, mapPosts, posts.length])
 
@@ -517,24 +546,100 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     [currentUser, posts],
   )
 
+  const likeComment = useCallback(
+    async (commentId: string, postId: string) => {
+      if (!currentUser) return
+      const post = posts.find(p => p.id === postId)
+      const comment = post?.comments.find(c => c.id === commentId)
+      if (!comment) return
+
+      if (comment.likedByMe) {
+        const { error } = await supabase
+          .from('comment_likes')
+          .delete()
+          .match({ comment_id: commentId, user_id: currentUser.id })
+        if (!error) {
+          setPosts(prev =>
+            prev.map(p => {
+              if (p.id !== postId) return p
+              return {
+                ...p,
+                comments: p.comments.map(c =>
+                  c.id === commentId
+                    ? { ...c, likes: Math.max(0, (c.likes ?? 0) - 1), likedByMe: false }
+                    : c,
+                ),
+              }
+            }),
+          )
+        }
+      } else {
+        const { error } = await supabase.from('comment_likes').insert({
+          comment_id: commentId,
+          user_id: currentUser.id,
+        })
+        if (!error) {
+          setPosts(prev =>
+            prev.map(p => {
+              if (p.id !== postId) return p
+              return {
+                ...p,
+                comments: p.comments.map(c =>
+                  c.id === commentId
+                    ? { ...c, likes: (c.likes ?? 0) + 1, likedByMe: true }
+                    : c,
+                ),
+              }
+            }),
+          )
+        }
+      }
+    },
+    [currentUser, posts],
+  )
+
   const addComment = useCallback(
-    async (postId: string, content: string) => {
+    async (postId: string, content: string, parentCommentId?: string | null) => {
       if (!currentUser) return
       const safe = content.trim()
       if (!safe) return
 
-      const { data, error } = await supabase
-        .from('comments')
-        .insert({
-          post_id: postId,
-          user_id: currentUser.id,
-          content: safe,
-        })
-        .select()
-        .single()
+      const row: Record<string, unknown> = {
+        post_id: postId,
+        user_id: currentUser.id,
+        content: safe,
+      }
+      if (parentCommentId) row.parent_comment_id = parentCommentId
+
+      const tempId = `__pending_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
+      const optimistic: Comment = {
+        id: tempId,
+        userId: currentUser.id,
+        content: safe,
+        createdAt: new Date().toISOString(),
+        updatedAt: null,
+        parentCommentId: parentCommentId ?? null,
+        likes: 0,
+        likedByMe: false,
+      }
+
+      setPosts(prev =>
+        prev.map(p =>
+          p.id === postId ? { ...p, comments: [...(p.comments || []), optimistic] } : p,
+        ),
+      )
+
+      const { data, error } = await supabase.from('comments').insert(row).select().single()
 
       if (error) {
         console.error('Error adding comment:', error)
+        setPosts(prev =>
+          prev.map(p =>
+            p.id === postId
+              ? { ...p, comments: (p.comments || []).filter(c => c.id !== tempId) }
+              : p,
+          ),
+        )
         Alert.alert('Xəta', error.message)
         return
       }
@@ -544,9 +649,19 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         userId: data.user_id,
         content: data.content,
         createdAt: data.created_at,
-      } as Comment
+        updatedAt: data.updated_at ?? null,
+        parentCommentId: data.parent_comment_id ?? null,
+        likes: 0,
+        likedByMe: false,
+      }
 
-      setPosts(prev => prev.map(p => (p.id === postId ? { ...p, comments: [...p.comments, newComment] } : p)))
+      setPosts(prev =>
+        prev.map(p => {
+          if (p.id !== postId) return p
+          const withoutPending = (p.comments || []).filter(c => c.id !== tempId)
+          return { ...p, comments: [...withoutPending, newComment] }
+        }),
+      )
     },
     [currentUser],
   )
@@ -782,7 +897,8 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
       setPosts(prev =>
         prev.map(p => {
           if (p.id !== postId) return p
-          return { ...p, comments: p.comments.filter(c => c.id !== commentId) }
+          const removeIds = collectSubtreeCommentIds(p.comments, commentId)
+          return { ...p, comments: p.comments.filter(c => !removeIds.has(c.id)) }
         }),
       )
 
@@ -808,7 +924,9 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
           if (p.id !== postId) return p
           return {
             ...p,
-            comments: p.comments.map(c => (c.id === commentId ? { ...c, content } : c)),
+            comments: p.comments.map(c =>
+              c.id === commentId ? { ...c, content, updatedAt: now } : c,
+            ),
           }
         }),
       )
@@ -873,6 +991,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
       loading,
       hasMorePosts,
       like,
+      likeComment,
       addComment,
       createPost,
       voteOnPoll,
@@ -899,11 +1018,11 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
       deletePost,
       editComment,
       editPost,
-      editPost,
       following,
       hasMorePosts,
       isFollowing,
       like,
+      likeComment,
       loadForYouPosts,
       loadFeedPosts,
       loadMorePosts,

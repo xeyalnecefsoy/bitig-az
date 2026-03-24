@@ -3,14 +3,13 @@ import {
   View, ScrollView, StyleSheet, useColorScheme, Pressable,
   ActivityIndicator,
 } from 'react-native'
-import { Image } from 'expo-image'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/Colors'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/auth'
 import { useSocial } from '@/context/social'
 import type { Profile, Post } from '@/lib/types'
-import { resolveAvatarUrl } from '@/lib/avatar'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 import { SOCIAL_POST_ENRICHED_SELECT } from '@/lib/socialPostSelect'
 import { SocialPostCard } from '@/components/social/SocialPostCard'
 import { Typography } from '@/components/ui/Typography'
@@ -126,11 +125,6 @@ export default function UserProfileScreen() {
     )
   }
 
-  const avatarUrl = resolveAvatarUrl(
-    userProfile.avatar_url,
-    userProfile.username || userProfile.id,
-  )
-
   return (
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Banner */}
@@ -138,7 +132,12 @@ export default function UserProfileScreen() {
 
       {/* Profile Info */}
       <View style={styles.profileSection}>
-        <Image source={{ uri: avatarUrl }} style={styles.avatar} contentFit="cover" />
+        <UserAvatar
+          avatarUrl={userProfile.avatar_url}
+          usernameOrId={userProfile.username || userProfile.id}
+          size={80}
+          style={styles.avatar}
+        />
         <Typography weight="bold" style={[styles.name, { color: colors.text }]}>
           {userProfile.full_name || userProfile.username}
         </Typography>

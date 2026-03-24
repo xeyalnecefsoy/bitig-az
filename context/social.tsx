@@ -1,20 +1,85 @@
 "use client"
 import { createContext, useContext, useEffect, useMemo, useState, useCallback, useRef } from 'react'
-import { type Post, type User, type Comment, type Notification, type QuotedPostEmbed } from '@/lib/social'
+import { type Post, type User, type Comment, type Notification, type QuotedPostEmbed, type LinkPreview } from '@/lib/social'
+import { collectSubtreeCommentIds } from '@/lib/commentTree'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/auth'
+import {
+  SOCIAL_POST_ENRICHED_SELECT,
+  SOCIAL_POST_FEED_SELECT_BARE,
+  SOCIAL_POST_FEED_SELECT_FALLBACK,
+  SOCIAL_POST_FEED_SELECT_MINIMAL,
+} from '@/lib/socialPostSelect'
 
 // Constants - much shorter timeouts
 const SAFETY_TIMEOUT = 3000 // 3 seconds max for initial load
+
+/** PostgREST errors often don't enumerate for console — stringify important fields. */
+function formatSupabaseError(err: unknown): string {
+  if (err == null) return 'null'
+  if (typeof err === 'string') return err
+  if (typeof err === 'object') {
+    const e = err as Record<string, unknown>
+    const msg = e.message != null ? String(e.message) : ''
+    const code = e.code != null ? String(e.code) : ''
+    const details = e.details != null ? String(e.details) : ''
+    const hint = e.hint != null ? String(e.hint) : ''
+    const parts = [msg && `message: ${msg}`, code && `code: ${code}`, details && `details: ${details}`, hint && `hint: ${hint}`].filter(Boolean)
+    if (parts.length) return parts.join(' | ')
+  }
+  try {
+    return JSON.stringify(err)
+  } catch {
+    return String(err)
+  }
+}
+
+const FEED_SELECT_TIERS = [
+  { label: 'full+comment_likes+polls', select: SOCIAL_POST_ENRICHED_SELECT },
+  { label: 'no_comment_likes+polls', select: SOCIAL_POST_FEED_SELECT_FALLBACK },
+  { label: 'no_polls', select: SOCIAL_POST_FEED_SELECT_MINIMAL },
+  { label: 'bare_comments', select: SOCIAL_POST_FEED_SELECT_BARE },
+] as const
+
+/** Try progressively simpler selects until one succeeds (nested embeds often break PostgREST). */
+async function runFeedPostQuery(
+  /** Returns a PostgREST builder (thenable) with `{ data, error }`. */
+  build: (select: string) => PromiseLike<{ data: unknown; error: unknown }>,
+) {
+  let lastError: unknown
+  for (let i = 0; i < FEED_SELECT_TIERS.length; i++) {
+    const tier = FEED_SELECT_TIERS[i]
+    const res = await build(tier.select)
+    if (!res.error) return res
+    lastError = res.error
+    console.warn(`[Social] Feed select tier ${i + 1}/${FEED_SELECT_TIERS.length} (${tier.label}) failed:`, formatSupabaseError(res.error))
+  }
+  return { data: null, error: lastError }
+}
+
+function mapCommentFromSupabase(c: any, authUserId?: string | null): Comment {
+  const cl = Array.isArray(c.comment_likes) ? c.comment_likes : []
+  return {
+    id: c.id,
+    userId: c.user_id,
+    content: c.content,
+    createdAt: c.created_at,
+    updatedAt: c.updated_at ?? null,
+    parentCommentId: c.parent_comment_id ?? null,
+    likes: cl.length,
+    likedByMe: !!(authUserId && cl.some((l: any) => l.user_id === authUserId)),
+  }
+}
 
 export type SocialState = {
   currentUser: User | null
   users: User[]
   posts: Post[]
   like: (postId: string) => Promise<void>
-  addComment: (postId: string, content: string) => Promise<void>
-  createPost: (content: string, mentionedBookId?: string, groupId?: string, imageUrls?: string[], parentPostId?: string, pollOptions?: string[], pollDurationHours?: number, quotedPostId?: string) => Promise<string | undefined>
+  likeComment: (commentId: string, postId: string) => Promise<void>
+  addComment: (postId: string, content: string, parentCommentId?: string | null) => Promise<void>
+  createPost: (content: string, mentionedBookId?: string, groupId?: string, imageUrls?: string[], parentPostId?: string, pollOptions?: string[], pollDurationHours?: number, quotedPostId?: string, linkPreview?: LinkPreview) => Promise<string | undefined>
   voteOnPoll: (postId: string, optionId: string) => Promise<void>
   editPost: (postId: string, content: string) => Promise<void>
   deletePost: (postId: string) => Promise<void>
@@ -246,6 +311,16 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
           status: p.status,
           rejectedAt: p.rejected_at,
           imageUrls: p.image_urls,
+          linkPreview: p.link_preview_url
+            ? {
+                url: p.link_preview_url,
+                title: p.link_preview_title ?? p.link_preview_url,
+                description: p.link_preview_description ?? undefined,
+                imageUrl: p.link_preview_image_url ?? undefined,
+                siteName: p.link_preview_site_name ?? undefined,
+                type: p.link_preview_type ?? undefined,
+              }
+            : undefined,
           parentPostId: p.parent_post_id,
           quotedPostId: p.quoted_post_id ?? undefined,
           quotedPost: p.quoted_post_id ? quotedMap[p.quoted_post_id] : undefined,
@@ -253,12 +328,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
           likes: likesArr.length,
           likedByMe: !!(authUserId && likesArr.some((l: any) => l.user_id === authUserId)),
           comments: Array.isArray(p.comments)
-            ? p.comments.map((c: any) => ({
-                id: c.id,
-                userId: c.user_id,
-                content: c.content,
-                createdAt: c.created_at,
-              }))
+            ? p.comments.map((c: any) => mapCommentFromSupabase(c, authUserId ?? null))
             : [],
           mentionedBookId: p.mentioned_book_id,
           mentionedBook:
@@ -294,34 +364,29 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
 
   // Load posts helper
   const loadPosts = useCallback(async (authUserId?: string) => {
-    const { data: postsData } = await supabase
-      .from('posts')
-      .select(`
-        *,
-        likes (user_id),
-        comments (
-          id, user_id, content, created_at
-        ),
-        polls (
-          expires_at,
-          poll_options (
-            id, text,
-            poll_votes (user_id)
-          )
-        )
-      `)
-      .order('created_at', { ascending: false })
-      .limit(10)
-
+    const res = await runFeedPostQuery(select =>
+      supabase.from('posts').select(select).order('created_at', { ascending: false }).limit(10),
+    )
+    if (res.error) {
+      console.error('[Social] loadPosts failed (all select tiers):', formatSupabaseError(res.error))
+      return
+    }
+    const postsData = res.data as any[] | null
     if (postsData && postsData.length > 0) {
-      const mappedPosts = await mapEnrichedPostRowsToPosts(postsData, authUserId ?? null)
-      setPosts(mappedPosts)
+      try {
+        const mappedPosts = await mapEnrichedPostRowsToPosts(postsData, authUserId ?? null)
+        setPosts(mappedPosts)
+      } catch (e) {
+        console.error('[Social] mapEnrichedPostRowsToPosts failed:', e)
+      }
+    } else {
+      setPosts([])
     }
   }, [supabase, mapEnrichedPostRowsToPosts])
 
   // Load For You posts helper
   const loadForYouPosts = useCallback(async (authUserId?: string) => {
-    const userIdToUse = authUserId || currentUser?.id;
+    const userIdToUse = authUserId ?? authUser?.id ?? currentUser?.id
     if (!userIdToUse) {
        await loadPosts(); // Fallback to normal feed if logged out
        return;
@@ -338,32 +403,28 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
        return;
     }
 
-    if (postsData && postsData.length > 0) {
-      // Collect all user IDs involved
-      const userIds = new Set<string>()
+    if (!postsData || postsData.length === 0) {
+      await loadPosts(userIdToUse)
+      return
+    }
+
+    // Collect all user IDs involved
+    const userIds = new Set<string>()
       
       // Since it's an RPC, we need to fetch likes and comments manually or we can just fetch the detailed profiles.
       // The RPC returns basic post rows. We need to enrich them.
       // To keep it simple and match the `loadPosts` shape, we can just fetch the full posts data for the IDs returned by the RPC, keeping the order.
       const postIds = postsData.map((p: any) => p.id);
       
-      const { data: enrichedPostsData } = await supabase
-        .from('posts')
-        .select(`
-          *,
-          likes (user_id),
-          comments (
-            id, user_id, content, created_at
-          ),
-          polls (
-            expires_at,
-            poll_options (
-              id, text,
-              poll_votes (user_id)
-            )
-          )
-        `)
-        .in('id', postIds)
+      const enrichRes = await runFeedPostQuery(select =>
+        supabase.from('posts').select(select).in('id', postIds),
+      )
+      if (enrichRes.error) {
+        console.error('[Social] loadForYouPosts enrich failed:', formatSupabaseError(enrichRes.error))
+        await loadPosts(userIdToUse)
+        return
+      }
+      const enrichedPostsData = enrichRes.data as any[] | null
 
       if (enrichedPostsData) {
          // Sort enriched data back to original RPC order
@@ -407,18 +468,25 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
                userId: p.user_id,
                content: p.content,
                imageUrls: p.image_urls,
+               linkPreview: p.link_preview_url
+                 ? {
+                     url: p.link_preview_url,
+                     title: p.link_preview_title ?? p.link_preview_url,
+                     description: p.link_preview_description ?? undefined,
+                     imageUrl: p.link_preview_image_url ?? undefined,
+                     siteName: p.link_preview_site_name ?? undefined,
+                     type: p.link_preview_type ?? undefined,
+                   }
+                 : undefined,
                parentPostId: p.parent_post_id,
                quotedPostId: p.quoted_post_id ?? undefined,
                quotedPost: p.quoted_post_id ? quotedMapFy[p.quoted_post_id] : undefined,
                createdAt: p.created_at,
                likes: p.likes ? p.likes.length : 0,
                likedByMe: userIdToUse && p.likes ? p.likes.some((l: any) => l.user_id === userIdToUse) : false,
-               comments: Array.isArray(p.comments) ? p.comments.map((c: any) => ({
-                 id: c.id,
-                 userId: c.user_id,
-                 content: c.content,
-                 createdAt: c.created_at
-               })) : [],
+               comments: Array.isArray(p.comments)
+                 ? p.comments.map((c: any) => mapCommentFromSupabase(c, userIdToUse ?? null))
+                 : [],
                mentionedBookId: p.mentioned_book_id,
                mentionedBook: p.mentioned_book_id && booksMap[p.mentioned_book_id] ? {
                   id: booksMap[p.mentioned_book_id].id,
@@ -433,8 +501,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
          })
          setPosts(mappedPosts)
       }
-    }
-  }, [supabase, fetchAndMergeUsers, currentUser?.id, loadPosts, loadQuotedMap])
+  }, [supabase, fetchAndMergeUsers, authUser?.id, currentUser?.id, loadPosts, loadQuotedMap])
 
   // Sadələşdirilmiş initialization - AuthProvider-dən user-i izləyir
   useEffect(() => {
@@ -580,27 +647,83 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const addComment = async (postId: string, content: string) => {
+  const likeComment = async (commentId: string, postId: string) => {
     if (!currentUser) return
-    
-    const { data, error } = await supabase.from('comments').insert({
+    const post = posts.find(p => p.id === postId)
+    const comment = post?.comments.find(c => c.id === commentId)
+    if (!comment) return
+
+    if (comment.likedByMe) {
+      const { error } = await supabase
+        .from('comment_likes')
+        .delete()
+        .match({ comment_id: commentId, user_id: currentUser.id })
+      if (!error) {
+        setPosts(prev =>
+          prev.map(p => {
+            if (p.id !== postId) return p
+            return {
+              ...p,
+              comments: p.comments.map(c =>
+                c.id === commentId
+                  ? { ...c, likes: Math.max(0, (c.likes ?? 0) - 1), likedByMe: false }
+                  : c,
+              ),
+            }
+          }),
+        )
+      }
+    } else {
+      const { error } = await supabase.from('comment_likes').insert({
+        comment_id: commentId,
+        user_id: currentUser.id,
+      })
+      if (!error) {
+        setPosts(prev =>
+          prev.map(p => {
+            if (p.id !== postId) return p
+            return {
+              ...p,
+              comments: p.comments.map(c =>
+                c.id === commentId
+                  ? { ...c, likes: (c.likes ?? 0) + 1, likedByMe: true }
+                  : c,
+              ),
+            }
+          }),
+        )
+      }
+    }
+  }
+
+  const addComment = async (postId: string, content: string, parentCommentId?: string | null) => {
+    if (!currentUser) return
+
+    const payload: Record<string, unknown> = {
       post_id: postId,
       user_id: currentUser.id,
-      content
-    }).select().single()
+      content,
+    }
+    if (parentCommentId) payload.parent_comment_id = parentCommentId
+
+    const { data, error } = await supabase.from('comments').insert(payload).select().single()
 
     if (!error && data) {
       const newComment: Comment = {
         id: data.id,
         userId: data.user_id,
         content: data.content,
-        createdAt: data.created_at
+        createdAt: data.created_at,
+        updatedAt: data.updated_at ?? null,
+        parentCommentId: data.parent_comment_id ?? null,
+        likes: 0,
+        likedByMe: false,
       }
       setPosts(prev => prev.map(p => p.id === postId ? { ...p, comments: [...p.comments, newComment] } : p))
     }
   }
 
-  const createPost = async (content: string, mentionedBookId?: string, groupId?: string, imageUrls?: string[], parentPostId?: string, pollOptions?: string[], pollDurationHours?: number, quotedPostId?: string): Promise<string | undefined> => {
+  const createPost = async (content: string, mentionedBookId?: string, groupId?: string, imageUrls?: string[], parentPostId?: string, pollOptions?: string[], pollDurationHours?: number, quotedPostId?: string, linkPreview?: LinkPreview): Promise<string | undefined> => {
     if (!currentUser) return undefined
 
     // Ensure content is strictly not completely empty to avoid Postgres `not null` or implicit checks failing
@@ -610,6 +733,12 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
       user_id: currentUser.id,
       content: safeContent,
       image_urls: imageUrls,
+      link_preview_url: linkPreview?.url ?? null,
+      link_preview_title: linkPreview?.title ?? null,
+      link_preview_description: linkPreview?.description ?? null,
+      link_preview_image_url: linkPreview?.imageUrl ?? null,
+      link_preview_site_name: linkPreview?.siteName ?? null,
+      link_preview_type: linkPreview?.type ?? null,
       parent_post_id: parentPostId,
       quoted_post_id: quotedPostId ?? null,
       mentioned_book_id: mentionedBookId,
@@ -705,6 +834,16 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         userId: data.user_id,
         content: data.content,
         imageUrls: data.image_urls,
+        linkPreview: data.link_preview_url
+          ? {
+              url: data.link_preview_url,
+              title: data.link_preview_title ?? data.link_preview_url,
+              description: data.link_preview_description ?? undefined,
+              imageUrl: data.link_preview_image_url ?? undefined,
+              siteName: data.link_preview_site_name ?? undefined,
+              type: data.link_preview_type ?? undefined,
+            }
+          : undefined,
         createdAt: data.created_at,
         likes: 0,
         likedByMe: false,
@@ -812,13 +951,12 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     if (!currentUser) return
 
     setPosts(prev => prev.map(p => {
-      if (p.id === postId) {
-        return {
-          ...p,
-          comments: p.comments.filter(c => c.id !== commentId)
-        }
+      if (p.id !== postId) return p
+      const removeIds = collectSubtreeCommentIds(p.comments, commentId)
+      return {
+        ...p,
+        comments: p.comments.filter(c => !removeIds.has(c.id)),
       }
-      return p
     }))
 
     // Post owner can delete any comment on their post
@@ -868,28 +1006,25 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
 
   const loadMorePosts = async () => {
     const { data: { user: authUserFromSession } } = await supabase.auth.getUser()
-    const { data: postsData } = await supabase
-      .from('posts')
-      .select(`
-        *,
-        likes (user_id),
-        comments (
-          id, user_id, content, created_at
-        ),
-        polls (
-          expires_at,
-          poll_options (
-            id, text,
-            poll_votes (user_id)
-          )
-        )
-      `)
-      .order('created_at', { ascending: false })
-      .range(posts.length, posts.length + 9)
-
+    const res = await runFeedPostQuery(select =>
+      supabase
+        .from('posts')
+        .select(select)
+        .order('created_at', { ascending: false })
+        .range(posts.length, posts.length + 9),
+    )
+    if (res.error) {
+      console.error('[Social] loadMorePosts failed:', formatSupabaseError(res.error))
+      return
+    }
+    const postsData = res.data as any[] | null
     if (postsData && postsData.length > 0) {
-      const mappedPosts = await mapEnrichedPostRowsToPosts(postsData, authUserFromSession?.id ?? null)
-      setPosts(prev => [...prev, ...mappedPosts])
+      try {
+        const mappedPosts = await mapEnrichedPostRowsToPosts(postsData, authUserFromSession?.id ?? null)
+        setPosts(prev => [...prev, ...mappedPosts])
+      } catch (e) {
+        console.error('[Social] loadMorePosts map failed:', e)
+      }
     }
   }
 
@@ -958,6 +1093,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     users,
     posts,
     like,
+    likeComment,
     addComment,
     createPost,
     editPost,
@@ -977,7 +1113,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     notifications,
     unreadCount,
     markNotificationsAsRead
-  }), [currentUser, users, posts, following, loading, notifications, unreadCount, loadForYouPosts, mergePostsFromSupabaseRows])
+  }), [currentUser, users, posts, following, loading, notifications, unreadCount, loadForYouPosts, mergePostsFromSupabaseRows, likeComment])
 
   return <SocialCtx.Provider value={value}>{children}</SocialCtx.Provider>
 }

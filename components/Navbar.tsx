@@ -196,6 +196,12 @@ export function MobileHeader() {
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  // Admin layout renders its own fixed top bar (Bitig Admin). Hide the site mobile header
+  // so we don't stack two competing navbars on small screens.
+  if (pathname.startsWith(`/${locale}/admin`)) {
+    return null
+  }
   
   return (
     <header className="lg:hidden sticky top-0 z-40 border-b border-neutral-100 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70 dark:border-neutral-800 dark:bg-neutral-950/90">

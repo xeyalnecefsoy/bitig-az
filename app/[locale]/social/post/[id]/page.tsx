@@ -1,7 +1,70 @@
 import { notFound } from 'next/navigation'
+import type { Metadata } from 'next'
 import { SocialPostFull } from '@/components/social/SocialPostFull'
 import { createClient } from '@/lib/supabase/server'
 import { Post, Comment } from '@/lib/social'
+
+function excerpt(input: string, max = 160): string {
+  const text = input.replace(/\s+/g, ' ').trim()
+  if (text.length <= max) return text
+  return `${text.slice(0, max - 1).trim()}...`
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string; id: string }>
+}): Promise<Metadata> {
+  const { locale, id } = await params
+  const supabase = await createClient()
+
+  const { data: postData } = await supabase
+    .from('posts')
+    .select('id, user_id, content, image_urls, link_preview_image_url, created_at')
+    .eq('id', id)
+    .single()
+
+  if (!postData) {
+    return {}
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('username, full_name')
+    .eq('id', postData.user_id)
+    .single()
+
+  const authorName = profile?.full_name || profile?.username || 'Bitig'
+  const text = excerpt(postData.content || '')
+  const title = text ? `${authorName}: ${excerpt(text, 80)}` : `${authorName} on Bitig`
+  const description = text || 'Bitig paylaşımı'
+  const baseUrl = 'https://bitig.az'
+  const postUrl = `${baseUrl}/${locale}/social/post/${id}`
+  const image =
+    postData.image_urls?.[0] || postData.link_preview_image_url || `${baseUrl}/og.png`
+
+  return {
+    title,
+    description,
+    alternates: { canonical: postUrl },
+    openGraph: {
+      type: 'article',
+      url: postUrl,
+      title,
+      description,
+      siteName: 'Bitig',
+      images: [{ url: image, width: 1200, height: 630, alt: title }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [image],
+      creator: '@bitigaz',
+      site: '@bitigaz',
+    },
+  }
+}
 
 export default async function SocialPostPage({ params }: { params: Promise<{ locale: string; id: string }> }) {
   const { id } = await params
@@ -46,6 +109,17 @@ export default async function SocialPostPage({ params }: { params: Promise<{ loc
     id: postData.id,
     userId: postData.user_id,
     content: postData.content,
+    imageUrls: postData.image_urls ?? undefined,
+    linkPreview: postData.link_preview_url
+      ? {
+          url: postData.link_preview_url,
+          title: postData.link_preview_title ?? postData.link_preview_url,
+          description: postData.link_preview_description ?? undefined,
+          imageUrl: postData.link_preview_image_url ?? undefined,
+          siteName: postData.link_preview_site_name ?? undefined,
+          type: postData.link_preview_type ?? undefined,
+        }
+      : undefined,
     createdAt: postData.created_at,
     likes: likesCount || 0,
     likedByMe,
@@ -53,7 +127,9 @@ export default async function SocialPostPage({ params }: { params: Promise<{ loc
       id: c.id,
       userId: c.user_id,
       content: c.content,
-      createdAt: c.created_at
+      createdAt: c.created_at,
+      updatedAt: c.updated_at ?? null,
+      parentCommentId: c.parent_comment_id ?? null,
     }))
   }
 

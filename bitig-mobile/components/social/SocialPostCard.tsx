@@ -17,11 +17,13 @@ import { Feather } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/Colors'
 import { Typography } from '@/components/ui/Typography'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 import { useSocial } from '@/context/social'
 import { useLocale } from '@/context/locale'
-import { resolveAvatarUrl } from '@/lib/avatar'
 import type { Post, User } from '@/lib/types'
 import { SocialComposer } from './SocialComposer'
+import { getRootCommentsForPreview } from '@/lib/commentTree'
+import { SocialCommentThreadBlock } from '@/components/social/SocialCommentRow'
 
 type SocialPost = Post & {
   poll?: any
@@ -61,20 +63,15 @@ export function SocialPostCard({
   const isDark = colorScheme === 'dark'
   const colors = isDark ? Colors.dark : Colors.light
 
-  const avatarUrl = resolveAvatarUrl(author?.avatar || null, author?.username || post.userId)
-
   const quotedAuthor = useMemo(() => {
     if (!post.quotedPost) return null
     return users.find(u => u.id === post.quotedPost!.userId) ?? null
   }, [post.quotedPost, users])
 
-  const quotedAvatarUrl = post.quotedPost
-    ? resolveAvatarUrl(quotedAuthor?.avatar ?? null, quotedAuthor?.username ?? post.quotedPost.userId)
-    : ''
-
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
   const [quoteComposerOpen, setQuoteComposerOpen] = useState(false)
   const [inlineComment, setInlineComment] = useState('')
+  const [replyingToComment, setReplyingToComment] = useState<{ id: string; username: string } | null>(null)
 
   const onOpenDetail = () => {
     if (mode === 'detail') return
@@ -99,8 +96,9 @@ export function SocialPostCard({
       Alert.alert(t('social_sign_in_prompt'))
       return
     }
-    await addComment(post.id, text)
+    await addComment(post.id, text, replyingToComment?.id ?? null)
     setInlineComment('')
+    setReplyingToComment(null)
   }
 
   return (
@@ -109,7 +107,11 @@ export function SocialPostCard({
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <Pressable onPress={onOpenDetail} disabled={mode === 'detail'}>
         <View style={styles.header}>
-          <Image source={{ uri: avatarUrl }} style={styles.avatar} contentFit="cover" />
+          <UserAvatar
+            avatarUrl={author?.avatar ?? null}
+            usernameOrId={author?.username ?? post.userId}
+            size={42}
+          />
           <View style={{ flex: 1 }}>
             <Typography weight="semibold" style={{ color: colors.text }} numberOfLines={1}>
               {author?.name || author?.username || 'İstifadəçi'}
@@ -209,7 +211,11 @@ export function SocialPostCard({
             }}
             style={[styles.quotedEmbed, { borderColor: colors.border, backgroundColor: colors.background }]}
           >
-            <Image source={{ uri: quotedAvatarUrl }} style={styles.quotedAvatar} contentFit="cover" />
+            <UserAvatar
+              avatarUrl={quotedAuthor?.avatar ?? null}
+              usernameOrId={quotedAuthor?.username ?? post.quotedPost!.userId}
+              size={40}
+            />
             <View style={{ flex: 1, minWidth: 0 }}>
               <Typography weight="semibold" style={{ color: colors.text, fontSize: FontSize.md }} numberOfLines={1}>
                 {quotedAuthor?.name || quotedAuthor?.username || 'User'}
@@ -218,7 +224,7 @@ export function SocialPostCard({
                 @{quotedAuthor?.username || 'unknown'}
                 {post.quotedPost.createdAt ? ` · ${safeTimeAgo(post.quotedPost.createdAt)}` : ''}
               </Typography>
-              <Typography style={{ color: colors.text, marginTop: 8, fontSize: FontSize.md, lineHeight: 20 }} numberOfLines={8}>
+              <Typography style={{ color: colors.text, marginTop: 8, fontSize: FontSize.md, lineHeight: 20 }} numberOfLines={6}>
                 {post.quotedPost.content.trim() || ' '}
               </Typography>
               {post.quotedPost.imageUrls?.[0] ? (
@@ -273,29 +279,55 @@ export function SocialPostCard({
 
         {mode === 'feed' && showInlineComments && (
           <View style={styles.inlineComments}>
-            {(post.comments || []).slice(0, 3).map(c => {
-              const cUser = users.find(u => u.id === c.userId)
-              const cAvatar = resolveAvatarUrl(cUser?.avatar || null, cUser?.username || c.userId)
-              return (
-                <View
-                  key={c.id}
-                  style={[styles.commentPreviewRow, { borderBottomColor: colors.border }]}
-                >
-                  <Image source={{ uri: cAvatar }} style={styles.commentPreviewAvatar} contentFit="cover" />
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <Typography weight="semibold" style={{ color: colors.text }} numberOfLines={1}>
-                      {cUser?.name || cUser?.username || 'İstifadəçi'}
-                    </Typography>
-                    <Typography style={{ color: colors.textSecondary, marginTop: 4, fontSize: FontSize.sm }}>
-                      {c.content}
-                    </Typography>
-                    <Typography style={{ color: colors.textTertiary, marginTop: 4, fontSize: FontSize.xs }}>
-                      {safeTimeAgo(c.createdAt)}
-                    </Typography>
-                  </View>
-                </View>
-              )
-            })}
+            {getRootCommentsForPreview(post.comments || [], 3).map(c => (
+              <SocialCommentThreadBlock
+                key={c.id}
+                thread={{ ...c, replies: [] }}
+                postId={post.id}
+                postOwnerId={post.userId}
+                users={users}
+                colors={colors}
+                variant="feed"
+                depth={0}
+                showReplies={false}
+                onReply={(cid, un) => setReplyingToComment({ id: cid, username: un })}
+              />
+            ))}
+
+            {((post.comments?.length || 0) > 3 ||
+              (post.comments || []).some(c => c.parentCommentId)) && (
+              <Pressable
+                onPress={onOpenDetail}
+                style={styles.viewAllCommentsBtn}
+                accessibilityRole="button"
+                accessibilityLabel={t('social_view_all_comments')}
+              >
+                <Typography weight="semibold" style={{ color: Colors.brand, fontSize: FontSize.sm }}>
+                  {t('social_view_all_comments')} ({post.comments?.length || 0})
+                </Typography>
+              </Pressable>
+            )}
+
+            {replyingToComment && (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingHorizontal: 2,
+                  paddingBottom: 8,
+                }}
+              >
+                <Typography style={{ color: colors.textSecondary, fontSize: FontSize.xs }} numberOfLines={1}>
+                  {t('social_comment_replying_to').replace('{username}', replyingToComment.username)}
+                </Typography>
+                <Pressable onPress={() => setReplyingToComment(null)} hitSlop={8}>
+                  <Typography style={{ color: Colors.brand, fontSize: FontSize.xs }} weight="semibold">
+                    {t('cancel_btn')}
+                  </Typography>
+                </Pressable>
+              </View>
+            )}
 
             <View style={[styles.inlineCommentForm, { borderColor: colors.border, backgroundColor: colors.background }]}>
               <TextInput
@@ -414,12 +446,6 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     alignItems: 'center',
   },
-  avatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: 'rgba(0,0,0,0.05)',
-  },
   moreBtn: {
     padding: 8,
   },
@@ -444,17 +470,9 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: 'rgba(128,128,128,0.25)',
   },
-  commentPreviewRow: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
+  viewAllCommentsBtn: {
     paddingVertical: Spacing.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  commentPreviewAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(0,0,0,0.05)',
+    paddingHorizontal: 2,
   },
   inlineCommentForm: {
     marginTop: Spacing.md,
@@ -506,11 +524,6 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.xl,
     flexDirection: 'row',
     gap: Spacing.md,
-  },
-  quotedAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
   },
   quotedMediaFrame: {
     marginTop: Spacing.sm,

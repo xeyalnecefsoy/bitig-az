@@ -24,6 +24,7 @@ export async function getPosts(): Promise<Post[]> {
         user_id,
         content,
         created_at,
+        parent_comment_id,
         profiles:user_id (id, username, avatar_url)
       ),
       likes (user_id)
@@ -39,6 +40,16 @@ export async function getPosts(): Promise<Post[]> {
     id: p.id,
     userId: p.user_id,
     content: p.content,
+    linkPreview: p.link_preview_url
+      ? {
+          url: p.link_preview_url,
+          title: p.link_preview_title ?? p.link_preview_url,
+          description: p.link_preview_description ?? undefined,
+          imageUrl: p.link_preview_image_url ?? undefined,
+          siteName: p.link_preview_site_name ?? undefined,
+          type: p.link_preview_type ?? undefined,
+        }
+      : undefined,
     createdAt: p.created_at,
     likes: p.likes.length,
     comments: p.comments.map((c: any) => ({
@@ -46,6 +57,7 @@ export async function getPosts(): Promise<Post[]> {
       userId: c.user_id,
       content: c.content,
       createdAt: c.created_at,
+      parentCommentId: c.parent_comment_id ?? null,
     })),
     // We'll need to handle 'likedByMe' in the component or a separate call if we want it per user
   }))
@@ -63,6 +75,7 @@ export async function getPost(id: string): Promise<Post | null> {
         user_id,
         content,
         created_at,
+        parent_comment_id,
         profiles:user_id (id, username, avatar_url)
       ),
       likes (user_id)
@@ -79,6 +92,16 @@ export async function getPost(id: string): Promise<Post | null> {
     id: data.id,
     userId: data.user_id,
     content: data.content,
+    linkPreview: data.link_preview_url
+      ? {
+          url: data.link_preview_url,
+          title: data.link_preview_title ?? data.link_preview_url,
+          description: data.link_preview_description ?? undefined,
+          imageUrl: data.link_preview_image_url ?? undefined,
+          siteName: data.link_preview_site_name ?? undefined,
+          type: data.link_preview_type ?? undefined,
+        }
+      : undefined,
     createdAt: data.created_at,
     likes: data.likes.length,
     comments: data.comments.map((c: any) => ({
@@ -86,6 +109,7 @@ export async function getPost(id: string): Promise<Post | null> {
       userId: c.user_id,
       content: c.content,
       createdAt: c.created_at,
+      parentCommentId: c.parent_comment_id ?? null,
     })),
   }
 }

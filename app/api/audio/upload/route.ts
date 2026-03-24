@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { uploadToR2, generateAudioKey } from '@/lib/cloudflare/r2'
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit'
+import { logApi } from '@/lib/logger'
 
 // Allowed audio formats
 const ALLOWED_TYPES = [
@@ -16,12 +18,27 @@ const MAX_FILE_SIZE = 200 * 1024 * 1024 // 200MB
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request)
+    if (!checkRateLimit(`audio-upload:ip:${ip}`, 40, 60_000)) {
+      return NextResponse.json(
+        { error: 'Too many requests' },
+        { status: 429, headers: { 'Retry-After': '60' } },
+      )
+    }
+
     // Check authentication
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!checkRateLimit(`audio-upload:user:${user.id}`, 20, 60_000)) {
+      return NextResponse.json(
+        { error: 'Too many requests' },
+        { status: 429, headers: { 'Retry-After': '60' } },
+      )
     }
 
     // Check if user is admin
@@ -98,7 +115,7 @@ export async function POST(request: NextRequest) {
       size: file.size,
     })
   } catch (error) {
-    console.error('Audio upload error:', error)
+    logApi('error', 'audio_upload_failed', { err: String(error) })
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

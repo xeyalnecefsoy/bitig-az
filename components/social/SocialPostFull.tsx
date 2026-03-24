@@ -1,36 +1,43 @@
 "use client"
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useSocial } from '@/context/social'
 import type { Post } from '@/lib/social'
 import Link from 'next/link'
-import { FiHeart, FiMessageCircle, FiTrash2, FiMoreHorizontal, FiCornerUpLeft, FiAlertTriangle, FiFlag, FiRepeat, FiX, FiChevronLeft, FiChevronRight } from 'react-icons/fi'
+import { FiHeart, FiMessageCircle, FiTrash2, FiMoreHorizontal, FiCornerUpLeft, FiAlertTriangle, FiFlag, FiRepeat, FiX, FiChevronLeft, FiChevronRight, FiEdit2, FiCopy, FiMessageSquare } from 'react-icons/fi'
+import { AiFillHeart } from 'react-icons/ai'
 import { useLocale } from '@/context/locale'
 import { t } from '@/lib/i18n'
 import { RichText } from './RichText'
+import { ExternalLinkPreviewCard } from './ExternalLinkPreviewCard'
 import { SocialComposer } from './SocialComposer'
 import { QuotedPostCard } from './QuotedPostCard'
 import { ReportModal } from '@/components/ReportModal'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { calculatePollPercentages } from '@/lib/pollUtils'
-import { FiEdit2, FiCopy, FiMessageSquare } from 'react-icons/fi'
 import * as Popover from '@radix-ui/react-popover'
 import toast from 'react-hot-toast'
 import { createPortal } from 'react-dom'
+import { buildCommentThreads, isCommentEdited, type CommentThread } from '@/lib/commentTree'
+import { UserHoverCard } from './UserHoverCard'
 
 export function SocialPostFull({ initialPost }: { initialPost: Post }) {
   const locale = useLocale()
-  const { posts, addComment, like, users, voteOnPoll, currentUser, deletePost } = useSocial()
+  const { posts, addComment, like, likeComment, users, voteOnPoll, currentUser, deletePost, editComment } = useSocial()
   // Try to find updated post in context, fallback to initial
   const post = posts.find(p => p.id === initialPost.id) || initialPost
   const [comment, setComment] = useState('')
   const [showQuoteComposer, setShowQuoteComposer] = useState(false)
   const [portalReady, setPortalReady] = useState(false)
   const [imageSlide, setImageSlide] = useState(0)
+  const [replyingTo, setReplyingTo] = useState<{ id: string; username: string } | null>(null)
+  const [showReportPost, setShowReportPost] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     setPortalReady(true)
   }, [])
+
+  const commentThreads = useMemo(() => buildCommentThreads(post.comments), [post.comments])
   
   const author = users.find(u => u.id === post.userId) || {
     id: post.userId,
@@ -40,13 +47,20 @@ export function SocialPostFull({ initialPost }: { initialPost: Post }) {
     bio: ''
   }
 
-  const handleReply = (username: string) => {
-    setComment(prev => `@${username} ${prev}`)
-    inputRef.current?.focus()
+  const handleReplyClick = (commentId: string, username: string) => {
+    setReplyingTo({ id: commentId, username })
+    setTimeout(() => inputRef.current?.focus(), 0)
   }
 
   return (
     <div className="max-w-3xl mx-auto">
+      {showReportPost && (
+        <ReportModal
+          targetId={post.id}
+          targetType="post"
+          onClose={() => setShowReportPost(false)}
+        />
+      )}
       {post.status === 'rejected' && currentUser?.id === post.userId && (
         <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 rounded-lg flex flex-col gap-1.5 text-sm font-medium border border-red-100 dark:border-red-900/30">
           <div className="flex items-center gap-2">
@@ -121,12 +135,20 @@ export function SocialPostFull({ initialPost }: { initialPost: Post }) {
                 >
                   <FiCopy size={14} className="opacity-70" /> {t(locale, 'copy_link') || "URL kopyala"}
                 </button>
-                <button
-                  onClick={() => toast("Report logic here")}
-                  className="w-full text-left p-2 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-md transition-colors text-sm text-red-600 dark:text-red-400 font-medium border-t border-neutral-100 dark:border-neutral-800 mt-1 pt-1 flex items-center gap-2"
-                >
-                  <FiAlertTriangle size={14} className="opacity-70" /> {t(locale, 'report_post') || "Şikayət et"}
-                </button>
+                {currentUser?.id !== post.userId && (
+                  <button
+                    onClick={() => {
+                      if (!currentUser) {
+                        toast.error(locale === 'az' ? 'Daxil olmalısınız.' : 'You must be logged in to report.')
+                        return
+                      }
+                      setShowReportPost(true)
+                    }}
+                    className="w-full text-left p-2 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-md transition-colors text-sm text-red-600 dark:text-red-400 font-medium border-t border-neutral-100 dark:border-neutral-800 mt-1 pt-1 flex items-center gap-2"
+                  >
+                    <FiAlertTriangle size={14} className="opacity-70" /> {t(locale, 'report_post') || "Şikayət et"}
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -138,6 +160,12 @@ export function SocialPostFull({ initialPost }: { initialPost: Post }) {
             <RichText content={post.content} locale={locale} />
           </div>
         </div>
+
+        {post.linkPreview && (
+          <div className="px-4 sm:px-6">
+            <ExternalLinkPreviewCard preview={post.linkPreview} />
+          </div>
+        )}
 
         {post.imageUrls && post.imageUrls.length > 0 && (
           <div className="px-4 sm:px-6 pb-4">
@@ -378,11 +406,26 @@ export function SocialPostFull({ initialPost }: { initialPost: Post }) {
           onSubmit={(e) => { 
             e.preventDefault(); 
             if (!comment.trim()) return; 
-            addComment(post.id, comment.trim()); 
+            addComment(post.id, comment.trim(), replyingTo?.id ?? null); 
             setComment('') 
+            setReplyingTo(null)
           }}
         >
           <div className="flex-1 relative">
+            {replyingTo && (
+              <div className="flex items-center justify-between gap-2 mb-2 text-xs text-neutral-500 dark:text-neutral-400 px-1">
+                <span>
+                  {t(locale, 'social_comment_replying_to').replace('{username}', replyingTo.username)}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setReplyingTo(null)}
+                  className="font-medium text-brand hover:underline"
+                >
+                  {t(locale, 'cancel_btn')}
+                </button>
+              </div>
+            )}
             <input
               ref={inputRef}
               value={comment}
@@ -400,17 +443,15 @@ export function SocialPostFull({ initialPost }: { initialPost: Post }) {
           </div>
         </form>
 
-        <div className="space-y-4 pb-12">
-          {post.comments.map(c => (
-            <CommentItem 
-              key={c.id} 
-              id={c.id}
+        <div className="max-h-[min(70vh,640px)] space-y-4 overflow-y-auto rounded-xl border border-neutral-200/80 bg-neutral-50/50 p-3 pb-4 dark:border-neutral-800 dark:bg-neutral-900/30 sm:p-4">
+          {commentThreads.map((thread) => (
+            <CommentThreadBlock
+              key={thread.id}
+              thread={thread}
+              depth={0}
               postId={post.id}
-              userId={c.userId} 
-              content={c.content} 
-              createdAt={c.createdAt} 
               postOwnerId={post.userId}
-              onReply={handleReply}
+              onReplyClick={handleReplyClick}
             />
           ))}
         </div>
@@ -419,18 +460,78 @@ export function SocialPostFull({ initialPost }: { initialPost: Post }) {
   )
 }
 
-interface CommentItemProps { 
-  id?: string
-  postId?: string
-  userId: string 
-  content: string 
-  createdAt: string 
-  postOwnerId?: string
-  onReply: (username: string) => void 
+interface CommentItemProps {
+  id: string
+  postId: string
+  userId: string
+  content: string
+  createdAt: string
+  updatedAt?: string | null
+  postOwnerId: string
+  likes?: number
+  likedByMe?: boolean
+  onReply: () => void
 }
 
-function CommentItem({ id, postId, userId, content, createdAt, postOwnerId, onReply }: CommentItemProps) {
-  const { users, currentUser, deleteComment } = useSocial()
+function CommentThreadBlock({
+  thread,
+  depth,
+  postId,
+  postOwnerId,
+  onReplyClick,
+}: {
+  thread: CommentThread
+  depth: number
+  postId: string
+  postOwnerId: string
+  onReplyClick: (commentId: string, username: string) => void
+}) {
+  const { users } = useSocial()
+  const author = users.find((u) => u.id === thread.userId) || {
+    id: thread.userId,
+    username: 'unknown',
+  }
+  return (
+    <div className={depth > 0 ? 'mt-3 ml-0.5 border-l-2 border-neutral-200 dark:border-neutral-700 pl-3' : ''}>
+      <CommentItem
+        id={thread.id}
+        postId={postId}
+        userId={thread.userId}
+        content={thread.content}
+        createdAt={thread.createdAt}
+        updatedAt={thread.updatedAt ?? null}
+        postOwnerId={postOwnerId}
+        likes={thread.likes}
+        likedByMe={thread.likedByMe}
+        onReply={() => onReplyClick(thread.id, author.username)}
+      />
+      {thread.replies.map((r) => (
+        <CommentThreadBlock
+          key={r.id}
+          thread={r}
+          depth={depth + 1}
+          postId={postId}
+          postOwnerId={postOwnerId}
+          onReplyClick={onReplyClick}
+        />
+      ))}
+    </div>
+  )
+}
+
+function CommentItem({
+  id,
+  postId,
+  userId,
+  content,
+  createdAt,
+  updatedAt,
+  postOwnerId,
+  likes = 0,
+  likedByMe,
+  onReply,
+}: CommentItemProps) {
+  const { users, currentUser, deleteComment, editComment, likeComment } = useSocial()
   const u = users.find(u => u.id === userId) || {
     id: userId,
     name: 'Unknown',
@@ -443,110 +544,190 @@ function CommentItem({ id, postId, userId, content, createdAt, postOwnerId, onRe
   const [isMoreOpen, setIsMoreOpen] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editContent, setEditContent] = useState(content)
 
   return (
-    <div className="flex items-start gap-3 group">
-      <Link href={`/${locale}/social/profile/${u.username}` as any} className="shrink-0">
-         <img src={u.avatar} alt={u.name} className="h-8 w-8 rounded-full object-cover" />
-      </Link>
-      <div className="flex-1 min-w-0">
-        <div className="bg-neutral-50 dark:bg-neutral-800/50 rounded-2xl rounded-tl-none px-4 py-3">
-          <div className="flex items-center justify-between gap-2 mb-1">
-            <Link href={`/${locale}/social/profile/${u.username}` as any} className="font-semibold text-sm hover:underline text-neutral-900 dark:text-white">
-              {u.name}
-            </Link>
-            <span className="text-xs text-neutral-400">{timeAgo(createdAt)}</span>
-          </div>
-          <div className="text-sm text-neutral-700 dark:text-neutral-300 break-words whitespace-pre-wrap leading-relaxed">
-            <RichText content={content} locale={locale} />
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-4 mt-1 ml-2">
-          <button 
-            onClick={() => onReply(u.username)}
-            className="text-xs font-medium text-neutral-500 hover:text-brand transition-colors flex items-center gap-1"
-          >
-            {t(locale, 'reply')}
-          </button>
-          {/* Mock Like for now */}
-          <button className="text-xs font-medium text-neutral-500 hover:text-red-500 transition-colors flex items-center gap-1">
-            {t(locale, 'like')}
-          </button>
-
-          <div className="flex-1" />
-
-          {/* 3-dot menu */}
-          <Popover.Root open={isMoreOpen} onOpenChange={setIsMoreOpen}>
-            <Popover.Trigger asChild>
-              <button
-                className="text-xs text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors opacity-0 group-hover:opacity-100 p-0.5"
-                title={t(locale, 'more_options') || "Daha çox"}
-              >
-                <FiMoreHorizontal size={14} />
-              </button>
-            </Popover.Trigger>
-            <Popover.Portal>
-              <Popover.Content
-                className="w-44 bg-white dark:bg-neutral-900 rounded-lg shadow-xl border border-neutral-200 dark:border-neutral-800 p-1 z-50 animate-in fade-in zoom-in-95 duration-200"
-                align="end"
-                sideOffset={5}
-              >
-                {(currentUser?.id === userId || currentUser?.id === postOwnerId) && id && postId && (
-                  <button
-                    onClick={() => {
-                      setIsMoreOpen(false)
-                      setShowDeleteConfirm(true)
-                    }}
-                    className="w-full flex items-center gap-2 p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition-colors text-xs text-red-600 dark:text-red-400 font-medium"
-                  >
-                    <FiTrash2 size={12} />
-                    {t(locale, 'delete_comment')}
-                  </button>
+    <>
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        title={t(locale, 'delete_comment')}
+        message={t(locale, 'confirm_delete_comment_desc')}
+        confirmLabel={t(locale, 'confirm_btn')}
+        cancelLabel={t(locale, 'cancel_btn')}
+        variant="danger"
+        isLoading={isDeleting}
+        onConfirm={async () => {
+          setIsDeleting(true)
+          await deleteComment(id, postId, postOwnerId)
+          setShowDeleteConfirm(false)
+          setIsDeleting(false)
+        }}
+        onCancel={() => setShowDeleteConfirm(false)}
+      />
+      {showReport && (
+        <ReportModal
+          targetId={id}
+          targetType="comment"
+          onClose={() => setShowReport(false)}
+        />
+      )}
+      <div className="flex items-start gap-3 group">
+        <UserHoverCard userId={u.id} className="shrink-0">
+          <Link href={`/${locale}/social/profile/${u.username}` as any}>
+            <img src={u.avatar} alt={u.name} className="h-8 w-8 rounded-full object-cover" referrerPolicy="no-referrer" />
+          </Link>
+        </UserHoverCard>
+        <div className="flex-1 min-w-0">
+          <div className="bg-neutral-50 dark:bg-neutral-800/50 rounded-2xl rounded-tl-none px-4 py-3">
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <UserHoverCard userId={u.id}>
+                <Link href={`/${locale}/social/profile/${u.username}` as any} className="font-semibold text-sm hover:underline text-neutral-900 dark:text-white">
+                  {u.name}
+                </Link>
+              </UserHoverCard>
+              <span className="text-xs text-neutral-400 shrink-0">
+                {timeAgo(createdAt)}
+                {isCommentEdited(createdAt, updatedAt) && (
+                  <span className="ml-1 italic opacity-70">({t(locale, 'edited') || 'redaktə edilib'})</span>
                 )}
-                {currentUser && (
+              </span>
+            </div>
+            {isEditing ? (
+              <div className="mt-2">
+                <textarea
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  className="w-full rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-sm text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand/50 resize-y min-h-[60px]"
+                  autoFocus
+                />
+                <div className="flex justify-end gap-2 mt-2">
                   <button
+                    type="button"
                     onClick={() => {
-                      setIsMoreOpen(false)
-                      setShowReport(true)
+                      setIsEditing(false)
+                      setEditContent(content)
                     }}
-                    className="w-full flex items-center gap-2 p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition-colors text-xs text-neutral-600 dark:text-neutral-400 font-medium"
+                    className="text-xs px-2 py-1 font-medium text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors"
                   >
-                    <FiFlag size={12} />
-                    {t(locale, 'report_comment') || "Şikayət et"}
+                    {t(locale, 'cancel_btn') || 'Ləğv et'}
                   </button>
-                )}
-              </Popover.Content>
-            </Popover.Portal>
-          </Popover.Root>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (editContent.trim() && editContent !== content) {
+                        await editComment(id, postId, editContent)
+                      }
+                      setIsEditing(false)
+                    }}
+                    className="text-xs px-2 py-1 font-medium bg-brand text-white rounded-md hover:bg-brand/90 transition-colors"
+                  >
+                    {t(locale, 'save_btn') || 'Yadda saxla'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="text-sm text-neutral-700 dark:text-neutral-300 break-words whitespace-pre-wrap leading-relaxed">
+                <RichText content={content} locale={locale} />
+              </div>
+            )}
+          </div>
 
-          {/* Dialogs */}
-          <ConfirmDialog
-            isOpen={showDeleteConfirm}
-            title={t(locale, 'delete_comment')}
-            message={t(locale, 'confirm_delete_comment_desc')}
-            confirmLabel={t(locale, 'confirm_btn')}
-            cancelLabel={t(locale, 'cancel_btn')}
-            variant="danger"
-            isLoading={isDeleting}
-            onConfirm={async () => {
-              setIsDeleting(true)
-              if (id && postId) await deleteComment(id, postId, postOwnerId)
-              setShowDeleteConfirm(false)
-              setIsDeleting(false)
-            }}
-            onCancel={() => setShowDeleteConfirm(false)}
-          />
-          {showReport && id && (
-            <ReportModal
-              targetId={id}
-              targetType="comment"
-              onClose={() => setShowReport(false)}
-            />
-          )}
+          <div className="flex items-center gap-4 mt-1 ml-2">
+            <button
+              type="button"
+              onClick={() => onReply()}
+              className="text-xs font-medium text-neutral-500 hover:text-brand transition-colors flex items-center gap-1"
+            >
+              {t(locale, 'reply')}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (!currentUser) {
+                  toast.error(locale === 'az' ? 'Daxil olmalısınız.' : 'You must be logged in.')
+                  return
+                }
+                void likeComment(id, postId)
+              }}
+              className={`text-xs font-medium transition-colors flex items-center gap-1 ${
+                likedByMe ? 'text-red-500' : 'text-neutral-500 hover:text-red-500'
+              }`}
+            >
+              {likedByMe ? <AiFillHeart size={14} /> : <FiHeart size={14} />}
+              {t(locale, 'like')}
+              {likes > 0 && <span className="tabular-nums">({likes})</span>}
+            </button>
+
+            <div className="flex-1" />
+
+            <Popover.Root open={isMoreOpen} onOpenChange={setIsMoreOpen}>
+              <Popover.Trigger asChild>
+                <button
+                  type="button"
+                  className="text-xs text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors opacity-0 group-hover:opacity-100 p-0.5"
+                  title={t(locale, 'more_options') || 'Daha çox'}
+                >
+                  <FiMoreHorizontal size={14} />
+                </button>
+              </Popover.Trigger>
+              <Popover.Portal>
+                <Popover.Content
+                  className="w-44 bg-white dark:bg-neutral-900 rounded-lg shadow-xl border border-neutral-200 dark:border-neutral-800 p-1 z-50 animate-in fade-in zoom-in-95 duration-200"
+                  align="end"
+                  sideOffset={5}
+                >
+                  {currentUser?.id === userId && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMoreOpen(false)
+                        setIsEditing(true)
+                        setEditContent(content)
+                      }}
+                      className="w-full flex items-center gap-2 p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition-colors text-xs text-neutral-700 dark:text-neutral-300 font-medium"
+                    >
+                      <FiEdit2 size={12} />
+                      {t(locale, 'edit_comment') || 'Şərhi düzəlt'}
+                    </button>
+                  )}
+                  {(currentUser?.id === userId || currentUser?.id === postOwnerId) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMoreOpen(false)
+                        setShowDeleteConfirm(true)
+                      }}
+                      className="w-full flex items-center gap-2 p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition-colors text-xs text-red-600 dark:text-red-400 font-medium"
+                    >
+                      <FiTrash2 size={12} />
+                      {t(locale, 'delete_comment')}
+                    </button>
+                  )}
+                  {currentUser?.id !== userId && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMoreOpen(false)
+                        if (!currentUser) {
+                          toast.error(locale === 'az' ? 'Daxil olmalısınız.' : 'You must be logged in to report.')
+                          return
+                        }
+                        setShowReport(true)
+                      }}
+                      className="w-full flex items-center gap-2 p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition-colors text-xs text-neutral-600 dark:text-neutral-400 font-medium"
+                    >
+                      <FiFlag size={12} />
+                      {t(locale, 'report_comment') || 'Şikayət et'}
+                    </button>
+                  )}
+                </Popover.Content>
+              </Popover.Portal>
+            </Popover.Root>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   )
 }
 

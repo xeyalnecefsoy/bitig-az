@@ -81,6 +81,7 @@ export async function getPost(id: string): Promise<Post | null> {
         user_id,
         content,
         created_at,
+        parent_comment_id,
         profiles:user_id (id, username, avatar_url)
       ),
       likes (user_id)

@@ -4,7 +4,7 @@ import { useAuth } from '@/context/auth'
 import { createClient } from '@/lib/supabase/client'
 import { BookCard } from '@/components/BookCard'
 import { t, type Locale } from '@/lib/i18n'
-import { FiBook, FiBookOpen, FiCheckCircle, FiHeart, FiClock, FiSearch } from 'react-icons/fi'
+import { FiBook, FiBookOpen, FiCheckCircle, FiHeart, FiSearch } from 'react-icons/fi'
 import Link from 'next/link'
 
 type Tab = 'all' | 'reading' | 'completed' | 'want_to_read' | 'favorites'
@@ -41,6 +41,8 @@ export function LibraryContent({ locale }: { locale: Locale }) {
   const [userBooks, setUserBooks] = useState<UserBook[]>([])
   const [progress, setProgress] = useState<Map<string, ProgressItem>>(new Map())
   const [loading, setLoading] = useState(true)
+  const [updatingId, setUpdatingId] = useState<string | null>(null)
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
 
   useEffect(() => {
     async function loadLibrary() {
@@ -116,6 +118,42 @@ export function LibraryContent({ locale }: { locale: Locale }) {
     { id: 'completed', label: locale === 'az' ? 'Bitirdim' : 'Completed', icon: <FiCheckCircle />, count: userBooks.filter(b => b.status === 'completed').length },
     { id: 'want_to_read', label: locale === 'az' ? 'İstəyirəm' : 'Want to Read', icon: <FiHeart />, count: userBooks.filter(b => b.status === 'want_to_read').length },
   ]
+
+  async function updateBookStatus(userBookId: string, newStatus: 'want_to_read' | 'reading' | 'completed') {
+    setUpdatingId(userBookId)
+    setOpenMenuId(null)
+    const completedAt = newStatus === 'completed' ? new Date().toISOString() : null
+    const { error } = await supabase
+      .from('user_books')
+      .update({ status: newStatus, completed_at: completedAt })
+      .eq('id', userBookId)
+      .eq('user_id', user?.id)
+
+    if (!error) {
+      setUserBooks((prev) =>
+        prev.map((item) => (item.id === userBookId ? { ...item, status: newStatus } : item)),
+      )
+    } else {
+      console.error('Error updating book status:', error)
+    }
+    setUpdatingId(null)
+  }
+
+  async function removeFromLibrary(userBookId: string) {
+    setUpdatingId(userBookId)
+    setOpenMenuId(null)
+    const { error } = await supabase
+      .from('user_books')
+      .delete()
+      .eq('id', userBookId)
+      .eq('user_id', user?.id)
+    if (!error) {
+      setUserBooks((prev) => prev.filter((item) => item.id !== userBookId))
+    } else {
+      console.error('Error removing from library:', error)
+    }
+    setUpdatingId(null)
+  }
 
   if (authLoading || loading) {
     return (
@@ -264,14 +302,78 @@ export function LibraryContent({ locale }: { locale: Locale }) {
                   }} 
                   locale={locale}
                 />
-                <div className={`absolute top-2 right-2 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider shadow-sm z-10 ${
-                  userBook.status === 'completed' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                  userBook.status === 'reading' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
-                  'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                }`}>
-                  {userBook.status === 'completed' ? t(locale, 'status_completed') :
-                   userBook.status === 'reading' ? t(locale, 'status_reading') :
-                   t(locale, 'status_want_to_read')}
+                <div className="absolute top-2 right-2 z-20">
+                  <button
+                    type="button"
+                    onClick={() => setOpenMenuId(prev => (prev === userBook.id ? null : userBook.id))}
+                    disabled={updatingId === userBook.id}
+                    className={`px-2.5 py-1 rounded-md text-[10px] font-semibold tracking-wide shadow-sm border transition-colors ${
+                      userBook.status === 'completed'
+                        ? 'bg-green-50 text-green-800 border-green-200 hover:bg-green-100 dark:bg-green-900/40 dark:text-green-300 dark:border-green-800'
+                        : userBook.status === 'reading'
+                          ? 'bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-800'
+                          : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-800'
+                    } disabled:opacity-60`}
+                    aria-label={locale === 'az' ? 'Statusu dəyiş' : 'Change status'}
+                  >
+                    {userBook.status === 'completed' ? t(locale, 'status_completed') :
+                     userBook.status === 'reading' ? t(locale, 'status_reading') :
+                     t(locale, 'status_want_to_read')}
+                  </button>
+
+                  {openMenuId === userBook.id && (
+                    <>
+                      <button
+                        type="button"
+                        className="fixed inset-0 z-10 cursor-default"
+                        aria-label="close menu"
+                        onClick={() => setOpenMenuId(null)}
+                      />
+                      <div className="absolute right-0 mt-1 w-44 overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-lg dark:border-neutral-700 dark:bg-neutral-900 z-20">
+                        <button
+                          type="button"
+                          onClick={() => updateBookStatus(userBook.id, 'want_to_read')}
+                          className={`w-full px-3 py-2 text-left text-xs transition-colors ${
+                            userBook.status === 'want_to_read'
+                              ? 'bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
+                              : 'text-neutral-700 hover:bg-neutral-50 dark:text-neutral-200 dark:hover:bg-neutral-800'
+                          }`}
+                        >
+                          {t(locale, 'status_want_to_read')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateBookStatus(userBook.id, 'reading')}
+                          className={`w-full px-3 py-2 text-left text-xs transition-colors ${
+                            userBook.status === 'reading'
+                              ? 'bg-blue-50 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                              : 'text-neutral-700 hover:bg-neutral-50 dark:text-neutral-200 dark:hover:bg-neutral-800'
+                          }`}
+                        >
+                          {t(locale, 'status_reading')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateBookStatus(userBook.id, 'completed')}
+                          className={`w-full px-3 py-2 text-left text-xs transition-colors ${
+                            userBook.status === 'completed'
+                              ? 'bg-green-50 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                              : 'text-neutral-700 hover:bg-neutral-50 dark:text-neutral-200 dark:hover:bg-neutral-800'
+                          }`}
+                        >
+                          {t(locale, 'status_completed')}
+                        </button>
+                        <div className="border-t border-neutral-100 dark:border-neutral-800" />
+                        <button
+                          type="button"
+                          onClick={() => removeFromLibrary(userBook.id)}
+                          className="w-full px-3 py-2 text-left text-xs text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                        >
+                          {locale === 'az' ? 'Siyahıdan sil' : 'Remove from library'}
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
                 {/* Progress overlay */}
                 {bookProgress && bookProgress.total_listened_seconds > 0 && (

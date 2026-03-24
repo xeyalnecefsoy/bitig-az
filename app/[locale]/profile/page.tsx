@@ -28,6 +28,7 @@ export default function MyProfilePage() {
   const [hasMore, setHasMore] = useState(true)
   const [followersCount, setFollowersCount] = useState(0)
   const [followingCount, setFollowingCount] = useState(0)
+  const [postsCount, setPostsCount] = useState(0)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [editForm, setEditForm] = useState({ username: '', bio: '' })
@@ -66,35 +67,37 @@ export default function MyProfilePage() {
 
   async function loadProfileData(userId: string) {
     try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single()
+      const [
+        { data: profile },
+        { count: followers },
+        { count: following },
+        { count: postsTotal },
+        { data: userPosts },
+      ] = await Promise.all([
+        supabase.from('profiles').select('*').eq('id', userId).single(),
+        supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', userId),
+        supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId),
+        supabase.from('posts').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+        supabase
+          .from('posts')
+          .select(SOCIAL_POST_ENRICHED_SELECT)
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(10),
+      ])
 
       if (profile) {
         setCurrentUser(profile)
         setEditForm({ username: profile.username || '', bio: profile.bio || '' })
         setAvatarPreview(profile.avatar_url || '')
         setBannerPreview(profile.banner_url || '')
-
-        // Fetch counts in parallel
-        const [{ count: followers }, { count: following }] = await Promise.all([
-          supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', userId),
-          supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId)
-        ])
-
-        setFollowersCount(followers || 0)
-        setFollowingCount(following || 0)
       }
 
-      // Load initial posts (enriched + merge into SocialProvider so SocialPostCard / quote work)
-      const { data: userPosts } = await supabase
-        .from('posts')
-        .select(SOCIAL_POST_ENRICHED_SELECT)
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(10)
+      setFollowersCount(followers || 0)
+      setFollowingCount(following || 0)
+      setPostsCount(postsTotal || 0)
+
+      // Initial posts page (enriched + merge into SocialProvider so SocialPostCard / quote work)
 
       if (userPosts && userPosts.length > 0) {
         const mapped = await mergePostsFromSupabaseRows(userPosts)
@@ -494,7 +497,7 @@ export default function MyProfilePage() {
               <div className="mt-3 grid grid-cols-3 gap-3 text-center">
                 <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 p-3">
                   <div className="text-xs text-neutral-500 dark:text-neutral-400">{t(locale, 'posts')}</div>
-                  <div className="font-semibold">{posts.length}</div>
+                  <div className="font-semibold">{postsCount}</div>
                 </div>
                 <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 p-3">
                   <div className="text-xs text-neutral-500 dark:text-neutral-400">{t(locale, 'following')}</div>

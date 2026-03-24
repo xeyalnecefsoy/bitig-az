@@ -1,12 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getR2SignedUrl } from '@/lib/cloudflare/r2'
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit'
+import { logApi } from '@/lib/logger'
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ trackId: string }> }
 ) {
   try {
+    const ip = getClientIp(request)
+    if (!checkRateLimit(`audio-stream:ip:${ip}`, 180, 60_000)) {
+      return NextResponse.json(
+        { error: 'Too many requests' },
+        { status: 429, headers: { 'Retry-After': '60' } },
+      )
+    }
+
     const { trackId } = await params
 
     // Get track info from database
@@ -43,7 +53,7 @@ export async function GET(
 
     return NextResponse.json({ error: 'No audio available' }, { status: 404 })
   } catch (error) {
-    console.error('Stream error:', error)
+    logApi('error', 'audio_stream_failed', { err: String(error) })
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

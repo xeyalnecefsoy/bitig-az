@@ -12,6 +12,8 @@ import { useMentions } from '@/hooks/useMentions'
 import { MentionDropdown } from '@/components/social/MentionDropdown'
 import { QuotedPostCard } from '@/components/social/QuotedPostCard'
 import { uploadPostImage } from '@/lib/supabase/storage'
+import { extractFirstUrl, isAllowedPreviewUrl } from '@/lib/linkPreview'
+import type { LinkPreview } from '@/lib/social'
 import * as Dialog from '@radix-ui/react-dialog'
 import toast from 'react-hot-toast'
 const MAX_EMOJI = 5
@@ -91,6 +93,8 @@ type DraftState = {
   imageFiles: File[];
   imagePreviews: string[];
   selectedBook: any;
+  linkPreview: LinkPreview | null;
+  dismissedPreviewUrl: string | null;
   pollOptions: string[];
   pollDurationHours: number;
   isValid: boolean;
@@ -273,6 +277,7 @@ function ComposerItem({
 
   const [isFocused, setIsFocused] = useState(false)
   const [expandedImage, setExpandedImage] = useState<{ index: number, urls: string[] } | null>(null)
+  const [previewLoading, setPreviewLoading] = useState(false)
   // If we are in the base composer (not modal), we ONLY render the first item with NO avatars.
   // If we ARE in the modal, we render avatars and connecting lines.
   const showAvatarLayout = isModalConfig;
@@ -282,6 +287,52 @@ function ComposerItem({
   const isExpanded = !showAvatarLayout || isFocused || draft.value.length > 0 || draft.imageFiles.length > 0 || !!draft.selectedBook
 
   const showToolbar = !showAvatarLayout || isFocused;
+
+  useEffect(() => {
+    const firstUrl = extractFirstUrl(draft.value)
+    if (!firstUrl) {
+      if (draft.linkPreview || draft.dismissedPreviewUrl) {
+        onChange({ linkPreview: null, dismissedPreviewUrl: null })
+      }
+      return
+    }
+    if (!isAllowedPreviewUrl(firstUrl)) {
+      if (draft.linkPreview) onChange({ linkPreview: null })
+      return
+    }
+    if (draft.dismissedPreviewUrl === firstUrl) {
+      if (draft.linkPreview?.url === firstUrl) onChange({ linkPreview: null })
+      return
+    }
+    if (draft.linkPreview?.url === firstUrl) return
+
+    let cancelled = false
+    const timer = setTimeout(async () => {
+      try {
+        setPreviewLoading(true)
+        const res = await fetch(`/api/link-preview?url=${encodeURIComponent(firstUrl)}`)
+        if (!res.ok) {
+          if (!cancelled) onChange({ linkPreview: null })
+          return
+        }
+        const json = await res.json()
+        const preview = json?.preview
+        if (!cancelled && preview?.url && preview?.title) {
+          onChange({ linkPreview: preview, dismissedPreviewUrl: null })
+        }
+      } catch {
+        if (!cancelled) onChange({ linkPreview: null })
+      } finally {
+        if (!cancelled) setPreviewLoading(false)
+      }
+    }, 400)
+
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+      setPreviewLoading(false)
+    }
+  }, [draft.value, draft.dismissedPreviewUrl, draft.linkPreview?.url, onChange])
 
   return (
     <div className={`flex relative z-10 w-full ${showAvatarLayout ? 'mb-3 gap-3' : 'mb-1 gap-2'}`}>
@@ -589,7 +640,7 @@ function ComposerItem({
         )}
 
         {/* Media Previews */}
-        {(draft.imagePreviews.length > 0 || draft.selectedBook) && (
+        {(draft.imagePreviews.length > 0 || draft.selectedBook || draft.linkPreview || previewLoading) && (
           <div className="mt-2 flex flex-wrap gap-2 items-start pt-2 border-t border-neutral-100 dark:border-neutral-800/50">
             {draft.imagePreviews.map((preview, previewIdx) => (
               <div key={preview} className="relative inline-block group/media shrink-0">
@@ -629,6 +680,50 @@ function ComposerItem({
                 >
                   <FiX size={14} />
                 </button>
+              </div>
+            )}
+
+            {(draft.linkPreview || previewLoading) && (
+              <div className="relative flex w-full max-w-md items-start gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-2 dark:border-neutral-700 dark:bg-neutral-800/50">
+                {draft.linkPreview?.imageUrl ? (
+                  <img
+                    src={draft.linkPreview.imageUrl}
+                    alt={draft.linkPreview.title}
+                    className="h-16 w-24 rounded-md border border-neutral-200 object-cover dark:border-neutral-700"
+                  />
+                ) : (
+                  <div className="h-16 w-24 rounded-md border border-neutral-200 bg-neutral-200 dark:border-neutral-700 dark:bg-neutral-700" />
+                )}
+                <div className="min-w-0 flex-1 pr-6">
+                  {previewLoading && !draft.linkPreview ? (
+                    <div className="text-xs text-neutral-500 dark:text-neutral-400">
+                      {t(locale, 'social_link_preview_loading') || 'Link preview yüklənir...'}
+                    </div>
+                  ) : (
+                    <>
+                      <div className="truncate text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                        {draft.linkPreview?.title}
+                      </div>
+                      <div className="mt-0.5 truncate text-xs text-neutral-500 dark:text-neutral-400">
+                        {draft.linkPreview?.siteName || draft.linkPreview?.url}
+                      </div>
+                      {draft.linkPreview?.description && (
+                        <div className="mt-1 line-clamp-2 text-xs text-neutral-600 dark:text-neutral-300">
+                          {draft.linkPreview.description}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+                {draft.linkPreview && (
+                  <button
+                    type="button"
+                    onClick={() => onChange({ linkPreview: null, dismissedPreviewUrl: draft.linkPreview?.url ?? null })}
+                    className="absolute right-1 top-1 p-1 text-neutral-400 hover:text-red-500 transition-colors"
+                  >
+                    <FiX size={14} />
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -725,6 +820,8 @@ export function SocialComposer({
     imageFiles: [],
     imagePreviews: [],
     selectedBook: null,
+    linkPreview: null,
+    dismissedPreviewUrl: null,
     pollOptions: [],
     pollDurationHours: 24,
     isValid: false
@@ -800,6 +897,7 @@ export function SocialComposer({
           draft.pollOptions,
           draft.pollDurationHours,
           quotedForDraft,
+          draft.linkPreview ?? undefined,
         )
 
         if (newPostId) {

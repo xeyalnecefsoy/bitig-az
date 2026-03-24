@@ -22,7 +22,7 @@ import { useSocial } from '@/context/social'
 import { useAuth } from '@/context/auth'
 import { uploadPostImages } from '@/lib/uploadPostImages'
 import { useLocale } from '@/context/locale'
-import { resolveAvatarUrl } from '@/lib/avatar'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 import type { QuotedPostEmbed } from '@/lib/types'
 
 function quotePreviewTimeAgo(date: string) {
@@ -434,10 +434,10 @@ export function SocialComposer({
               onPress={() => router.push(`/social/post/${quotedPreview.id}` as any)}
               style={[styles.quotePreviewCard, { borderColor: colors.border, backgroundColor: colors.background }]}
             >
-              <Image
-                source={{ uri: resolveAvatarUrl(quotedAuthor?.avatar ?? null, quotedAuthor?.username ?? quotedPreview.userId) }}
-                style={styles.quoteAvatar}
-                contentFit="cover"
+              <UserAvatar
+                avatarUrl={quotedAuthor?.avatar ?? null}
+                usernameOrId={quotedAuthor?.username ?? quotedPreview.userId}
+                size={40}
               />
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Typography weight="semibold" style={{ color: colors.text, fontSize: FontSize.md }} numberOfLines={1}>
@@ -657,11 +657,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: BorderRadius.xl,
     padding: Spacing.md,
-  },
-  quoteAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
   },
   quoteMediaFrame: {
     marginTop: Spacing.sm,

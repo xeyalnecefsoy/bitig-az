@@ -12,6 +12,8 @@ type SocialPost = Post & {
 
 export function SocialFeed({
   posts,
+  /** Forces row updates when nested fields (e.g. comments) change — same as `data` identity can miss updates. */
+  listExtraData,
   refreshing,
   onRefresh,
   onEndReached,
@@ -20,6 +22,7 @@ export function SocialFeed({
   ListEmptyComponent,
 }: {
   posts: SocialPost[]
+  listExtraData?: unknown
   refreshing: boolean
   onRefresh: () => Promise<void> | void
   onEndReached: () => Promise<void> | void
@@ -30,7 +33,9 @@ export function SocialFeed({
   return (
     <FlatList
       data={posts}
+      extraData={listExtraData}
       keyExtractor={item => item.id}
+      removeClippedSubviews={false}
       renderItem={({ item }) => <SocialPostCard post={item} />}
       contentContainerStyle={styles.listContent}
       ListHeaderComponent={ListHeaderComponent}

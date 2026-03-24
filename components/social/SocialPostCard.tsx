@@ -12,12 +12,14 @@ import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { t } from '@/lib/i18n'
 import { UserHoverCard } from './UserHoverCard'
 import { RichText } from './RichText'
+import { ExternalLinkPreviewCard } from './ExternalLinkPreviewCard'
 
 import * as Popover from '@radix-ui/react-popover'
 import { SocialComposer } from './SocialComposer'
 import { QuotedPostCard } from './QuotedPostCard'
 import { calculatePollPercentages } from '@/lib/pollUtils'
 import toast from 'react-hot-toast'
+import { getRootCommentsForPreview, isCommentEdited } from '@/lib/commentTree'
 
 export function SocialPostCard({ postId, disableHover = false, isThread = false }: { postId: string, disableHover?: boolean, isThread?: boolean }) {
   const { posts, addComment, like, users, currentUser, deletePost, editPost, voteOnPoll } = useSocial()
@@ -164,19 +166,21 @@ export function SocialPostCard({ postId, disableHover = false, isThread = false 
                     <FiMessageSquare size={14} className="opacity-70" /> {t(locale, 'add_to_thread')}
                   </button>
                 )}
-                <button
-                  onClick={() => {
-                    setIsMoreOpen(false)
-                    if (!currentUser) {
-                      toast.error('You must be logged in to report.')
-                      return
-                    }
-                    setShowReport(true)
-                  }}
-                  className="w-full text-left p-2 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-md transition-colors text-sm text-red-600 dark:text-red-400 font-medium border-t border-neutral-100 dark:border-neutral-800 mt-1 pt-1 flex items-center gap-2"
-                >
-                  <FiAlertTriangle size={14} className="opacity-70" /> {t(locale, 'report_post') || "Şikayət et"}
-                </button>
+                {!isOwnPost && (
+                  <button
+                    onClick={() => {
+                      setIsMoreOpen(false)
+                      if (!currentUser) {
+                        toast.error('You must be logged in to report.')
+                        return
+                      }
+                      setShowReport(true)
+                    }}
+                    className="w-full text-left p-2 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-md transition-colors text-sm text-red-600 dark:text-red-400 font-medium border-t border-neutral-100 dark:border-neutral-800 mt-1 pt-1 flex items-center gap-2"
+                  >
+                    <FiAlertTriangle size={14} className="opacity-70" /> {t(locale, 'report_post') || "Şikayət et"}
+                  </button>
+                )}
               </Popover.Content>
             </Popover.Portal>
           </Popover.Root>
@@ -255,6 +259,8 @@ export function SocialPostCard({ postId, disableHover = false, isThread = false 
           <RichText content={post.content} locale={locale} truncateLimit={500} />
         </div>
       )}
+
+      {post.linkPreview && <ExternalLinkPreviewCard preview={post.linkPreview} />}
 
       {post.imageUrls && post.imageUrls.length > 0 && (
         <div className="relative mb-3 w-full rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-800 bg-neutral-100 dark:bg-neutral-900">
@@ -403,6 +409,7 @@ export function SocialPostCard({ postId, disableHover = false, isThread = false 
               }
             }
             locale={locale}
+            compact
           />
         </div>
       )}
@@ -437,10 +444,29 @@ export function SocialPostCard({ postId, disableHover = false, isThread = false 
         </button>
       </div>
       <div className="mt-4 space-y-3">
-        {post.comments.slice(0, 3).map(c => (
-          <CommentItem key={c.id} id={c.id} postId={post.id} userId={c.userId} content={c.content} createdAt={c.createdAt} postOwnerId={post.userId} />
+        {getRootCommentsForPreview(post.comments, 3).map(c => (
+          <CommentItem
+            key={c.id}
+            id={c.id}
+            postId={post.id}
+            userId={c.userId}
+            content={c.content}
+            createdAt={c.createdAt}
+            updatedAt={c.updatedAt ?? null}
+            postOwnerId={post.userId}
+            previewTruncateLimit={200}
+          />
         ))}
       </div>
+      {(post.comments.length > 3 || post.comments.some(c => c.parentCommentId)) && (
+        <Link
+          href={`/${locale}/social/post/${post.id}` as any}
+          className="mt-3 block text-sm font-semibold text-brand hover:underline"
+          onClick={e => e.stopPropagation()}
+        >
+          {t(locale, 'social_view_all_comments')} ({post.comments.length})
+        </Link>
+      )}
       <form className="mt-4 flex gap-2" onSubmit={(e) => { e.preventDefault(); if (!comment.trim()) return; addComment(post.id, comment.trim()); setComment('') }}>
         <input
           value={comment}
@@ -628,7 +654,25 @@ export function SocialPostCard({ postId, disableHover = false, isThread = false 
   )
 }
 
-function CommentItem({ id, postId, userId, content, createdAt, updatedAt, postOwnerId }: { id: string; postId: string; userId: string; content: string; createdAt: string; updatedAt?: string | null; postOwnerId?: string }) {
+function CommentItem({
+  id,
+  postId,
+  userId,
+  content,
+  createdAt,
+  updatedAt,
+  postOwnerId,
+  previewTruncateLimit = 300,
+}: {
+  id: string
+  postId: string
+  userId: string
+  content: string
+  createdAt: string
+  updatedAt?: string | null
+  postOwnerId?: string
+  previewTruncateLimit?: number
+}) {
   const { users, currentUser, deleteComment, editComment } = useSocial()
   const locale = useLocale()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -685,7 +729,9 @@ function CommentItem({ id, postId, userId, content, createdAt, updatedAt, postOw
             </UserHoverCard>
             <span className="text-xs text-neutral-500 dark:text-neutral-400 shrink-0">
               {timeAgo(createdAt, locale)}
-              {updatedAt && <span className="ml-1 italic opacity-70">({t(locale, 'edited') || 'redaktə edilib'})</span>}
+              {isCommentEdited(createdAt, updatedAt) && (
+                <span className="ml-1 italic opacity-70">({t(locale, 'edited') || 'redaktə edilib'})</span>
+              )}
             </span>
             <div className="flex items-center ml-auto gap-1">
               <Popover.Root open={isMoreOpen} onOpenChange={setIsMoreOpen}>
@@ -729,20 +775,22 @@ function CommentItem({ id, postId, userId, content, createdAt, updatedAt, postOw
                         {t(locale, 'delete_comment')}
                       </button>
                     )}
-                    <button
-                      onClick={() => {
-                        setIsMoreOpen(false)
-                        if (!currentUser) {
-                          toast.error('You must be logged in to report.')
-                          return
-                        }
-                        setShowReport(true)
-                      }}
-                      className="w-full flex items-center gap-2 p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition-colors text-xs text-neutral-600 dark:text-neutral-400 font-medium"
-                    >
-                      <FiFlag size={12} />
-                      {t(locale, 'report_comment') || "Şikayət et"}
-                    </button>
+                    {currentUser?.id !== userId && (
+                      <button
+                        onClick={() => {
+                          setIsMoreOpen(false)
+                          if (!currentUser) {
+                            toast.error('You must be logged in to report.')
+                            return
+                          }
+                          setShowReport(true)
+                        }}
+                        className="w-full flex items-center gap-2 p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition-colors text-xs text-neutral-600 dark:text-neutral-400 font-medium"
+                      >
+                        <FiFlag size={12} />
+                        {t(locale, 'report_comment') || "Şikayət et"}
+                      </button>
+                    )}
                   </Popover.Content>
                 </Popover.Portal>
               </Popover.Root>
@@ -781,7 +829,7 @@ function CommentItem({ id, postId, userId, content, createdAt, updatedAt, postOw
             </div>
           ) : (
             <div className="mt-0.5 text-left">
-              <RichText content={content} locale={locale} truncateLimit={300} />
+              <RichText content={content} locale={locale} truncateLimit={previewTruncateLimit} />
             </div>
           )}
         </div>

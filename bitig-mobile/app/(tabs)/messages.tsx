@@ -10,16 +10,15 @@ import {
   TextInput,
   Modal,
 } from 'react-native'
-import { Image } from 'expo-image'
 import { useRouter } from 'expo-router'
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/Colors'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/auth'
 import { formatDistanceToNow } from '@/lib/utils'
 import type { Conversation } from '@/lib/types'
-import { resolveAvatarUrl } from '@/lib/avatar'
 import { Feather } from '@expo/vector-icons'
 import { Typography } from '@/components/ui/Typography'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 import { AppHeader } from '@/components/AppHeader'
 import { useLocale } from '@/context/locale'
 
@@ -280,19 +279,20 @@ export default function MessagesScreen() {
           <FlatList
             data={filteredConversations}
             keyExtractor={(item) => item.id}
+            removeClippedSubviews={false}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.brand} />}
             renderItem={({ item }) => {
-              const avatarUrl = resolveAvatarUrl(
-                item.otherUser?.avatar_url,
-                item.otherUser?.username || item.otherUser?.id,
-              )
-
               return (
                 <Pressable
                   style={[styles.convoRow, { borderBottomColor: colors.border }]}
                   onPress={() => router.push(`/chat/${item.id}` as any)}
                 >
-                  <Image source={{ uri: avatarUrl }} style={styles.avatar} contentFit="cover" />
+                  <UserAvatar
+                    avatarUrl={item.otherUser?.avatar_url}
+                    usernameOrId={item.otherUser?.username || item.otherUser?.id}
+                    size={48}
+                    backgroundColor={colors.surfaceHover}
+                  />
                   <View style={styles.convoInfo}>
                     <Typography
                       weight="semibold"
@@ -361,10 +361,10 @@ export default function MessagesScreen() {
                   <FlatList
                     data={newChatResults}
                     keyExtractor={(u) => u.id}
+                    removeClippedSubviews={false}
                     style={{ maxHeight: 260 }}
                     contentContainerStyle={{ paddingBottom: Spacing.lg }}
                     renderItem={({ item: u }) => {
-                      const avatar = resolveAvatarUrl(u.avatar_url, u.username || u.id)
                       return (
                         <Pressable
                           onPress={() => startConversation(u.id)}
@@ -373,7 +373,12 @@ export default function MessagesScreen() {
                             { backgroundColor: pressed ? colors.surfaceHover : 'transparent' },
                           ]}
                         >
-                          <Image source={{ uri: avatar }} style={styles.userAvatar} contentFit="cover" />
+                          <UserAvatar
+                            avatarUrl={u.avatar_url}
+                            usernameOrId={u.username || u.id}
+                            size={42}
+                            backgroundColor={colors.surfaceHover}
+                          />
                           <View style={{ flex: 1 }}>
                             <Typography weight="semibold" style={{ color: colors.text }} numberOfLines={1}>
                               {u.full_name || u.username || 'İstifadəçi'}
@@ -473,7 +478,6 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     borderBottomWidth: 0.5,
   },
-  avatar: { width: 48, height: 48, borderRadius: 24 },
   convoInfo: { flex: 1 },
   convoName: { fontSize: FontSize.md },
   convoMessage: { fontSize: FontSize.sm, marginTop: 2 },
@@ -495,7 +499,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.05)',
     marginBottom: Spacing.sm,
   },
-  userAvatar: { width: 42, height: 42, borderRadius: 21 },
   emptyTitle: { fontSize: FontSize.xl, marginBottom: Spacing.sm },
   emptySubtitle: { fontSize: FontSize.md, textAlign: 'center', marginBottom: Spacing['3xl'] },
 })

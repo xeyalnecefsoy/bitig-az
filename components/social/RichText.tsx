@@ -1,6 +1,7 @@
 "use client"
 import Link from 'next/link'
 import { Fragment, useState } from 'react'
+import { getSafeExternalHref } from '@/lib/safeExternalUrl'
 
 interface RichTextProps {
   content: string
@@ -117,17 +118,19 @@ export function RichText({ content, locale, className = '', truncateLimit }: Ric
             suffix = lastChar;
           }
 
-          let href = cleanUrl;
-          if (cleanUrl.startsWith('www.')) {
-            href = `https://${cleanUrl}`;
-          } else if (!cleanUrl.startsWith('http')) {
-            href = `https://${cleanUrl}`;
+          const safeHref = getSafeExternalHref(cleanUrl)
+          if (!safeHref) {
+            return (
+              <Fragment key={i}>
+                {part}
+              </Fragment>
+            )
           }
-          
+
           return (
             <Fragment key={i}>
               <a 
-                href={href} 
+                href={safeHref} 
                 target="_blank" 
                 rel="noopener noreferrer" 
                 className="text-brand hover:underline break-all" 

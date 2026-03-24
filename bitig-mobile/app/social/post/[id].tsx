@@ -6,20 +6,22 @@ import {
   TextInput,
   Pressable,
   ActivityIndicator,
-  FlatList,
+  ScrollView,
   Modal,
+  Alert,
 } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Feather } from '@expo/vector-icons'
-import { Image } from 'expo-image'
 import { supabase } from '@/lib/supabase'
 import { SOCIAL_POST_ENRICHED_SELECT } from '@/lib/socialPostSelect'
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/Colors'
 import { Typography } from '@/components/ui/Typography'
 import { useSocial } from '@/context/social'
-import type { Post, User } from '@/lib/types'
-import { resolveAvatarUrl } from '@/lib/avatar'
+import type { Post } from '@/lib/types'
 import { SocialPostCard } from '@/components/social/SocialPostCard'
+import { SocialCommentThreadBlock } from '@/components/social/SocialCommentRow'
+import { buildCommentThreads } from '@/lib/commentTree'
+import { useLocale } from '@/context/locale'
 
 type SocialPostDetail = Post & {
   poll?: any
@@ -29,21 +31,12 @@ type SocialPostDetail = Post & {
   likedByMe?: boolean
 }
 
-function safeTimeAgo(date: string) {
-  const now = Date.now()
-  const created = new Date(date).getTime()
-  const diffSec = Math.max(0, Math.floor((now - created) / 1000))
-  if (diffSec < 60) return 'indicə'
-  if (diffSec < 3600) return `${Math.floor(diffSec / 60)} dəq əvvəl`
-  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)} saat əvvəl`
-  return new Date(date).toLocaleDateString('az-AZ', { day: 'numeric', month: 'short' })
-}
-
 export default function SocialPostPage() {
   const router = useRouter()
   const { id } = useLocalSearchParams<{ id: string }>()
   const postId = id || ''
 
+  const { t } = useLocale()
   const { posts, addComment, currentUser, users, editPost, loading: socialLoading, mergePostsFromSupabaseRows } = useSocial()
   const colorScheme = useColorScheme()
   const isDark = colorScheme === 'dark'
@@ -57,6 +50,7 @@ export default function SocialPostPage() {
   const [notFound, setNotFound] = useState(false)
   const [loading, setLoading] = useState(!postFromContext)
   const [commentText, setCommentText] = useState('')
+  const [replyingTo, setReplyingTo] = useState<{ id: string; username: string } | null>(null)
   const [editOpen, setEditOpen] = useState(false)
   const [editText, setEditText] = useState('')
 
@@ -95,10 +89,10 @@ export default function SocialPostPage() {
     setEditText(post.content)
   }, [editOpen, post])
 
-  const author: User | null = useMemo(() => {
-    if (!post) return null
-    return users.find(u => u.id === post.userId) || (currentUser?.id === post.userId ? (currentUser as any) : null) || null
-  }, [currentUser, post, users])
+  const commentThreads = useMemo(
+    () => (post ? buildCommentThreads(post.comments || []) : []),
+    [post],
+  )
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -135,69 +129,83 @@ export default function SocialPostPage() {
               Şərhlər ({post.comments?.length || 0})
             </Typography>
 
-            <FlatList
-              data={post.comments || []}
-              keyExtractor={c => c.id}
-              renderItem={({ item }) => (
-                <View style={[styles.commentRow, { borderBottomColor: colors.border }]}>
-                  <View style={styles.commentAvatar}>
-                    <Image
-                      source={{ uri: resolveAvatarUrl(users.find(u => u.id === item.userId)?.avatar || null, item.userId) }}
-                      style={styles.commentImg}
-                      contentFit="cover"
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Typography weight="semibold" style={{ color: colors.text }}>
-                      {users.find(u => u.id === item.userId)?.name ||
-                        users.find(u => u.id === item.userId)?.username ||
-                        'İstifadəçi'}
-                    </Typography>
-                    <Typography style={{ color: colors.textSecondary, marginTop: 6 }}>{item.content}</Typography>
-                    <Typography style={{ color: colors.textTertiary, marginTop: 6, fontSize: FontSize.xs }}>
-                      {safeTimeAgo(item.createdAt)}
-                    </Typography>
-                  </View>
-                </View>
-              )}
-              ListEmptyComponent={
+            <ScrollView nestedScrollEnabled removeClippedSubviews={false}>
+              {commentThreads.length === 0 ? (
                 <View style={{ paddingVertical: 18, paddingHorizontal: Spacing.lg }}>
                   <Typography style={{ color: colors.textTertiary }}>Hələ şərh yoxdur</Typography>
                 </View>
-              }
-            />
+              ) : (
+                commentThreads.map(t => (
+                  <SocialCommentThreadBlock
+                    key={t.id}
+                    thread={t}
+                    depth={0}
+                    postId={post.id}
+                    postOwnerId={post.userId}
+                    users={users}
+                    colors={colors}
+                    variant="detail"
+                    onReply={(cid, un) => setReplyingTo({ id: cid, username: un })}
+                  />
+                ))
+              )}
+            </ScrollView>
           </View>
 
           <View style={[styles.commentComposer, { borderTopColor: colors.border }]}>
-            <View style={[styles.commentInputBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Feather name="message-square" size={18} color={colors.textTertiary} />
-              <TextInput
-                style={[styles.commentInput, { color: colors.text }]}
-                placeholder="Şərh yazın..."
-                placeholderTextColor={colors.textTertiary}
-                value={commentText}
-                onChangeText={setCommentText}
-                multiline
-                maxLength={500}
-              />
-            </View>
+            {replyingTo && (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingHorizontal: 4,
+                  paddingBottom: 8,
+                  width: '100%',
+                }}
+              >
+                <Typography style={{ color: colors.textSecondary, fontSize: FontSize.xs }} numberOfLines={1}>
+                  {t('social_comment_replying_to').replace('{username}', replyingTo.username)}
+                </Typography>
+                <Pressable onPress={() => setReplyingTo(null)} hitSlop={8}>
+                  <Typography style={{ color: Colors.brand, fontSize: FontSize.xs }} weight="semibold">
+                    {t('cancel_btn')}
+                  </Typography>
+                </Pressable>
+              </View>
+            )}
+            <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.md, width: '100%' }}>
+              <View style={[styles.commentInputBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <Feather name="message-square" size={18} color={colors.textTertiary} />
+                <TextInput
+                  style={[styles.commentInput, { color: colors.text }]}
+                  placeholder="Şərh yazın..."
+                  placeholderTextColor={colors.textTertiary}
+                  value={commentText}
+                  onChangeText={setCommentText}
+                  multiline
+                  maxLength={500}
+                />
+              </View>
 
-            <Pressable
-              style={[
-                styles.sendBtn,
-                {
-                  backgroundColor: commentText.trim() ? Colors.brand : colors.surfaceHover,
-                  opacity: commentText.trim() ? 1 : 0.6,
-                },
-              ]}
-              disabled={!commentText.trim()}
-              onPress={async () => {
-                await addComment(post.id, commentText)
-                setCommentText('')
-              }}
-            >
-              <Feather name="send" size={18} color={commentText.trim() ? '#06140A' : colors.textTertiary} />
-            </Pressable>
+              <Pressable
+                style={[
+                  styles.sendBtn,
+                  {
+                    backgroundColor: commentText.trim() ? Colors.brand : colors.surfaceHover,
+                    opacity: commentText.trim() ? 1 : 0.6,
+                  },
+                ]}
+                disabled={!commentText.trim()}
+                onPress={async () => {
+                  await addComment(post.id, commentText.trim(), replyingTo?.id ?? null)
+                  setCommentText('')
+                  setReplyingTo(null)
+                }}
+              >
+                <Feather name="send" size={18} color={commentText.trim() ? '#06140A' : colors.textTertiary} />
+              </Pressable>
+            </View>
           </View>
         </>
       )}
@@ -277,29 +285,13 @@ const styles = StyleSheet.create({
     flex: 1,
     overflow: 'hidden',
   },
-  commentRow: {
-    padding: Spacing.lg,
-    flexDirection: 'row',
-    gap: Spacing.md,
-    borderBottomWidth: 1,
-  },
-  commentAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    overflow: 'hidden',
-  },
-  commentImg: {
-    width: '100%',
-    height: '100%',
-  },
   commentComposer: {
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderTopWidth: 1,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: Spacing.md,
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 0,
   },
   commentInputBox: {
     flex: 1,

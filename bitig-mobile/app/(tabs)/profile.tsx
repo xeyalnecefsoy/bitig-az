@@ -20,7 +20,7 @@ import { Typography } from '@/components/ui/Typography'
 import { RankBadge } from '@/components/RankBadge'
 import { AppHeader } from '@/components/AppHeader'
 import { supabase } from '@/lib/supabase'
-import { resolveAvatarUrl } from '@/lib/avatar'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 import { useSocial } from '@/context/social'
 import { SocialPostCard } from '@/components/social/SocialPostCard'
 import { SOCIAL_POST_ENRICHED_SELECT } from '@/lib/socialPostSelect'
@@ -31,6 +31,7 @@ export default function ProfileScreen() {
   const { mergePostsFromSupabaseRows } = useSocial()
   const [followersCount, setFollowersCount] = useState(0)
   const [followingCount, setFollowingCount] = useState(0)
+  const [postsCount, setPostsCount] = useState(0)
   const [profilePosts, setProfilePosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -61,10 +62,12 @@ export default function ProfileScreen() {
       const [
         { count: followers },
         { count: following },
+        { count: postsTotal },
         { data: postsData },
       ] = await Promise.all([
         supabase.from('follows').select('id', { count: 'exact', head: true }).eq('following_id', user.id),
         supabase.from('follows').select('id', { count: 'exact', head: true }).eq('follower_id', user.id),
+        supabase.from('posts').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
         supabase
           .from('posts')
           .select(SOCIAL_POST_ENRICHED_SELECT)
@@ -74,6 +77,7 @@ export default function ProfileScreen() {
       ])
       setFollowersCount(followers ?? 0)
       setFollowingCount(following ?? 0)
+      setPostsCount(postsTotal ?? 0)
       const rows = postsData as any[] | null
       if (rows?.length) {
         const mapped = await mergePostsFromSupabaseRows(rows)
@@ -85,6 +89,7 @@ export default function ProfileScreen() {
       setProfilePosts([])
       setFollowersCount(0)
       setFollowingCount(0)
+      setPostsCount(0)
     } finally {
       setLoading(false)
     }
@@ -128,7 +133,6 @@ export default function ProfileScreen() {
     )
   }
 
-  const avatarUrl = resolveAvatarUrl(profile?.avatar_url, profile?.username || user.id)
   const rank = (profile?.username === 'xeyalnecefsoy' ? 'founder' : profile?.rank) || 'novice'
   const joinDate = profile?.created_at
     ? new Date(profile.created_at).toLocaleDateString('az-AZ', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -159,10 +163,11 @@ export default function ProfileScreen() {
             )}
           </View>
           <View style={styles.avatarWrap}>
-            <Image
-              source={{ uri: avatarUrl }}
+            <UserAvatar
+              avatarUrl={profile?.avatar_url}
+              usernameOrId={profile?.username || user.id}
+              size={96}
               style={[styles.avatar, { borderColor: colors.surface }]}
-              contentFit="cover"
             />
           </View>
         </View>
@@ -200,7 +205,7 @@ export default function ProfileScreen() {
             <StatCell label="Rəy Bəyənmələri" value={profile?.review_likes_received ?? 0} color="#fbbf24" colors={colors} tintBg isDark={isDark} />
           </View>
           <View style={styles.statsRow}>
-            <StatCell label="Paylaşımlar" value={profilePosts.length} neutral colors={colors} />
+            <StatCell label="Paylaşımlar" value={postsCount} neutral colors={colors} />
             <StatCell label="İzlənilənlər" value={followingCount} neutral colors={colors} />
             <StatCell label="İzləyicilər" value={followersCount} neutral colors={colors} />
           </View>

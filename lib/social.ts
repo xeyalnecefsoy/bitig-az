@@ -29,6 +29,12 @@ export type Comment = {
   content: string
   createdAt: string
   updatedAt?: string | null
+  /** If set, this comment is a reply to another comment on the same post (X-style thread). */
+  parentCommentId?: string | null
+  /** Like count on this comment */
+  likes?: number
+  /** Current user liked this comment */
+  likedByMe?: boolean
 }
 
 export type Group = {
@@ -68,11 +74,21 @@ export type QuotedPostEmbed = {
   createdAt: string
 }
 
+export type LinkPreview = {
+  url: string
+  title: string
+  description?: string
+  imageUrl?: string
+  siteName?: string
+  type?: 'video' | 'article' | 'website'
+}
+
 export type Post = {
   id: string
   userId: string
   content: string
   imageUrls?: string[]
+  linkPreview?: LinkPreview
   parentPostId?: string
   quotedPostId?: string
   quotedPost?: QuotedPostEmbed
