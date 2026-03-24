@@ -591,23 +591,36 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         await loadPosts()
       }
 
-      // Load other profiles in background
+      // Prefetch a few recent profiles for suggestions — must MERGE into state, not replace.
+      // Replacing dropped post authors merged in loadPosts (anyone not in "top 10 by updated_at"),
+      // which made SocialPostCard fall back to Unknown until something refetched.
       supabase.from('profiles').select('*').order('updated_at', { ascending: false }).limit(10)
         .then(({ data: profiles }) => {
           if (profiles && mounted) {
             const mappedUsers: User[] = profiles.map(p => ({
               id: p.id,
-              name: p.username || 'Anonymous',
+              name: p.full_name || p.username || 'Anonymous',
               username: p.username || 'anonymous',
-              avatar: p.avatar_url || `/api/avatar?name=${encodeURIComponent(p.username || p.id)}`,
+              avatar: p.avatar_url || `/api/avatar?name=${encodeURIComponent(p.username || p.full_name || p.id)}`,
               bio: p.bio,
               joinedAt: p.updated_at
             }))
-            
+
             setUsers(prev => {
-              const currentUserId = prev[0]?.id
-              const filtered = mappedUsers.filter(u => u.id !== currentUserId)
-              return currentUserId ? [prev[0], ...filtered] : mappedUsers
+              const merged = new Map(prev.map(u => [u.id, u]))
+              for (const u of mappedUsers) {
+                if (!merged.has(u.id)) merged.set(u.id, u)
+              }
+              const list = Array.from(merged.values())
+              const selfId = authUser?.id
+              if (selfId) {
+                const idx = list.findIndex(u => u.id === selfId)
+                if (idx >= 0) {
+                  const [self] = list.splice(idx, 1)
+                  return [self, ...list]
+                }
+              }
+              return list
             })
           }
         })
