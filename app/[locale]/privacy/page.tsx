@@ -188,6 +188,32 @@ export default async function PrivacyPage({ params }: { params: Promise<{ locale
             : 'Limited retention may apply: minimal anonymised or restricted logs where required for legal obligations, dispute resolution, or security abuse prevention; payment records may be governed by our payment provider’s policies where purchases were made.'}
         </p>
 
+        <h3 id="data-deletion">
+          {isAz ? '11.1 Hesabı bağlamadan məlumatların silinməsi' : '11.1 Deleting some data without closing your account'}
+        </h3>
+        <p>
+          {isAz
+            ? 'Hesabınızı tam bağlamadan müəyyən məlumatları idarə edə və ya silməyi tələb edə bilərsiniz:'
+            : 'You can manage or request deletion of certain data without fully closing your account:'}
+        </p>
+        <ul>
+          <li>
+            {isAz
+              ? 'Öz paylaşım və şərhlərinizi tətbiqdə uyğun menyudan birbaşa silə bilərsiniz.'
+              : 'You can delete your own posts and comments directly in the app using the relevant options on each item.'}
+          </li>
+          <li>
+            {isAz
+              ? 'Digər şəxsi məlumat kateqoriyalarının silinməsi üçün qeydiyyat e-poçtunuzdan info@bitig.az ünvanına “Məlumat silinməsi” və ya “Data deletion request” mövzusu ilə yazın; mesajda Bitig @username və hansı məlumatların silinməsini istədiyinizi qısa qeyd edin. Sorğuları adətən 30 təqvim günü ərzində emal edirik.'
+              : 'For other categories of personal data, email info@bitig.az from your registered address with the subject “Data deletion request” or “Məlumat silinməsi”; include your Bitig @username and briefly list what you want removed. We typically process these within 30 calendar days.'}
+          </li>
+        </ul>
+        <p>
+          {isAz
+            ? 'Tam hesab silinməsi üçün yuxarıdakı “Hesabın və şəxsi məlumatların silinməsi” bölməsinə baxın.'
+            : 'For full account deletion, follow section 11 above (“Account and personal data deletion”).'}
+        </p>
+
         <h3>12. {isAz ? 'Dəyişikliklər' : 'Changes to this Policy'}</h3>
         <p>
           {isAz
