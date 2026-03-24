@@ -146,7 +146,49 @@ export default async function PrivacyPage({ params }: { params: Promise<{ locale
             : 'Depending on applicable law, you may have rights to access, correct, delete, or restrict processing of your data.'}
         </p>
 
-        <h3>11. {isAz ? 'Dəyişikliklər' : 'Changes to this Policy'}</h3>
+        <h3 id="account-deletion">11. {isAz ? 'Hesabın və şəxsi məlumatların silinməsi' : 'Account and personal data deletion'}</h3>
+        <p>
+          <strong>Bitig</strong>
+          {isAz
+            ? ' istifadəçilərə hesablarını və əlaqəli şəxsi məlumatları silməyi tələb etmək imkanı verir. Bu proses veb və mobil tətbiqdə eynidir.'
+            : ' allows users to request deletion of their account and associated personal data. The same process applies on web and in the mobile app.'}
+        </p>
+        <p>
+          {isAz ? 'Addımlar:' : 'Steps:'}
+        </p>
+        <ol>
+          <li>
+            {isAz
+              ? 'Qeydiyyatdan keçdiyiniz e-poçt ünvanından info@bitig.az ünvanına yazın.'
+              : 'Send an email to info@bitig.az from the email address registered on your Bitig account.'}
+          </li>
+          <li>
+            {isAz
+              ? 'Mövzu sətirinə “Hesab silinməsi” və ya “Account deletion” yazın və mesajda Bitig istifadəçi adınızı (@username) qeyd edin.'
+              : 'Use the subject line “Account deletion” or “Hesab silinməsi” and include your Bitig username (@username) in the message.'}
+          </li>
+          <li>
+            {isAz
+              ? 'Sorğuları mümkün qədər tez, adətən 30 təqvim günü ərzində emal edirik. Şübhəli təhlükəsizlik halında əlavə təsdiq istəyə bilərik.'
+              : 'We process requests as soon as reasonably possible, typically within 30 calendar days. We may request additional verification in cases of suspected abuse.'}
+          </li>
+        </ol>
+        <p>
+          {isAz ? 'Silinən və ya anonimləşdirilən məlumatlar (əlaqəli olması halında):' : 'Data that will be deleted or anonymised (where applicable):'}
+        </p>
+        <ul>
+          <li>{isAz ? 'Hesab və profil (auth qeydi, profil cədvəli)' : 'Account and profile (auth record, profile row)'}</li>
+          <li>{isAz ? 'İctimai paylaşımlar, şərhlər, bəyənmələr, izləmə əlaqələri' : 'Public posts, comments, likes, follow relationships'}</li>
+          <li>{isAz ? 'Birbaşa mesajlar (DM) və bildirişlər' : 'Direct messages (DMs) and in-app notifications'}</li>
+          <li>{isAz ? 'Profil və post şəkilləri (əlçatan saxlama məkanlarından)' : 'Profile and post media (from our storage where applicable)'}</li>
+        </ul>
+        <p>
+          {isAz
+            ? 'Məhdud saxlana bilən məlumatlar: qanuni öhdəlik, mübahisə həlli və ya təhlükəsizlik (suistifadə qarşısı) üçün zəruri olan minimum saxlama müddətində anonimləşdirilmiş və ya məhdud log/qeydlər; ödəniş tarixçəsi üçün isə ödəniş provayderinin siyasəti tətbiq oluna bilər.'
+            : 'Limited retention may apply: minimal anonymised or restricted logs where required for legal obligations, dispute resolution, or security abuse prevention; payment records may be governed by our payment provider’s policies where purchases were made.'}
+        </p>
+
+        <h3>12. {isAz ? 'Dəyişikliklər' : 'Changes to this Policy'}</h3>
         <p>
           {isAz
             ? 'Bu Məxfilik Siyasəti yenilənə bilər. Yenilənmiş versiya bu səhifədə “Son yenilənmə” tarixi ilə dərc olunur.'
