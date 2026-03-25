@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import type { Book } from '@/lib/data'
 import { BookCard } from '@/components/BookCard'
@@ -29,16 +30,16 @@ const homeMetadata = {
 
 const blogSectionCopy = {
   az: {
-    title: 'Bitig Blog: Səsli kitab bələdçiləri',
-    description: 'Səsli kitab, platforma imkanları və dinləmə vərdişləri barədə faydalı məqalələri oxuyun.',
-    hubCta: 'Bütün bələdçilərə bax',
-    guideCta: 'Məqaləni oxu',
+    title: 'Bitig Blog',
+    description: 'Səsli kitablar, oxu mədəniyyəti və platforma haqqında maraqlı yazılar.',
+    hubCta: 'Bütün yazılara bax',
+    guideCta: 'Daha ətraflı',
   },
   en: {
-    title: 'Bitig Blog: Audiobook guides',
-    description: 'Read practical articles about audiobooks, platform features, and better listening habits.',
-    hubCta: 'View all guides',
-    guideCta: 'Read article',
+    title: 'Bitig Blog',
+    description: 'Discover interesting articles about audiobooks, reading culture, and our platform.',
+    hubCta: 'View all articles',
+    guideCta: 'Read more',
   },
 } satisfies Record<Locale, Record<string, string>>
 
@@ -156,15 +157,26 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
             {copy.hubCta}
           </Link>
         </div>
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {featuredGuides.map((guide) => (
-            <article key={guide.slug} className="rounded-2xl border border-neutral-200 dark:border-neutral-800 p-5 bg-white dark:bg-neutral-900">
-              <h3 className="text-lg font-semibold mb-2">{guide.title[locale]}</h3>
-              <p className="text-sm text-neutral-600 dark:text-neutral-300 mb-4">{guide.excerpt[locale]}</p>
-              <Link href={`/${locale}/blog/${guide.slug}`} className="text-sm text-brand hover:underline">
-                {copy.guideCta}
-              </Link>
-            </article>
+            <Link href={`/${locale}/blog/${guide.slug}` as any} key={guide.slug} className="group flex flex-col rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 overflow-hidden hover:shadow-md transition-all duration-300">
+              <div className="relative w-full aspect-[16/9] sm:aspect-[16/10] bg-neutral-100 dark:bg-neutral-800 overflow-hidden">
+                <Image
+                  src={guide.image}
+                  alt={guide.title[locale]}
+                  fill
+                  className="object-cover group-hover:scale-105 transition-transform duration-500"
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                />
+              </div>
+              <div className="p-4 flex flex-col flex-1">
+                <h3 className="text-base font-semibold mb-1.5 line-clamp-2 group-hover:text-brand transition-colors leading-tight">{guide.title[locale]}</h3>
+                <p className="text-xs text-neutral-600 dark:text-neutral-300 mb-3 line-clamp-2 flex-1 leading-relaxed">{guide.excerpt[locale]}</p>
+                <span className="text-xs text-brand font-medium group-hover:underline">
+                  {copy.guideCta}
+                </span>
+              </div>
+            </Link>
           ))}
         </div>
       </section>

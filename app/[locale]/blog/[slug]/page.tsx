@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { isLocale, locales, type Locale } from '@/lib/i18n'
 import { getSeoGuideBySlug, seoGuides } from '@/lib/seoGuides'
@@ -83,13 +84,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       type: 'article',
       publishedTime: new Date(guide.publishedAt).toISOString(),
       modifiedTime: new Date(guide.updatedAt).toISOString(),
-      images: [{ url: `${BASE_URL}/og.png`, width: 1200, height: 630, alt: title }],
+      images: [{ url: guide.image || `${BASE_URL}/og.png`, width: 1200, height: 630, alt: title }],
     },
     twitter: {
       card: 'summary_large_image',
       title,
       description,
-      images: [`${BASE_URL}/og.png`],
+      images: [guide.image || `${BASE_URL}/og.png`],
     },
   }
 }
@@ -180,31 +181,52 @@ export default async function BlogArticlePage({ params }: PageProps) {
         {copy.backToBlog}
       </Link>
 
-      <article className="max-w-3xl">
-        <h1 className="text-3xl sm:text-4xl font-bold mb-4">{guide.title[locale]}</h1>
-        <p className="text-neutral-600 dark:text-neutral-300 mb-6">{guide.excerpt[locale]}</p>
+      <article className="max-w-3xl mx-auto">
+        <div className="relative w-full aspect-[2/1] sm:aspect-[21/9] mb-8 rounded-3xl overflow-hidden bg-neutral-100 dark:bg-neutral-800 shadow-sm border border-neutral-200 dark:border-neutral-800">
+          <Image
+            src={guide.image}
+            alt={guide.title[locale]}
+            fill
+            className="object-cover"
+            sizes="(max-width: 1024px) 100vw, 1024px"
+            priority
+          />
+        </div>
+        
+        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold mb-6 leading-tight tracking-tight">{guide.title[locale]}</h1>
+        <p className="text-lg sm:text-xl text-neutral-600 dark:text-neutral-300 mb-8 font-medium leading-relaxed">{guide.excerpt[locale]}</p>
 
-        <div className="flex flex-wrap gap-4 text-sm text-neutral-500 dark:text-neutral-400 mb-8">
-          <span>
+        <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-sm font-medium text-neutral-500 dark:text-neutral-400 mb-12 pb-8 border-b border-neutral-200 dark:border-neutral-800">
+          <span className="bg-neutral-100 dark:bg-neutral-800 px-3 py-1.5 rounded-full inline-flex items-center">
             {copy.published}: {formatDate(locale, guide.publishedAt)}
           </span>
-          <span>
+          <span className="hidden sm:inline text-neutral-300 dark:text-neutral-700">•</span>
+          <span className="bg-neutral-100 dark:bg-neutral-800 px-3 py-1.5 rounded-full inline-flex items-center">
             {copy.updated}: {formatDate(locale, guide.updatedAt)}
           </span>
-          <span>
+          <span className="hidden sm:inline text-neutral-300 dark:text-neutral-700">•</span>
+          <span className="bg-brand/10 text-brand px-3 py-1.5 rounded-full inline-flex items-center gap-1.5">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
             {guide.readingMinutes} {copy.readTime}
           </span>
         </div>
 
-        <div className="space-y-8">
+        <div className="space-y-12 text-lg sm:text-xl leading-relaxed text-neutral-800 dark:text-neutral-200">
           {guide.sections.map((section) => (
-            <section key={section.heading[locale]}>
-              <h2 className="text-2xl font-semibold mb-3">{section.heading[locale]}</h2>
-              <div className="space-y-3 text-neutral-700 dark:text-neutral-200">
+            <section key={section.heading[locale]} className="scroll-mt-24">
+              <h2 className="text-2xl sm:text-3xl font-bold mb-6 leading-snug tracking-tight">{section.heading[locale]}</h2>
+              <div className="space-y-6">
                 {section.paragraphs[locale].map((paragraph, index) => (
                   <p key={`${section.heading[locale]}-${index}`}>{paragraph}</p>
                 ))}
               </div>
+              {section.image && (
+                <div className="relative w-full aspect-video mt-10 rounded-2xl overflow-hidden bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-800">
+                  <Image src={section.image} alt={section.heading[locale]} fill className="object-cover" sizes="(max-width: 1024px) 100vw, 1024px" />
+                </div>
+              )}
             </section>
           ))}
         </div>
