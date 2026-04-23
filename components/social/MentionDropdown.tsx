@@ -1,3 +1,6 @@
+"use client"
+
+import { createPortal } from 'react-dom'
 import { FiUser } from 'react-icons/fi'
 
 interface User {
@@ -13,35 +16,37 @@ interface MentionDropdownProps {
   activeIndex: number
   loading: boolean
   onSelect: (user: User) => void
+  top?: number
+  left?: number
 }
 
-export function MentionDropdown({ isOpen, suggestions, activeIndex, loading, onSelect }: MentionDropdownProps) {
+export function MentionDropdown({ isOpen, suggestions, activeIndex, loading, onSelect, top = 0, left = 0 }: MentionDropdownProps) {
   if (!isOpen) return null
-  
-  if (suggestions.length === 0 && !loading) {
-    return (
-      <div className="absolute z-50 bg-white dark:bg-neutral-900 rounded-lg shadow-xl border border-neutral-200 dark:border-neutral-800 w-64 p-3 text-sm text-neutral-500 text-center animate-in fade-in zoom-in-95 duration-100 mt-1">
-        Type to search people...
-      </div>
-    )
-  }
 
-  return (
-    <div className="absolute z-50 bg-white dark:bg-neutral-900 rounded-lg shadow-xl border border-neutral-200 dark:border-neutral-800 w-64 max-h-48 overflow-y-auto animate-in fade-in zoom-in-95 duration-100 mt-1">
+  const dropdown = (
+    <div
+      className="fixed z-[500] bg-white dark:bg-neutral-900 rounded-lg shadow-xl border border-neutral-200 dark:border-neutral-800 w-64 max-h-48 overflow-y-auto animate-in fade-in zoom-in-95 duration-100"
+      style={{ top, left }}
+    >
+      {suggestions.length === 0 && !loading && (
+        <div className="p-3 text-sm text-neutral-500 text-center">
+          İstifadəçi axtarın...
+        </div>
+      )}
       {suggestions.map((user, index) => (
         <button
           key={user.id}
           onClick={() => onSelect(user)}
           className={`w-full text-left flex items-center gap-3 p-2 transition-colors ${
-            index === activeIndex 
-              ? 'bg-neutral-100 dark:bg-neutral-800' 
+            index === activeIndex
+              ? 'bg-neutral-100 dark:bg-neutral-800'
               : 'hover:bg-neutral-50 dark:hover:bg-neutral-800/50'
           }`}
         >
           {user.avatar_url ? (
-            <img 
-              src={user.avatar_url} 
-              alt={user.username} 
+            <img
+              src={user.avatar_url}
+              alt={user.username}
               className="w-8 h-8 rounded-full object-cover shrink-0"
             />
           ) : (
@@ -61,4 +66,7 @@ export function MentionDropdown({ isOpen, suggestions, activeIndex, loading, onS
       ))}
     </div>
   )
+
+  if (typeof document === 'undefined') return null
+  return createPortal(dropdown, document.body)
 }

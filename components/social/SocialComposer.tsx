@@ -335,30 +335,36 @@ function ComposerItem({
   }, [draft.value, draft.dismissedPreviewUrl, draft.linkPreview?.url, onChange])
 
   return (
-    <div className={`flex relative z-10 w-full ${showAvatarLayout ? 'mb-3 gap-3' : 'mb-1 gap-2'}`}>
+    <div className={`flex relative w-full ${showAvatarLayout ? 'mb-0 gap-0' : 'mb-1 gap-2'}`}>
       
-      {/* Avatar column ONLY for Modal layout */}
+      {/* Avatar column ONLY for Modal layout — X-style continuous thread line */}
       {showAvatarLayout && (
-        <div className="flex flex-col items-center shrink-0 w-10 relative pt-1">
-          <img src={currentUser?.avatar} alt={currentUser?.name} className="h-10 w-10 rounded-full object-cover z-10 border-2 border-white dark:border-neutral-950" />
-          {/* Thread connecting line goes up to connect to previous draft */}
+        <div className="flex flex-col items-center shrink-0 relative" style={{ width: 40 }}>
+          {/* Vertical line above avatar — connects to previous post */}
           {!isFirst && (
-             <div className="absolute bottom-10 top-[-40px] w-0.5 bg-neutral-200 dark:bg-neutral-800 -z-10" aria-hidden="true" />
+            <div className="w-0.5 bg-neutral-200 dark:bg-neutral-700" style={{ height: 12 }} aria-hidden="true" />
           )}
-          {/* Thread connecting line goes down to next draft */}
+          {isFirst && (
+            <div style={{ height: 12 }} />
+          )}
+          <img
+            src={currentUser?.avatar}
+            alt={currentUser?.name}
+            className="h-10 w-10 rounded-full object-cover z-10 border-2 border-white dark:border-neutral-950 shrink-0"
+          />
+          {/* Vertical line below avatar — connects to next post */}
           {!isLast && (
-             <div className="absolute top-10 bottom-[-24px] w-0.5 bg-neutral-200 dark:bg-neutral-800 -z-10" aria-hidden="true" />
+            <div className="flex-1 w-0.5 bg-neutral-200 dark:bg-neutral-700 min-h-[8px]" aria-hidden="true" />
           )}
         </div>
       )}
 
       {/* Main content: text area and buttons */}
       <div 
-        className={`flex-1 min-w-0 relative group`}
+        className={`flex-1 min-w-0 relative group ${showAvatarLayout ? 'pl-3' : ''}`}
         onFocus={() => setIsFocused(true)}
         onBlur={(e) => {
           if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-            // Slight delay so clicks on toolbar buttons (like file upload labels) can register before unmounting
             setTimeout(() => setIsFocused(false), 150);
           }
         }}
@@ -774,7 +780,7 @@ function ComposerItem({
                   <FiChevronRight size={32} />
                 </button>
               )}
-              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/50 text-white text-sm px-4 py-2 rounded-full backdrop-blur-md">
+<div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/50 text-white text-sm px-4 py-2 rounded-full backdrop-blur-md">
                 {expandedImage.index + 1} / {expandedImage.urls.length}
               </div>
             </>
@@ -950,6 +956,12 @@ export function SocialComposer({
            return;
         }
         handleSubmit(e);
+      }}
+      onKeyDown={(e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+          e.preventDefault();
+          e.currentTarget.requestSubmit();
+        }
       }}>
         {!isInlineReply && !isQuoteOverlay && (
           <label className="block text-sm text-neutral-600 dark:text-neutral-300 mb-2">
@@ -1072,84 +1084,99 @@ export function SocialComposer({
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] animate-in fade-in" />
           <Dialog.Content className="fixed top-[5%] sm:top-[10%] left-1/2 -translate-x-1/2 w-[95vw] sm:w-full max-w-xl bg-white dark:bg-neutral-950 rounded-2xl shadow-2xl z-[101] max-h-[85vh] sm:max-h-[90vh] flex flex-col focus:outline-none overflow-hidden border border-neutral-200 dark:border-neutral-800 animate-in zoom-in-95 duration-200">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-100 dark:border-neutral-800 shrink-0">
-               <Dialog.Close asChild>
-                 <button 
-                   className="p-2 -ml-2 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-full transition-colors"
-                   disabled={isUploading}
-                 >
-                   <FiX size={20} />
-                 </button>
-               </Dialog.Close>
-               <Dialog.Title className="font-semibold text-[15px] mr-2 text-brand">Ardlar (Threads)</Dialog.Title>
-               <Dialog.Description className="sr-only">Çoxlu paylaşımlar yaratmaq üçün dialoq pəncərəsi</Dialog.Description>
+{/* Modal Header — X-style minimal */}
+            <div className="flex items-center justify-between px-4 py-3 shrink-0">
+                <Dialog.Close asChild>
+                  <button 
+                    className="p-2 -ml-2 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-full transition-colors"
+                    disabled={isUploading}
+                  >
+                    <FiX size={20} />
+                  </button>
+                </Dialog.Close>
+                <Dialog.Title className="font-bold text-[17px] text-neutral-900 dark:text-neutral-100">{t(locale, 'add_to_thread') || 'Ardlar yarat'}</Dialog.Title>
+                <Dialog.Description className="sr-only">Çoxlu paylaşımlar yaratmaq üçün dialoq pəncərəsi</Dialog.Description>
+                <div className="w-9" />
             </div>
 
             {/* Modal Body (Scrollable drafts) */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-5">
               <form id="modal-compose-form" onSubmit={handleSubmit} className="flex flex-col relative w-full pt-2">
-                {drafts.map((draft, i) => (
-                   <ComposerItem 
-                     key={draft.id}
-                     draft={draft}
-                     onChange={(updates) => handleUpdateDraft(i, updates)}
-                     onRemove={() => handleRemoveDraft(i)}
-                     isFirst={i === 0}
-                     isLast={i === drafts.length - 1}
-                     isUploading={isUploading}
-                     index={i}
-                     totalDrafts={drafts.length}
-                     isInlineReply={isInlineReply}
-                     isModalConfig={true} // Triggers avatar rendering and compact styles
-                     allowEmptyBody={!!quotedPostId && i === 0}
-                   />
-                ))}
+{drafts.map((draft, i) => {
+                    const isLastDraft = i === drafts.length - 1
+                    const showAddButton = isLastDraft && drafts[drafts.length - 1].isValid
+                    return (
+                    <ComposerItem 
+                      key={draft.id}
+                      draft={draft}
+                      onChange={(updates) => handleUpdateDraft(i, updates)}
+                      onRemove={() => handleRemoveDraft(i)}
+                      isFirst={i === 0}
+                      isLast={isLastDraft && !showAddButton}
+                      isUploading={isUploading}
+                      index={i}
+                      totalDrafts={drafts.length}
+                      isInlineReply={isInlineReply}
+                      isModalConfig={true}
+                      allowEmptyBody={!!quotedPostId && i === 0}
+                    />
+                    )
+                  })}
 
-                {/* The (+) Button in Modal at the end of the thread */}
-                {drafts[drafts.length - 1].isValid && (
-                  <div className="flex items-center mt-2 pb-6">
-                    <div className="ml-[10px] relative">
-                      {drafts.length > 0 && (
-                        <div className="absolute top-[-30px] bottom-[28px] left-[10px] w-0.5 bg-neutral-200 dark:bg-neutral-800 -z-10" aria-hidden="true" />
-                      )}
-                      
-                      {/* Using identical avatar rendering instead of border plus */}
-                      <button 
-                        type="button"
-                        onMouseDown={(e) => {
-                          // Prevent focus loss from active textarea which swallows the click event
-                          e.preventDefault() 
-                        }}
-                        onClick={() => {
-                          const newDraft = createEmptyDraft()
-                          setDrafts(prev => [...prev, newDraft])
-                        }}
-                        disabled={isUploading}
-                        className="flex items-center gap-3 w-full text-left focus:outline-none group/add"
-                      >
-                         <div className="flex items-center justify-center w-[22px] h-[22px] rounded-full border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 group-hover/add:border-brand transition-colors z-10">
-                            <FiPlus className="w-3.5 h-3.5 text-neutral-400 group-hover/add:text-brand transition-colors" />
-                         </div>
-                         <span className="text-[15px] font-medium text-neutral-400 group-hover/add:text-brand transition-colors">
-                           {t(locale, 'add_to_thread') || 'Ardlar yarat'}
-                         </span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </form>
-            </div>
+{/* The (+) Add to thread button — X-style with avatar + line continuation */}
+                 {drafts[drafts.length - 1].isValid && (
+                   <div className="flex items-start">
+                     <div className="flex flex-col items-center shrink-0 relative" style={{ width: 40 }}>
+                       <div className="w-0.5 bg-neutral-200 dark:bg-neutral-700" style={{ height: 8 }} aria-hidden="true" />
+                       <button 
+                         type="button"
+                         onMouseDown={(e) => {
+                           e.preventDefault() 
+                         }}
+                         onClick={() => {
+                           const newDraft = createEmptyDraft()
+                           setDrafts(prev => [...prev, newDraft])
+                         }}
+                         disabled={isUploading}
+                         className="flex items-center justify-center h-10 w-10 rounded-full border-2 border-dashed border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 hover:border-brand hover:bg-brand/5 transition-colors z-10 shrink-0"
+                       >
+                         <FiPlus className="w-4 h-4 text-neutral-400 hover:text-brand transition-colors" />
+                       </button>
+                     </div>
+                     <div className="pt-3 pl-3">
+                       <button
+                         type="button"
+                         onMouseDown={(e) => e.preventDefault()}
+                         onClick={() => {
+                           const newDraft = createEmptyDraft()
+                           setDrafts(prev => [...prev, newDraft])
+                         }}
+                         disabled={isUploading}
+                         className="text-[15px] text-neutral-400 hover:text-brand transition-colors"
+                       >
+                         {t(locale, 'add_to_thread') || 'Ardlara əlavə et'}
+                       </button>
+                     </div>
+                   </div>
+                 )}
+               </form>
+             </div>
 
-            {/* Modal Footer (Sticky Post All button) */}
-            <div className="p-3 sm:p-4 border-t border-neutral-100 dark:border-neutral-800 shrink-0 flex items-center justify-between bg-white dark:bg-neutral-950">
-               <div className="text-xs font-medium text-brand">Hər kəs cavab yaza bilər</div>
-               <button 
-                  type="submit"
-                  form="modal-compose-form"
-                  disabled={!isAllValid || isUploading}
-                  className="btn btn-primary px-6 py-2 rounded-full font-semibold opacity-90 hover:opacity-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                >
+{/* Modal Footer — X-style with thread count */}
+             <div className="px-4 py-3 border-t border-neutral-100 dark:border-neutral-800 shrink-0 flex items-center justify-between bg-white dark:bg-neutral-950">
+                <div className="flex items-center gap-2">
+                  {drafts.length > 1 && (
+                    <span className="text-xs font-medium text-neutral-400">
+                      {drafts.length} {t(locale, 'posts') || 'paylaşım'}
+                    </span>
+                  )}
+                </div>
+                <button 
+                   type="button"
+                   disabled={!isAllValid || isUploading}
+                   onClick={() => handleSubmit({ preventDefault: () => {} } as React.FormEvent)}
+                   className="btn btn-primary px-5 py-1.5 rounded-full font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                 >
                   {isUploading ? (
                     <span className="animate-spin inline-block w-4 h-4 border-2 border-white/20 border-t-white rounded-full"></span>
                   ) : null}

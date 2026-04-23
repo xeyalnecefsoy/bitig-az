@@ -11,7 +11,7 @@ export function CustomToaster() {
     >
       {(t) => (
         <div
-          className="mt-4 sm:mt-8 w-full flex justify-center px-4 sm:px-0"
+          className="mt-16 sm:mt-20 w-full flex justify-center px-4 sm:px-0"
           style={{
             opacity: t.visible ? 1 : 0,
             transform: t.visible ? 'translateY(0)' : 'translateY(-1rem)',

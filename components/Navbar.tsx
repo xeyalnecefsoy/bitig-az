@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -9,20 +9,62 @@ import { t } from '@/lib/i18n'
 import { FiGlobe, FiMoon, FiSun, FiShoppingCart, FiHome, FiHeadphones, FiUser, FiMessageCircle, FiBook, FiSend } from 'react-icons/fi'
 import { useTheme } from '@/context/theme'
 import { NotificationsBtn } from './NotificationsBtn'
+import { useAuth } from '@/context/auth'
+import { createClient } from '@/lib/supabase/client'
 
 export function Navbar() {
   const { count } = useCart()
   const locale = useLocale()
+  const { user } = useAuth()
+  const supabase = useMemo(() => createClient(), [])
   const homeHref: string = `/${locale}`
   const audiobooksHref: string = `/${locale}/audiobooks`
   const socialHref: string = `/${locale}/social`
   const cartHref: string = `/${locale}/cart`
   const { theme, toggle } = useTheme()
   const [mounted, setMounted] = useState(false)
+  const [dmUnreadCount, setDmUnreadCount] = useState(0)
 
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  useEffect(() => {
+    const uid = user?.id
+    if (!uid) {
+      setDmUnreadCount(0)
+      return
+    }
+
+    async function load() {
+      const { data } = await supabase
+        .from('conversation_participants')
+        .select('status, unread_count')
+        .eq('user_id', uid)
+      const total = (data || []).reduce((count: number, row: any) => {
+        const status = String(row?.status || '').toLowerCase()
+        const unread = Number(row?.unread_count || 0)
+        if (status !== 'accepted') return count
+        return unread > 0 ? count + 1 : count
+      }, 0)
+      setDmUnreadCount(total)
+    }
+
+    load()
+
+    const channel = supabase
+      .channel(`web-dm-unread-${uid}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'conversation_participants', filter: `user_id=eq.${uid}` },
+        () => load(),
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [supabase, user?.id])
 
   return (
     <header className="hidden lg:block sticky top-0 z-50 backdrop-blur supports-[backdrop-filter]:bg-white/70 bg-white/90 border-b border-neutral-100 dark:supports-[backdrop-filter]:bg-neutral-950/70 dark:bg-neutral-950/90 dark:border-neutral-800">
@@ -38,11 +80,14 @@ export function Navbar() {
           <Link href={cartHref as any} className="hover:text-brand inline-flex items-center gap-1">
             <FiShoppingCart /> {t(locale, 'nav_cart')} <span className="ml-1 rounded-full bg-brand/10 px-2 py-0.5 text-brand">{count}</span>
           </Link>
-          {usePathname().startsWith(`/${locale}/social`) && (
-            <Link href={`/${locale}/messages` as any} className="hover:text-brand" aria-label={t(locale, 'dm_title')}>
-              <FiSend className="text-xl" />
-            </Link>
-          )}
+          <Link href={`/${locale}/messages` as any} className="relative hover:text-brand" aria-label={t(locale, 'dm_title')}>
+            <FiSend className="text-xl" />
+            {dmUnreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 rounded-full bg-brand text-[#06140A] text-[10px] font-bold flex items-center justify-center border-2 border-neutral-950/0">
+                {dmUnreadCount > 99 ? '99+' : dmUnreadCount}
+              </span>
+            )}
+          </Link>
           <NotificationsBtn />
           <LangDropdown current={locale} />
           <button
@@ -192,10 +237,45 @@ export function MobileHeader() {
   const pathname = usePathname()
   const { theme, toggle } = useTheme()
   const [mounted, setMounted] = useState(false)
+  const { user } = useAuth()
+  const supabase = useMemo(() => createClient(), [])
+  const [dmUnreadCount, setDmUnreadCount] = useState(0)
 
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  useEffect(() => {
+    const uid = user?.id
+    if (!uid) {
+      setDmUnreadCount(0)
+      return
+    }
+
+    async function load() {
+      const { data } = await supabase
+        .from('conversation_participants')
+        .select('unread_count')
+        .eq('user_id', uid)
+      const total = (data || []).reduce((sum: number, row: any) => sum + Number(row.unread_count || 0), 0)
+      setDmUnreadCount(total)
+    }
+
+    load()
+
+    const channel = supabase
+      .channel(`web-dm-unread-mh-${uid}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'conversation_participants', filter: `user_id=eq.${uid}` },
+        () => load(),
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [supabase, user?.id])
 
   // Admin layout renders its own fixed top bar (Bitig Admin). Hide the site mobile header
   // so we don't stack two competing navbars on small screens.
@@ -211,11 +291,14 @@ export function MobileHeader() {
           <span className="font-semibold text-base">Bitig</span>
         </Link>
         <div className="flex items-center gap-3">
-          {pathname.startsWith(`/${locale}/social`) && (
-            <Link href={`/${locale}/messages` as any} className="text-neutral-700 dark:text-neutral-200" aria-label={t(locale, 'dm_title')}>
-              <FiSend size={20} />
-            </Link>
-          )}
+          <Link href={`/${locale}/messages` as any} className="relative text-neutral-700 dark:text-neutral-200" aria-label={t(locale, 'dm_title')}>
+            <FiSend size={20} />
+            {dmUnreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 rounded-full bg-brand text-[#06140A] text-[10px] font-bold flex items-center justify-center">
+                {dmUnreadCount > 99 ? '99+' : dmUnreadCount}
+              </span>
+            )}
+          </Link>
           <NotificationsBtn />
           <LangDropdown current={locale} />
           <button

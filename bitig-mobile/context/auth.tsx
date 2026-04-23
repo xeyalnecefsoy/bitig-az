@@ -74,8 +74,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const token = await registerForPushNotificationsAsync()
       if (token) {
-        console.log('Push Token Generated:', token)
-        // Store token in database logic
+        await supabase
+          .from('mobile_push_tokens')
+          .upsert(
+            {
+              user_id: userId,
+              token,
+              platform: 'expo',
+              active: true,
+              last_seen_at: new Date().toISOString(),
+            },
+            { onConflict: 'user_id,token' },
+          )
       }
     } catch (e) {
       console.log('Failed to setup notifications:', e)

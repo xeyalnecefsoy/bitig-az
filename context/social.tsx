@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useMemo, useState, useCallback, u
 import { type Post, type User, type Comment, type Notification, type QuotedPostEmbed, type LinkPreview } from '@/lib/social'
 import { collectSubtreeCommentIds } from '@/lib/commentTree'
 import { createClient } from '@/lib/supabase/client'
+import toast from 'react-hot-toast'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/auth'
 import {
@@ -539,7 +540,8 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
            // Ensure we only keep latest 30
            const finalNotifs = mappedNotifs.slice(0, 30)
            setNotifications(finalNotifs)
-           setUnreadCount(finalNotifs.filter((n: any) => !n.read).length)
+           // Bell badge should not count DM items (DM has its own inbox badge).
+           setUnreadCount(finalNotifs.filter((n: any) => !n.read && n.type !== 'dm').length)
         }
 
         // Subscribe to notifications
@@ -554,27 +556,66 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
             filter: `user_id=eq.${authUser.id}`,
           },
           async (payload) => {
-             // Fetch new notification details
-             const { data: newNotif } = await supabase
-               .from('notifications')
-               .select(`*, actor:profiles!actor_id(username, avatar_url)`)
-               .eq('id', payload.new.id)
-               .single()
-             
-             if (newNotif) {
-                const mappedNew = {
+            // payload.new includes read/unread state; update badge even if actor enrichment is blocked by RLS.
+            const raw = payload.new as any
+            const shouldIncrementUnread = !raw.read && raw.type !== 'dm'
+
+            let mappedNew: any = {
+              ...raw,
+              actor: undefined,
+            }
+
+            try {
+              // Enrich actor for better UX (name/avatar). If this fails, unread indicator still must work.
+              const { data: newNotif } = await supabase
+                .from('notifications')
+                .select(`*, actor:profiles!actor_id(username, avatar_url)`)
+                .eq('id', raw.id)
+                .single()
+
+              if (newNotif) {
+                mappedNew = {
                   ...newNotif,
-                  actor: newNotif.actor ? {
-                    username: newNotif.actor.username,
-                    avatar_url: newNotif.actor.avatar_url || `/api/avatar?name=${encodeURIComponent(newNotif.actor.username || newNotif.actor_id)}`
-                  } : undefined
+                  actor: newNotif.actor
+                    ? {
+                        username: newNotif.actor.username,
+                        avatar_url:
+                          newNotif.actor.avatar_url ||
+                          `/api/avatar?name=${encodeURIComponent(newNotif.actor.username || newNotif.actor_id)}`,
+                      }
+                    : undefined,
                 }
-                setNotifications(prev => {
-                  const newArray = [mappedNew, ...prev]
-                  return newArray.slice(0, 30)
-                })
-                setUnreadCount(prev => prev + 1)
-             }
+              }
+            } catch {
+              // ignore enrichment failures
+            }
+
+            if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+              const actorName = mappedNew.actor?.username || 'Bitig'
+              const text =
+                mappedNew.type === 'like' ? 'paylaşımınızı bəyəndi' :
+                mappedNew.type === 'comment' ? 'paylaşımınıza şərh yazdı' :
+                mappedNew.type === 'follow' ? 'sizi izləməyə başladı' :
+                mappedNew.type === 'dm' ? 'sizə mesaj göndərdi' :
+                'yeni bildiriş'
+              const n = new Notification(actorName, { body: text })
+              n.onclick = () => {
+                const localeSeg = window.location.pathname.split('/')[1] || 'az'
+                const target =
+                  mappedNew.type === 'dm'
+                    ? (mappedNew.actor?.username
+                        ? `/${localeSeg}/messages/${encodeURIComponent(mappedNew.actor.username)}`
+                        : `/${localeSeg}/messages?id=${mappedNew.entity_id}`)
+                    : `/${localeSeg}/social`
+                window.location.href = target
+              }
+            }
+
+            setNotifications(prev => {
+              const newArray = [mappedNew, ...prev]
+              return newArray.slice(0, 30)
+            })
+            if (shouldIncrementUnread) setUnreadCount(prev => prev + 1)
           }
         )
         .subscribe()
@@ -712,12 +753,33 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
   const addComment = async (postId: string, content: string, parentCommentId?: string | null) => {
     if (!currentUser) return
 
+    // Parse @username mentions from content
+    const mentionRegex = /@([a-zA-Z0-9_]{3,20})/g
+    const usernames: string[] = []
+    let match: RegExpExecArray | null
+    while ((match = mentionRegex.exec(content)) !== null) {
+      usernames.push(match[1].toLowerCase())
+    }
+
+    // Resolve usernames to user ids
+    let mentionedUserIds: string[] = []
+    if (usernames.length > 0) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, username')
+        .in('username', usernames)
+      if (profiles) {
+        mentionedUserIds = profiles.map((p: { id: string }) => p.id)
+      }
+    }
+
     const payload: Record<string, unknown> = {
       post_id: postId,
       user_id: currentUser.id,
       content,
     }
     if (parentCommentId) payload.parent_comment_id = parentCommentId
+    if (mentionedUserIds.length > 0) payload.mentioned_user_ids = mentionedUserIds
 
     const { data, error } = await supabase.from('comments').insert(payload).select().single()
 
@@ -731,6 +793,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         parentCommentId: data.parent_comment_id ?? null,
         likes: 0,
         likedByMe: false,
+        mentionedUserIds: data.mentioned_user_ids ?? [],
       }
       setPosts(prev => prev.map(p => p.id === postId ? { ...p, comments: [...p.comments, newComment] } : p))
     }
@@ -742,7 +805,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     // Ensure content is strictly not completely empty to avoid Postgres `not null` or implicit checks failing
     const safeContent = content.trim() === '' ? ' ' : content
 
-    const { data, error } = await supabase.from('posts').insert({
+    const insertPayload: Record<string, any> = {
       user_id: currentUser.id,
       content: safeContent,
       image_urls: imageUrls,
@@ -752,16 +815,29 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
       link_preview_image_url: linkPreview?.imageUrl ?? null,
       link_preview_site_name: linkPreview?.siteName ?? null,
       link_preview_type: linkPreview?.type ?? null,
-      parent_post_id: parentPostId,
       quoted_post_id: quotedPostId ?? null,
       mentioned_book_id: mentionedBookId,
       group_id: groupId
-    }).select().single()
+    }
+    if (parentPostId) insertPayload.parent_post_id = parentPostId
+
+    let { data, error } = await supabase.from('posts').insert(insertPayload).select().single()
 
     if (error) {
-      console.error('Error creating post:', error)
-      alert('Paylaşım edilərkən xəta baş verdi: ' + error.message)
-      return undefined
+      if (error.message?.includes('parent_post_id') && parentPostId) {
+        delete insertPayload.parent_post_id
+        const retry = await supabase.from('posts').insert(insertPayload).select().single()
+        if (retry.error) {
+          console.error('Error creating post (retry):', retry.error)
+          toast.error('Paylaşım edilərkən xəta baş verdi: ' + retry.error.message)
+          return undefined
+        }
+        if (retry.data) { data = retry.data } else { return undefined }
+      } else {
+        console.error('Error creating post:', error)
+        toast.error('Paylaşım edilərkən xəta baş verdi: ' + error.message)
+        return undefined
+      }
     }
 
     if (data) {
@@ -936,27 +1012,52 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
 
   const deletePost = async (postId: string) => {
     if (!currentUser) return
-    
+
     const postToDelete = posts.find(p => p.id === postId)
 
-    // Optimistic update
-    setPosts(prev => prev.filter(p => p.id !== postId))
+    // Find all descendants in the thread chain (children, grandchildren, etc.)
+    const descendantIds: string[] = []
+    const queue = [postId]
+    while (queue.length > 0) {
+      const current = queue.shift()!
+      const children = posts.filter(p => p.parentPostId === current && p.userId === currentUser.id)
+      for (const child of children) {
+        descendantIds.push(child.id)
+        queue.push(child.id)
+      }
+    }
+
+    const allIdsToDelete = [postId, ...descendantIds]
+
+    // Optimistic update — remove the post and all its descendants from local state
+    setPosts(prev => prev.filter(p => !allIdsToDelete.includes(p.id)))
 
     // Delete images from storage first
     if (postToDelete && postToDelete.imageUrls && postToDelete.imageUrls.length > 0) {
-      // Import dynamically or explicitly if needed, but we can just use the storage client directly here to avoid circular dependencies if any, or just import it at the top.
       const { deletePostImages } = await import('@/lib/supabase/storage')
       await deletePostImages(postToDelete.imageUrls)
     }
 
-    const { error } = await supabase
-      .from('posts')
-      .delete()
-      .eq('id', postId)
-      .eq('user_id', currentUser.id)
+    // Also delete images from descendant posts
+    for (const id of descendantIds) {
+      const child = posts.find(p => p.id === id)
+      if (child && child.imageUrls && child.imageUrls.length > 0) {
+        const { deletePostImages } = await import('@/lib/supabase/storage')
+        await deletePostImages(child.imageUrls)
+      }
+    }
 
-    if (error) {
-      console.error('Error deleting post:', error)
+    // Delete all posts in the chain from the database
+    for (const id of allIdsToDelete) {
+      const { error } = await supabase
+        .from('posts')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', currentUser.id)
+
+      if (error) {
+        console.error('Error deleting post:', error)
+      }
     }
   }
 
@@ -1087,11 +1188,12 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
   const markNotificationsAsRead = async () => {
     if (!currentUser || unreadCount === 0) return
 
-    const ids = notifications.filter(n => !n.read).map(n => n.id)
+    // Do not mark DM notifications here; DM read-state is tied to opening the conversation.
+    const ids = notifications.filter(n => !n.read && n.type !== 'dm').map(n => n.id)
     
     // Optimistic update
     setUnreadCount(0)
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+    setNotifications(prev => prev.map(n => (n.type === 'dm' ? n : { ...n, read: true })))
 
     if (ids.length > 0) {
       const { error } = await supabase.from('notifications').update({ read: true }).in('id', ids)

@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useSocial } from '@/context/social'
-import { FiHeart, FiMessageCircle, FiTrash2, FiX, FiChevronLeft, FiChevronRight, FiMoreHorizontal, FiEdit2, FiCopy, FiMessageSquare, FiAlertTriangle, FiFlag, FiRepeat } from 'react-icons/fi'
+import { FiHeart, FiMessageCircle, FiTrash2, FiX, FiChevronLeft, FiChevronRight, FiMoreHorizontal, FiEdit2, FiCopy, FiMessageSquare, FiAlertTriangle, FiFlag, FiRepeat, FiShare2 } from 'react-icons/fi'
 import { AiFillHeart } from 'react-icons/ai'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -17,11 +17,30 @@ import { ExternalLinkPreviewCard } from './ExternalLinkPreviewCard'
 import * as Popover from '@radix-ui/react-popover'
 import { SocialComposer } from './SocialComposer'
 import { QuotedPostCard } from './QuotedPostCard'
+import { ShareModal } from './ShareModal'
 import { calculatePollPercentages } from '@/lib/pollUtils'
 import toast from 'react-hot-toast'
 import { getRootCommentsForPreview, isCommentEdited } from '@/lib/commentTree'
+import { useMentions } from '@/hooks/useMentions'
+import { MentionDropdown } from './MentionDropdown'
 
-export function SocialPostCard({ postId, disableHover = false, isThread = false }: { postId: string, disableHover?: boolean, isThread?: boolean }) {
+export function SocialPostCard({
+  postId,
+  disableHover = false,
+  isThread = false,
+  inThread = false,
+  isLastInThread = true,
+  threadPosition,
+  threadTotal,
+}: {
+  postId: string
+  disableHover?: boolean
+  isThread?: boolean
+  inThread?: boolean
+  isLastInThread?: boolean
+  threadPosition?: number
+  threadTotal?: number
+}) {
   const { posts, addComment, like, users, currentUser, deletePost, editPost, voteOnPoll } = useSocial()
   const post = posts.find(p => p.id === postId)
   const [comment, setComment] = useState('')
@@ -35,8 +54,20 @@ export function SocialPostCard({ postId, disableHover = false, isThread = false 
   const [editContent, setEditContent] = useState(post?.content || '')
   const [showReplyComposer, setShowReplyComposer] = useState(false)
   const [showQuoteComposer, setShowQuoteComposer] = useState(false)
+  const [showShareModal, setShowShareModal] = useState(false)
   const [portalReady, setPortalReady] = useState(false)
   const locale = useLocale()
+
+  const {
+    isOpen: isMentionOpen,
+    suggestions: mentionSuggestions,
+    activeIndex: mentionActiveIndex,
+    loading: mentionLoading,
+    position: mentionPosition,
+    handleInputChange: handleMentionInputChange,
+    handleKeyDown: handleMentionKeyDown,
+    selectUser: selectMentionUser,
+  } = useMentions()
 
   useEffect(() => {
     setPortalReady(true)
@@ -57,8 +88,12 @@ export function SocialPostCard({ postId, disableHover = false, isThread = false 
 
   const router = useRouter()
 
+  const cardClasses = inThread
+    ? `min-w-0 w-full overflow-hidden p-4 sm:p-5 ${isThread ? 'border-t border-neutral-200 dark:border-neutral-800' : ''}`
+    : `card p-4 sm:p-5 min-w-0 w-full overflow-hidden ${isThread ? 'border-t-0 rounded-t-none mt-0' : ''}`
+
   return (
-    <article className={`card p-4 sm:p-5 min-w-0 w-full overflow-hidden ${isThread ? 'border-t-0 rounded-t-none mt-0' : ''}`}>
+    <article className={cardClasses}>
       {post.status === 'rejected' && isOwnPost && (
         <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 rounded-lg flex flex-col gap-1.5 text-sm font-medium border border-red-100 dark:border-red-900/30">
           <div className="flex items-center gap-2">
@@ -86,7 +121,7 @@ export function SocialPostCard({ postId, disableHover = false, isThread = false 
       <header className="flex items-start gap-3 relative">
         {/* Thread connecting line - only if this post is Part of a thread but not the very first one */}
         {isThread && (
-          <div className="absolute -top-10 left-[1.125rem] bottom-0 w-0.5 bg-neutral-200 dark:bg-neutral-800 -z-10" aria-hidden="true" />
+          <div className="absolute -top-[2.6rem] left-[1.125rem] bottom-0 w-[3px] rounded-full bg-brand/30 dark:bg-brand/20 -z-10" aria-hidden="true" />
         )}
         <UserHoverCard userId={author.id} disabled={shouldDisableHover} className="flex items-start gap-3 flex-1 min-w-0 relative">
           <Link href={`/${locale}/social/profile/${author.username}` as any} className="shrink-0">
@@ -98,24 +133,16 @@ export function SocialPostCard({ postId, disableHover = false, isThread = false 
                 {author.name}
               </Link>
             </div>
-            <div className="text-xs text-neutral-500 dark:text-neutral-400">
+            <div className="text-xs text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
               {timeAgo(post.createdAt, locale)}
-              {post.updatedAt && <span className="ml-1 italic opacity-70">({t(locale, 'edited') || 'redaktə edilib'})</span>}
+              {post.updatedAt && <span className="italic opacity-70">({t(locale, 'edited') || 'redaktə edilib'})</span>}
+              {typeof threadPosition === 'number' && typeof threadTotal === 'number' && threadTotal > 1 && (
+                <span className="text-brand font-medium">{threadPosition}/{threadTotal}</span>
+              )}
             </div>
           </div>
         </UserHoverCard>
         <div className="relative flex items-center gap-1">
-          {isOwnPost && (
-             <button
-               onClick={() => setShowDeleteConfirm(true)}
-               disabled={isDeleting}
-               className="p-1 text-neutral-400 hover:text-red-500 transition-colors disabled:opacity-50"
-               title={t(locale, 'delete_post')}
-               aria-label={t(locale, 'delete_post')}
-             >
-               <FiTrash2 />
-             </button>
-          )}
           <Popover.Root open={isMoreOpen} onOpenChange={setIsMoreOpen}>
             <Popover.Trigger asChild>
               <button
@@ -156,7 +183,7 @@ export function SocialPostCard({ postId, disableHover = false, isThread = false 
                   <FiCopy size={14} className="opacity-70" /> {t(locale, 'copy_link') || "URL kopyala"}
                 </button>
                 {isOwnPost && !isThread && (
-                  <button 
+                  <button
                     onClick={() => {
                       setIsMoreOpen(false)
                       setShowReplyComposer(true)
@@ -164,6 +191,17 @@ export function SocialPostCard({ postId, disableHover = false, isThread = false 
                     className="w-full text-left p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-md transition-colors text-sm text-neutral-700 dark:text-neutral-300 font-medium flex items-center gap-2"
                   >
                     <FiMessageSquare size={14} className="opacity-70" /> {t(locale, 'add_to_thread')}
+                  </button>
+                )}
+                {isOwnPost && (
+                  <button
+                    onClick={() => {
+                      setIsMoreOpen(false)
+                      setShowDeleteConfirm(true)
+                    }}
+                    className="w-full text-left p-2 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-md transition-colors text-sm text-red-600 dark:text-red-400 font-medium border-t border-neutral-100 dark:border-neutral-800 mt-1 pt-1 flex items-center gap-2"
+                  >
+                    <FiTrash2 size={14} className="opacity-70" /> {t(locale, 'delete_post')}
                   </button>
                 )}
                 {!isOwnPost && (
@@ -191,7 +229,13 @@ export function SocialPostCard({ postId, disableHover = false, isThread = false 
       <ConfirmDialog
         isOpen={showDeleteConfirm}
         title={t(locale, 'delete_post')}
-        message={t(locale, 'confirm_delete_post_desc')}
+        message={
+          posts.some(p => p.parentPostId === post.id && p.userId === post.userId)
+            ? (locale === 'az'
+                ? 'Bu arda daxil olan digər paylaşımlar da silinəcək. Bu əməliyyat geri qaytarıla bilməz.'
+                : 'Other posts in this thread will also be deleted. This action cannot be undone.')
+            : t(locale, 'confirm_delete_post_desc')
+        }
         confirmLabel={t(locale, 'confirm_btn')}
         cancelLabel={t(locale, 'cancel_btn')}
         variant="danger"
@@ -413,18 +457,36 @@ export function SocialPostCard({ postId, disableHover = false, isThread = false 
           />
         </div>
       )}
-      <div className="mt-4 flex items-center gap-4 text-sm flex-wrap">
+      {/* ── Action bar ── */}
+      <div className="mt-4 flex items-center gap-6 text-sm flex-wrap">
+        {/* Like */}
         <button
           onClick={() => like(post.id)}
-          className="inline-flex items-center gap-2 text-neutral-700 dark:text-neutral-300 hover:text-brand"
+          className={`group inline-flex items-center gap-1.5 transition-colors ${post.likedByMe ? 'text-red-500' : 'text-neutral-500 dark:text-neutral-400 hover:text-red-500'}`}
           aria-pressed={post.likedByMe ? 'true' : 'false'}
           aria-label={post.likedByMe ? t(locale, 'unlike_post') : t(locale, 'like_post')}
+          title={post.likedByMe ? t(locale, 'unlike_post') : t(locale, 'like_post')}
         >
-          {post.likedByMe ? <AiFillHeart className="text-brand" /> : <FiHeart />} {post.likes}
+          <span className="p-1.5 rounded-full group-hover:bg-red-500/10 transition-colors">
+            {post.likedByMe ? <AiFillHeart size={18} /> : <FiHeart size={18} />}
+          </span>
+          <span className="tabular-nums">{post.likes || 0}</span>
         </button>
-        <Link href={`/${locale}/social/post/${post.id}` as any} className="inline-flex items-center gap-2 text-neutral-500 dark:text-neutral-400 hover:text-brand">
-          <FiMessageCircle /> {post.comments.length}
+
+        {/* Comment */}
+        <Link
+          href={`/${locale}/social/post/${post.id}` as any}
+          className="group inline-flex items-center gap-1.5 text-neutral-500 dark:text-neutral-400 hover:text-sky-500 transition-colors"
+          onClick={(e) => e.stopPropagation()}
+          title={t(locale, 'social_write_comment')}
+        >
+          <span className="p-1.5 rounded-full group-hover:bg-sky-500/10 transition-colors">
+            <FiMessageCircle size={18} />
+          </span>
+          <span className="tabular-nums">{post.comments.length || 0}</span>
         </Link>
+
+        {/* Quote */}
         <button
           type="button"
           onClick={(e) => {
@@ -436,13 +498,44 @@ export function SocialPostCard({ postId, disableHover = false, isThread = false 
             }
             setShowQuoteComposer(true)
           }}
-          className="inline-flex items-center gap-2 text-neutral-500 dark:text-neutral-400 hover:text-brand"
+          className="group inline-flex items-center gap-1.5 text-neutral-500 dark:text-neutral-400 hover:text-brand transition-colors"
           title={t(locale, 'social_quote')}
           aria-label={t(locale, 'social_quote')}
         >
-          <FiRepeat /> {t(locale, 'social_quote')}
+          <span className="p-1.5 rounded-full group-hover:bg-brand/10 transition-colors">
+            <FiRepeat size={18} />
+          </span>
+          <span>{t(locale, 'social_quote')}</span>
+        </button>
+
+        {/* Share */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            setShowShareModal(true)
+          }}
+          className="group inline-flex items-center gap-1.5 text-neutral-500 dark:text-neutral-400 hover:text-brand transition-colors"
+          title={t(locale, 'share')}
+          aria-label={t(locale, 'share')}
+        >
+          <span className="p-1.5 rounded-full group-hover:bg-brand/10 transition-colors">
+            <FiShare2 size={18} />
+          </span>
         </button>
       </div>
+
+      {/* Share Modal — portal to body to escape overflow:hidden parents */}
+      {portalReady && showShareModal && typeof document !== 'undefined' &&
+        createPortal(
+          <ShareModal
+            isOpen={showShareModal}
+            onClose={() => setShowShareModal(false)}
+            url={`${typeof window !== 'undefined' ? window.location.origin : 'https://bitig.az'}/${locale}/social/post/${post.id}`}
+            excerpt={post.content}
+          />,
+          document.body,
+        )}
       <div className="mt-4 space-y-3">
         {getRootCommentsForPreview(post.comments, 3).map(c => (
           <CommentItem
@@ -467,15 +560,41 @@ export function SocialPostCard({ postId, disableHover = false, isThread = false 
           {t(locale, 'social_view_all_comments')} ({post.comments.length})
         </Link>
       )}
-      <form className="mt-4 flex gap-2" onSubmit={(e) => { e.preventDefault(); if (!comment.trim()) return; addComment(post.id, comment.trim()); setComment('') }}>
-        <input
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
-          placeholder={t(locale, 'social_write_comment')}
-          className="flex-1 rounded-md border border-neutral-200 px-3 py-2 text-sm bg-white text-neutral-900 placeholder-neutral-400 dark:bg-neutral-900 dark:text-neutral-100 dark:border-neutral-700 dark:placeholder-neutral-400 focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand"
-        />
-        <button className="btn btn-primary text-sm px-3">{t(locale, 'social_post_button')}</button>
-      </form>
+      {isLastInThread && (
+        <form className="mt-4 flex gap-2 relative" onSubmit={(e) => { e.preventDefault(); if (!comment.trim()) return; addComment(post.id, comment.trim()); setComment('') }}>
+          <div className="flex-1 relative">
+            <input
+              value={comment}
+              onChange={(e) => {
+                setComment(e.target.value)
+                handleMentionInputChange(e)
+              }}
+              onKeyDown={(e) => {
+                handleMentionKeyDown(e, comment, setComment)
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                  e.preventDefault();
+                  e.currentTarget.form?.requestSubmit();
+                }
+              }}
+              placeholder={t(locale, 'social_write_comment')}
+              className="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm bg-white text-neutral-900 placeholder-neutral-400 dark:bg-neutral-900 dark:text-neutral-100 dark:border-neutral-700 dark:placeholder-neutral-400 focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+            />
+            <MentionDropdown
+              isOpen={isMentionOpen}
+              suggestions={mentionSuggestions}
+              activeIndex={mentionActiveIndex}
+              loading={mentionLoading}
+              top={mentionPosition.top}
+              left={mentionPosition.left}
+              onSelect={(user) => {
+                const newValue = selectMentionUser(user, comment)
+                setComment(newValue)
+              }}
+            />
+          </div>
+          <button className="btn btn-primary text-sm px-3">{t(locale, 'social_post_button')}</button>
+        </form>
+      )}
 
       {/* Quote composer — portal to body so fixed positioning is never clipped by parent transforms */}
       {portalReady &&
@@ -847,24 +966,34 @@ function timeAgo(iso: string, locale: string = 'az') {
   if (diff < 60) {
     return locale === 'az' ? 'indicə' : 'just now'
   }
-  
+
   // Less than 1 hour
   if (diff < 3600) {
-    const mins = Math.floor(diff/60)
+    const mins = Math.floor(diff / 60)
     return locale === 'az' ? `${mins} dəq` : `${mins}m`
   }
-  
+
   // Less than 24 hours
   if (diff < 86400) {
-    const hours = Math.floor(diff/3600)
+    const hours = Math.floor(diff / 3600)
     return locale === 'az' ? `${hours} saat` : `${hours}h`
   }
-  
-  // Older than 24 hours - Show full date
-  // e.g. 28/02/2026
-  const day = date.getDate().toString().padStart(2, '0');
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
-  const year = date.getFullYear();
-  
-  return `${day}/${month}/${year}`;
+
+  // Older than 24 hours - Show time + date
+  const isAz = locale === 'az'
+  const timeOptions: Intl.DateTimeFormatOptions = {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: !isAz,
+  }
+  const dateOptions: Intl.DateTimeFormatOptions = {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }
+
+  const timeStr = date.toLocaleTimeString(isAz ? 'az-AZ' : 'en-US', timeOptions)
+  const dateStr = date.toLocaleDateString(isAz ? 'az-AZ' : 'en-US', dateOptions)
+
+  return `${timeStr} · ${dateStr}`
 }

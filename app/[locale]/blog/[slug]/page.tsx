@@ -84,13 +84,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       type: 'article',
       publishedTime: new Date(guide.publishedAt).toISOString(),
       modifiedTime: new Date(guide.updatedAt).toISOString(),
-      images: [{ url: guide.image || `${BASE_URL}/og.png`, width: 1200, height: 630, alt: title }],
     },
     twitter: {
       card: 'summary_large_image',
       title,
       description,
-      images: [guide.image || `${BASE_URL}/og.png`],
     },
   }
 }

@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/Button'
 import { Typography } from '@/components/ui/Typography'
 import { RankBadge } from '@/components/RankBadge'
 import { AppHeader } from '@/components/AppHeader'
+import { GlassSurface } from '@/components/ui/GlassSurface'
 import { supabase } from '@/lib/supabase'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { useSocial } from '@/context/social'
@@ -110,13 +111,18 @@ export default function ProfileScreen() {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <AppHeader rightExtras={settingsHeaderButton} />
-        <View style={[styles.centered, { flex: 1 }]}>
-        <Feather name="book-open" size={44} color={colors.textTertiary} style={{ marginBottom: Spacing.lg }} />
-        <Typography weight="bold" style={[styles.title, { color: colors.text }]}>Bitig-ə Xoş Gəlmisiniz</Typography>
-        <Typography style={[styles.subtitle, { color: colors.textSecondary }]}>
-          Daxil olun ki, kitabxananıza çatın
-        </Typography>
-        <Button label="Daxil Ol" onPress={() => router.push('/login' as any)} />
+        <View style={styles.guestCentered}>
+          <GlassSurface style={[styles.guestCard, { borderColor: colors.border }]} intensity={18}>
+            <Typography weight="bold" style={[styles.guestTitle, { color: colors.text }]}>
+              Profilinizi görmək üçün daxil olun
+            </Typography>
+            <Typography style={[styles.guestSubtitle, { color: colors.textSecondary }]}>
+              Profil səhifənizə daxil olmaq üçün sistemdə olmalısınız.
+            </Typography>
+            <View style={styles.guestBtnWrap}>
+              <Button label="Daxil ol" onPress={() => router.push('/login' as any)} />
+            </View>
+          </GlassSurface>
         </View>
       </View>
     )
@@ -284,6 +290,17 @@ function StatCell({
 const styles = StyleSheet.create({
   container: { flex: 1 },
   centered: { justifyContent: 'center', alignItems: 'center', padding: Spacing['3xl'] },
+  guestCentered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: Spacing.lg },
+  guestCard: {
+    width: '100%',
+    maxWidth: 520,
+    borderRadius: BorderRadius.xl,
+    paddingVertical: Spacing['3xl'],
+    paddingHorizontal: Spacing['3xl'],
+  },
+  guestTitle: { fontSize: FontSize.xl, textAlign: 'center', marginBottom: Spacing.md },
+  guestSubtitle: { fontSize: FontSize.md, textAlign: 'center', marginBottom: Spacing['2xl'], lineHeight: 22 },
+  guestBtnWrap: { alignItems: 'center' },
   scrollView: { flex: 1 },
   // Upper gap between AppHeader and the first content card
   scrollContent: { paddingTop: Spacing.lg, paddingBottom: 40, paddingHorizontal: Spacing.lg },

@@ -44,9 +44,27 @@ export function ConversationList({ conversations, selectedId, onSelect }: {
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   const relevantConversations = conversations.filter(c => {
-    if (tab === 'requests') return c.status !== 'accepted'
-    return c.status === 'accepted'
+    const status = String(c?.status || '').toLowerCase()
+    const hasLastMessage = !!(c?.last_message && String(c.last_message).trim() !== '')
+
+    if (tab === 'requests') {
+      // Requests tab should primarily show non-accepted conversations.
+      return status !== 'accepted' && status !== ''
+    }
+
+    // Inbox: accepted OR any conversation that already has real message history
+    // OR currently selected conversation (e.g. opened via profile DM button).
+    return status === 'accepted' || hasLastMessage || c.id === selectedId
   })
+
+  // Global inbox badge: show number of conversations with unread messages,
+  // not total unread message count.
+  const unreadInboxCount = conversations.reduce((count, c) => {
+    const status = String(c?.status || '').toLowerCase()
+    const unread = Number(c?.unread_count || 0)
+    if (status !== 'accepted') return count
+    return unread > 0 ? count + 1 : count
+  }, 0)
 
   const filtered = relevantConversations.filter(c => 
     c.otherUser?.username?.toLowerCase().includes(search.toLowerCase()) || 
@@ -78,6 +96,11 @@ export function ConversationList({ conversations, selectedId, onSelect }: {
             }`}
           >
             {t(locale as Locale, 'dm_inbox')}
+            {unreadInboxCount > 0 && (
+              <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-brand/15 text-brand">
+                {unreadInboxCount}
+              </span>
+            )}
           </button>
           <button 
             onClick={() => setTab('requests')}
@@ -138,6 +161,11 @@ export function ConversationList({ conversations, selectedId, onSelect }: {
                   {convo.last_message || t(locale as Locale, 'dm_start_chatting')}
                 </p>
               </div>
+              {!!convo.unread_count && tab === 'inbox' && (
+                <span className="min-w-5 h-5 px-1 rounded-full bg-brand text-[#06140A] text-[11px] font-bold flex items-center justify-center">
+                  {convo.unread_count}
+                </span>
+              )}
             </button>
           ))
         )}

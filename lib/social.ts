@@ -12,7 +12,7 @@ export type User = {
 
 export type Notification = {
   id: string
-  type: 'like' | 'comment' | 'follow' | 'system' | 'mod_rejected' | 'mod_deleted'
+  type: 'like' | 'comment' | 'follow' | 'system' | 'dm' | 'mod_rejected' | 'mod_deleted'
   actor_id: string
   entity_id: string
   read: boolean
@@ -35,6 +35,8 @@ export type Comment = {
   likes?: number
   /** Current user liked this comment */
   likedByMe?: boolean
+  /** Users mentioned via @username in this comment */
+  mentionedUserIds?: string[]
 }
 
 export type Group = {

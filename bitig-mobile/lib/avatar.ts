@@ -16,7 +16,7 @@ function rewriteApexBitigAbsolute(url: string) {
   if (url.startsWith('http://bitig.az/') || url === 'http://bitig.az') {
     return url.replace(/^http:\/\/bitig\.az/, 'https://www.bitig.az')
   }
-  return url
+  return url.replace(/^http:\/\//i, 'https://')
 }
 
 /** DB / metadata sometimes store the literal "null" or empty strings. */
@@ -35,10 +35,51 @@ function isUsableAvatarRef(ref: string | null | undefined): ref is string {
  */
 function trySupabasePublicObjectUrl(trimmed: string): string | null {
   if (!SUPABASE_PUBLIC_URL) return null
-  if (trimmed.includes('://') || trimmed.startsWith('/')) return null
+  if (trimmed.includes('://')) return null
   // Typical upload path: `<uuid>/<uuid>.<ext>` under bucket `avatars`
   if (!/^[0-9a-f-]{36}\/.+/i.test(trimmed)) return null
   return `${SUPABASE_PUBLIC_URL}/storage/v1/object/public/avatars/${trimmed}`
+}
+
+/**
+ * Normalize various Supabase avatar URL formats to a stable public object URL.
+ * Handles signed URLs, root-relative storage paths and `avatars/...` object paths.
+ */
+function normalizeSupabaseAvatarUrl(trimmed: string): string | null {
+  if (!SUPABASE_PUBLIC_URL) return null
+
+  // Absolute signed URL -> convert sign -> public and strip query.
+  const signMarker = '/storage/v1/object/sign/avatars/'
+  const publicMarker = '/storage/v1/object/public/avatars/'
+  if (trimmed.includes(signMarker)) {
+    const after = trimmed.split(signMarker)[1]
+    if (after) return `${SUPABASE_PUBLIC_URL}${publicMarker}${after.split('?')[0]}`
+  }
+
+  // Absolute already-public URL from Supabase host: keep path, strip query if any.
+  if (trimmed.includes(publicMarker)) {
+    const after = trimmed.split(publicMarker)[1]
+    if (after) return `${SUPABASE_PUBLIC_URL}${publicMarker}${after.split('?')[0]}`
+  }
+
+  // Root-relative storage path.
+  if (trimmed.startsWith('/storage/v1/object/public/avatars/')) {
+    return `${SUPABASE_PUBLIC_URL}${trimmed.split('?')[0]}`
+  }
+  if (trimmed.startsWith('/storage/v1/object/sign/avatars/')) {
+    const after = trimmed.split('/storage/v1/object/sign/avatars/')[1]
+    if (after) return `${SUPABASE_PUBLIC_URL}${publicMarker}${after.split('?')[0]}`
+  }
+
+  // Object path variants in DB: "avatars/..." or "<uuid>/file.jpg"
+  if (trimmed.startsWith('avatars/')) {
+    return `${SUPABASE_PUBLIC_URL}${publicMarker}${trimmed.slice('avatars/'.length)}`
+  }
+  if (/^[0-9a-f-]{36}\/.+/i.test(trimmed)) {
+    return `${SUPABASE_PUBLIC_URL}${publicMarker}${trimmed}`
+  }
+
+  return null
 }
 
 export function resolveAvatarUrl(
@@ -60,9 +101,14 @@ export function resolveAvatarUrl(
   }
 
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    const normalizedSupabase = normalizeSupabaseAvatarUrl(trimmed)
+    if (normalizedSupabase) return rewriteApexBitigAbsolute(normalizedSupabase)
     return rewriteApexBitigAbsolute(trimmed)
   }
   if (trimmed.startsWith('data:')) return trimmed
+
+  const normalizedSupabase = normalizeSupabaseAvatarUrl(trimmed)
+  if (normalizedSupabase) return normalizedSupabase
 
   const supabaseGuess = trySupabasePublicObjectUrl(trimmed)
   if (supabaseGuess) return supabaseGuess

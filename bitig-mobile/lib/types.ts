@@ -111,7 +111,7 @@ export interface Poll {
 
 export interface Notification {
   id: string
-  type: 'like' | 'comment' | 'follow' | 'system' | 'mod_rejected' | 'mod_deleted'
+  type: 'like' | 'comment' | 'follow' | 'system' | 'dm' | 'mod_rejected' | 'mod_deleted'
   actor_id: string
   entity_id: string
   read: boolean
@@ -147,6 +147,7 @@ export interface Conversation {
     avatar_url: string | null
   } | null
   status: string
+  unread_count?: number
 }
 
 export interface DirectMessage {

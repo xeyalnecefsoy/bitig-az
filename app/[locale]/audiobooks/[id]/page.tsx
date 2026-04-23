@@ -8,6 +8,37 @@ import Link from 'next/link'
 import { FiLock } from 'react-icons/fi'
 import { BookActions } from '@/components/BookActions'
 import { BackButton } from '@/components/BackButton'
+import type { Metadata } from 'next'
+
+export async function generateMetadata({ params }: { params: Promise<{ locale: string; id: string }> }): Promise<Metadata> {
+  const { locale, id } = await params
+  const supabase = await createClient()
+  const { data: book } = await supabase
+    .from('books')
+    .select('title, author, description')
+    .eq('id', id)
+    .single()
+
+  if (!book) return {}
+
+  const title = `${book.title} — ${book.author}`
+  const description = book.description?.slice(0, 160) || ''
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: 'book',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+    },
+  }
+}
 
 export default async function AudiobookDetailsPage({ params }: { params: Promise<{ locale: string; id: string }> }) {
   const { locale, id } = await params

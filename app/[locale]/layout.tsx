@@ -5,6 +5,7 @@ import { Navbar, MobileNav, MobileHeader } from '@/components/Navbar'
 import { Footer } from '@/components/Footer'
 import { GuestPopup } from '@/components/GuestPopup'
 import { FloatingPlayer } from '@/components/FloatingPlayer'
+import { WebPushRegistrar } from '@/components/WebPushRegistrar'
 import type { Metadata } from 'next'
 
 // Localized metadata content
@@ -47,6 +48,7 @@ export default async function LocaleLayout({ children, params }: { children: Rea
       </main>
       <Footer locale={lang} />
       <FloatingPlayer />
+      <WebPushRegistrar />
       <MobileNav />
       <GuestPopup />
     </LocaleProvider>

@@ -16,6 +16,7 @@ import { useAuth } from '@/context/auth'
 import { Feather } from '@expo/vector-icons'
 import { Button } from '@/components/ui/Button'
 import { Typography } from '@/components/ui/Typography'
+import { GuestCallout } from '@/components/ui/GuestCallout'
 
 const BITIG_BASE_URL = 'https://bitig.az'
 
@@ -82,15 +83,16 @@ export function LibraryContent() {
 
   if (!user) {
     return (
-      <View style={[styles.container, styles.centered, { backgroundColor: colors.background }]}>
-        <Feather name="bookmark" size={44} color={colors.textTertiary} style={{ marginBottom: Spacing.lg }} />
-        <Typography weight="bold" style={[styles.emptyTitle, { color: colors.text }]}>
-          Kitabxananız
-        </Typography>
-        <Typography style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-          Daxil olun ki, kitablarınızı görəsiniz
-        </Typography>
-        <Button label="Daxil Ol" onPress={() => router.push('/login' as any)} />
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={styles.guestWrap}>
+          <GuestCallout
+            icon="lock"
+            title="Dinləmək üçün daxil olun"
+            subtitle="Tam səsli kitabları dinləmək üçün hesab lazımdır."
+            actionLabel="Daxil ol"
+            onPress={() => router.push('/login' as any)}
+          />
+        </View>
       </View>
     )
   }
@@ -179,6 +181,7 @@ export function LibraryContent() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  guestWrap: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, paddingBottom: Spacing.md },
   filterRow: {
     flexDirection: 'row',
     borderBottomWidth: 1,
@@ -214,6 +217,4 @@ const styles = StyleSheet.create({
   bookTitle: { fontSize: FontSize.md },
   bookAuthor: { fontSize: FontSize.sm, marginTop: 2 },
   statusBadge: { fontSize: FontSize.xs, fontWeight: '600', marginTop: Spacing.sm },
-  emptyTitle: { fontSize: FontSize.xl, marginBottom: Spacing.sm },
-  emptySubtitle: { fontSize: FontSize.md, textAlign: 'center', marginBottom: Spacing['3xl'] },
 })

@@ -84,14 +84,12 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
     openGraph: {
       title,
       description,
-      type: 'article',
-      images: [{ url: book.cover, width: 800, height: 1066, alt: book.title }],
+      type: 'book',
     },
     twitter: {
       card: 'summary_large_image',
       title,
       description,
-      images: [book.cover],
     },
   }
 }

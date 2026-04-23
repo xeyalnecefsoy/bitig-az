@@ -6,6 +6,42 @@ import Link from 'next/link'
 import { FiLock } from 'react-icons/fi'
 import { t, type Locale } from '@/lib/i18n'
 import { RankBadge } from '@/components/RankBadge'
+import type { Metadata } from 'next'
+
+export async function generateMetadata({ params }: { params: Promise<{ locale: string; id: string }> }): Promise<Metadata> {
+  const { id } = await params
+  const supabase = await createClient()
+
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+  let query = supabase.from('profiles').select('full_name, username, bio')
+  if (isUuid) {
+    query = query.eq('id', id)
+  } else {
+    query = query.eq('username', id)
+  }
+  const { data: profile } = await query.single()
+
+  if (!profile) return {}
+
+  const name = profile.full_name || profile.username || 'Bitig Profili'
+  const title = `${name} (@${profile.username || 'bitig'})`
+  const description = profile.bio?.slice(0, 160) || `${name} - Bitig.az profili`
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: 'profile',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+    },
+  }
+}
 
 export default async function SocialProfilePage({ params }: { params: Promise<{ locale: string; id: string }> }) {
   const { id, locale } = await params
@@ -127,7 +163,7 @@ export default async function SocialProfilePage({ params }: { params: Promise<{ 
 
                 {currentUser && !isGuest && (
                    <div className="pt-4 flex items-center justify-center gap-2">
-                     <MessageButton userId={profile.id} />
+                     <MessageButton userId={profile.id} username={profile.username} />
                    </div>
                 )}
               </div>

@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { Alert } from 'react-native'
+import * as Notifications from 'expo-notifications'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/auth'
 import type { User, Post, Comment, QuotedPostEmbed } from '@/lib/types'
@@ -74,7 +75,7 @@ type PostWithExtras = Post & {
 
 type NotificationLike = {
   id: string
-  type: 'like' | 'comment' | 'follow' | 'system' | 'mod_rejected' | 'mod_deleted'
+  type: 'like' | 'comment' | 'follow' | 'system' | 'dm' | 'mod_rejected' | 'mod_deleted'
   actor_id: string
   entity_id: string
   read: boolean
@@ -520,6 +521,55 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     }
   }, [authLoading, authUser, loadPosts, loadUserProfile])
 
+  useEffect(() => {
+    if (!authUser?.id) return
+    const channel = supabase
+      .channel(`mobile-social-notifs-${authUser.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${authUser.id}` },
+        async (payload) => {
+          const { data: newNotif } = await supabase
+            .from('notifications')
+            .select(`*, actor:profiles!actor_id(username, avatar_url)`)
+            .eq('id', (payload.new as any).id)
+            .single()
+          if (!newNotif) return
+
+          const mappedNew: NotificationLike = {
+            ...(newNotif as any),
+            actor: (newNotif as any).actor
+              ? {
+                  username: (newNotif as any).actor.username,
+                  avatar_url: (newNotif as any).actor.avatar_url,
+                }
+              : undefined,
+          }
+
+          setNotifications(prev => [mappedNew, ...prev].slice(0, 30))
+          setUnreadCount(prev => prev + 1)
+
+          const actorName = mappedNew.actor?.username || 'Bitig'
+          const body =
+            mappedNew.type === 'like' ? 'Paylaşımınızı bəyəndi' :
+            mappedNew.type === 'comment' ? 'Paylaşımınıza şərh yazdı' :
+            mappedNew.type === 'follow' ? 'Sizi izləməyə başladı' :
+            mappedNew.type === 'dm' ? 'Sizə mesaj göndərdi' :
+            'Yeni bildiriş var'
+
+          await Notifications.scheduleNotificationAsync({
+            content: { title: actorName, body },
+            trigger: null,
+          })
+        },
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [authUser?.id])
+
   const like = useCallback(
     async (postId: string) => {
       if (!currentUser) return
@@ -681,24 +731,37 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
 
       const safeContent = content.trim() === '' ? ' ' : content
 
-      const { data, error } = await supabase
+      const insertPayload: Record<string, any> = {
+        user_id: currentUser.id,
+        content: safeContent,
+        image_urls: imageUrls,
+        quoted_post_id: quotedPostId ?? null,
+        mentioned_book_id: mentionedBookId,
+        group_id: groupId,
+      }
+      if (parentPostId) insertPayload.parent_post_id = parentPostId
+
+      let { data, error } = await supabase
         .from('posts')
-        .insert({
-          user_id: currentUser.id,
-          content: safeContent,
-          image_urls: imageUrls,
-          parent_post_id: parentPostId,
-          quoted_post_id: quotedPostId ?? null,
-          mentioned_book_id: mentionedBookId,
-          group_id: groupId,
-        })
+        .insert(insertPayload)
         .select()
         .single()
 
       if (error) {
-        console.error('Error creating post:', error)
-        Alert.alert('Xəta', 'Paylaşım edilərkən xəta baş verdi')
-        return undefined
+        if (error.message?.includes('parent_post_id') && parentPostId) {
+          delete insertPayload.parent_post_id
+          const retry = await supabase.from('posts').insert(insertPayload).select().single()
+          if (retry.error) {
+            console.error('Error creating post (retry):', retry.error)
+            Alert.alert('Xəta', 'Paylaşım edilərkən xəta baş verdi')
+            return undefined
+          }
+          if (retry.data) { data = retry.data } else { return undefined }
+        } else {
+          console.error('Error creating post:', error)
+          Alert.alert('Xəta', 'Paylaşım edilərkən xəta baş verdi')
+          return undefined
+        }
       }
 
       const newPostId: string = data.id

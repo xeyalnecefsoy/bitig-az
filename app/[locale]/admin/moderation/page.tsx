@@ -217,7 +217,7 @@ export default function ModerationPage() {
                       {log.entity?.profiles && (
                         <div className="flex items-center gap-2 mb-2">
                           <img 
-                            src={log.entity.profiles.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${log.entity.user_id}`} 
+                            src={log.entity.profiles.avatar_url || `/api/avatar?name=${encodeURIComponent(log.entity.profiles.username || log.entity.user_id)}`} 
                             alt={log.entity.profiles.username}
                             className="w-6 h-6 rounded-full bg-neutral-200 dark:bg-neutral-800"
                           />

@@ -4,7 +4,7 @@ import type { Book } from '@/lib/data'
 import type { Post, User, Group } from '@/lib/social'
 
 // Public client for cached/static data (no cookies needed)
-function getPublicClient() {
+export function getPublicClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   

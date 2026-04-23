@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Image, View, StyleSheet, type StyleProp, type ImageStyle } from 'react-native'
 import { Feather } from '@expo/vector-icons'
 import { getAvatarImageSource, resolveAvatarUrl } from '@/lib/avatar'
@@ -23,11 +23,23 @@ export function UserAvatar({
   backgroundColor = 'rgba(128, 128, 128, 0.25)',
 }: Props) {
   const [failed, setFailed] = useState(false)
-  const resolved = resolveAvatarUrl(avatarUrl, usernameOrId)
-  const source = getAvatarImageSource(resolved)
+  const resolvedPrimary = useMemo(
+    () => resolveAvatarUrl(avatarUrl, usernameOrId),
+    [avatarUrl, usernameOrId],
+  )
+  const resolvedFallback = useMemo(() => resolveAvatarUrl(null, usernameOrId), [usernameOrId])
+  const [resolved, setResolved] = useState<string>(resolvedPrimary)
+
+  useEffect(() => {
+    setResolved(resolvedPrimary)
+    setFailed(false)
+  }, [resolvedPrimary])
+
+  const source = useMemo(() => getAvatarImageSource(resolved), [resolved])
   const radius = size / 2
 
   useEffect(() => {
+    // Reset failure state when retrying a different resolved URI.
     setFailed(false)
   }, [resolved])
 
@@ -50,7 +62,15 @@ export function UserAvatar({
       source={source}
       style={[{ width: size, height: size, borderRadius: radius, backgroundColor }, style]}
       resizeMode="cover"
-      onError={() => setFailed(true)}
+      onError={() => {
+        if (resolved !== resolvedFallback) {
+          // If the stored avatar URL is broken/unreachable for this account,
+          // fallback to the generated avatar endpoint.
+          setResolved(resolvedFallback)
+          return
+        }
+        setFailed(true)
+      }}
     />
   )
 }

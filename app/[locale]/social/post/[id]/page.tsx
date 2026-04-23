@@ -53,13 +53,11 @@ export async function generateMetadata({
       title,
       description,
       siteName: 'Bitig',
-      images: [{ url: image, width: 1200, height: 630, alt: title }],
     },
     twitter: {
       card: 'summary_large_image',
       title,
       description,
-      images: [image],
       creator: '@bitigaz',
       site: '@bitigaz',
     },

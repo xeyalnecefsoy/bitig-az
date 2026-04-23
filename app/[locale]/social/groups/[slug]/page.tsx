@@ -16,9 +16,22 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     return { title: 'Group Not Found' };
   }
 
+  const title = group.name;
+  const description = group.description || `${group.name} - Bitig.az qrupu`;
+
   return {
-    title: group.name,
-    description: group.description,
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+    },
   };
 }
 

@@ -1,9 +1,11 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { Tabs } from 'expo-router'
 import { useColorScheme, Platform, useWindowDimensions } from 'react-native'
 import { Feather } from '@expo/vector-icons'
 import { Colors } from '@/constants/Colors'
 import { useLocale } from '@/context/locale'
+import { useAuth } from '@/context/auth'
+import { supabase } from '@/lib/supabase'
 
 function TabIcon({
   name,
@@ -19,12 +21,51 @@ function TabIcon({
 
 export default function TabLayout() {
   const { t } = useLocale()
+  const { user } = useAuth()
   const colorScheme = useColorScheme()
   const isDark = colorScheme === 'dark'
   const colors = isDark ? Colors.dark : Colors.light
   const { width } = useWindowDimensions()
+  const [dmUnreadCount, setDmUnreadCount] = useState(0)
   // Label-ların kəsilməməsi üçün daha geniş breakpoint götürürük
   const isSmallScreen = width <= 390
+
+  useEffect(() => {
+    const uid = user?.id
+    if (!uid) {
+      setDmUnreadCount(0)
+      return
+    }
+
+    async function loadUnread() {
+      const { data } = await supabase
+        .from('conversation_participants')
+        .select('status, unread_count')
+        .eq('user_id', uid)
+      const total = (data || []).reduce((count: number, row: any) => {
+        const status = String(row?.status || '').toLowerCase()
+        const unread = Number(row?.unread_count || 0)
+        if (status !== 'accepted') return count
+        return unread > 0 ? count + 1 : count
+      }, 0)
+      setDmUnreadCount(total)
+    }
+
+    loadUnread()
+
+    const channel = supabase
+      .channel(`tabs-dm-unread-${uid}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'conversation_participants', filter: `user_id=eq.${uid}` },
+        () => loadUnread(),
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [user?.id])
 
   return (
     <Tabs
@@ -87,6 +128,7 @@ export default function TabLayout() {
           title: t('dm_title'),
           headerShown: false,
           tabBarIcon: ({ color, size }) => <TabIcon name="send" color={color} size={size} />,
+          tabBarBadge: dmUnreadCount > 0 ? (dmUnreadCount > 99 ? '99+' : dmUnreadCount) : undefined,
         }}
       />
       <Tabs.Screen

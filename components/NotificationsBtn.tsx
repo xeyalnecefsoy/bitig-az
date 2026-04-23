@@ -10,7 +10,7 @@ import { useSocial } from '@/context/social'
 
 type Notification = {
   id: string
-  type: 'like' | 'comment' | 'follow' | 'system' | 'mod_rejected' | 'mod_deleted'
+  type: 'like' | 'comment' | 'follow' | 'system' | 'dm' | 'mod_rejected' | 'mod_deleted'
   actor_id: string
   entity_id: string
   read: boolean
@@ -50,6 +50,7 @@ export function NotificationsBtn() {
       case 'comment': return t(locale as Locale, 'notif_commented')
       case 'follow': return t(locale as Locale, 'notif_followed')
       case 'system': return t(locale as Locale, 'notif_message')
+      case 'dm': return t(locale as Locale, 'notif_message')
       case 'mod_rejected': return t(locale as Locale, 'notif_mod_rejected')
       case 'mod_deleted': return t(locale as Locale, 'notif_mod_deleted')
       default: return t(locale as Locale, 'notif_interacted')
@@ -80,7 +81,9 @@ export function NotificationsBtn() {
                 {t(locale as Locale, 'no_notifications')}
               </div>
             ) : (
-              notifications.map(n => (
+              notifications
+                .filter(n => n.type !== 'dm')
+                .map(n => (
                 <Link
                   key={n.id}
                   href={getNotificationLink(n, locale) as Route}
@@ -93,7 +96,7 @@ export function NotificationsBtn() {
                     </div>
                   ) : (
                     <img
-                      src={n.actor?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${n.actor_id}`}
+                      src={n.actor?.avatar_url || `/api/avatar?name=${encodeURIComponent(n.actor?.username || n.actor_id)}`}
                       alt="Avatar"
                       className="h-8 w-8 rounded-full object-cover mt-1 shrink-0"
                     />
@@ -129,6 +132,11 @@ function getNotificationLink(n: Notification, locale: string) {
       return `/${locale}/social/post/${n.entity_id}`
     case 'follow':
       return `/${locale}/social/profile/${n.actor?.username || n.actor_id}`
+    case 'dm':
+      // Prefer username path to avoid UUIDs in URL. Fallback to legacy id link.
+      return n.actor?.username
+        ? `/${locale}/messages/${encodeURIComponent(n.actor.username)}`
+        : `/${locale}/messages?id=${n.entity_id}`
     default:
       return `/${locale}/social`
   }

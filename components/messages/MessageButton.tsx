@@ -6,14 +6,26 @@ import { useRouter } from 'next/navigation'
 import { useLocale } from '@/context/locale'
 import { t, type Locale } from '@/lib/i18n'
 
-export function MessageButton({ userId, className }: { userId: string, className?: string }) {
+export function MessageButton({
+  userId,
+  username,
+  className,
+}: {
+  userId: string
+  username?: string | null
+  className?: string
+}) {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const locale = useLocale()
 
   function handleClick() {
     setLoading(true)
-    // Navigate directly to messages with userId - the page will handle creating/finding the conversation
+    // Prefer username paths (hide UUIDs). Fallback to userId for compatibility.
+    if (username) {
+      router.push(`/${locale}/messages/${encodeURIComponent(username)}`)
+      return
+    }
     router.push(`/${locale}/messages?userId=${userId}`)
   }
 

@@ -142,10 +142,10 @@ export default function AudiobooksPage({ params: paramsPromise }: { params: Prom
         </h1>
 
         {/* Tab Switcher */}
-        <div className="inline-flex p-1 bg-neutral-100 dark:bg-neutral-800 rounded-lg">
+        <div className="flex w-full p-1 bg-neutral-100 dark:bg-neutral-800 rounded-lg sm:inline-flex sm:w-auto">
           <button
             onClick={() => handleTabChange('discover')}
-            className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+            className={`flex flex-1 items-center justify-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all min-w-0 sm:flex-none ${
               activeTab === 'discover'
                 ? 'bg-white dark:bg-neutral-700 text-brand shadow-sm'
                 : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
@@ -156,7 +156,7 @@ export default function AudiobooksPage({ params: paramsPromise }: { params: Prom
           </button>
           <button
             onClick={() => handleTabChange('library')}
-            className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+            className={`flex flex-1 items-center justify-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all min-w-0 sm:flex-none ${
               activeTab === 'library'
                 ? 'bg-white dark:bg-neutral-700 text-brand shadow-sm'
                 : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
@@ -188,13 +188,13 @@ export default function AudiobooksPage({ params: paramsPromise }: { params: Prom
           )}
 
           {loading ? (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5">
               {[1,2,3,4,5,6,7,8,9,10].map(i => (
                 <div key={i} className="aspect-[2/3] bg-neutral-100 dark:bg-neutral-800 animate-pulse rounded-xl" />
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5">
               {books.map((book, i) => (
                 <React.Fragment key={book.id}>
                   <BookCard 

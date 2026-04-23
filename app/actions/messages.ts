@@ -2,6 +2,50 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import webpush from 'web-push'
+
+function configureWebPush() {
+  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+  const privateKey = process.env.VAPID_PRIVATE_KEY
+  const subject = process.env.VAPID_SUBJECT || 'mailto:support@bitig.az'
+  if (!publicKey || !privateKey) return false
+  webpush.setVapidDetails(subject, publicKey, privateKey)
+  return true
+}
+
+async function resolveUserIdByUsername(supabase: Awaited<ReturnType<typeof createClient>>, username: string) {
+  const normalized = String(username || '').trim()
+  if (!normalized) return null
+
+  // 1) Current username
+  const { data: byProfile } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('username', normalized)
+    .single()
+  if (byProfile?.id) return byProfile.id as string
+
+  // 2) Historical usernames
+  const { data: byHistory } = await supabase
+    .from('username_changes')
+    .select('user_id')
+    .or(`previous_username.eq.${normalized},new_username.eq.${normalized}`)
+    .order('changed_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  return (byHistory as any)?.user_id || null
+}
+
+export async function getConversationByUsername(username: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  const otherUserId = await resolveUserIdByUsername(supabase, username)
+  if (!otherUserId) return null
+
+  return await getConversationByUserId(otherUserId)
+}
 
 export async function getConversations() {
   console.log('[Action: getConversations] Starting...')
@@ -16,7 +60,7 @@ export async function getConversations() {
   
   const { data: dataWithStatus, error: partError } = await supabase
     .from('conversation_participants')
-    .select('conversation_id, status')
+    .select('conversation_id, status, unread_count')
     .eq('user_id', user.id)
 
   if (partError) {
@@ -32,7 +76,7 @@ export async function getConversations() {
        return []
     }
     // Default to 'accepted' if status is missing
-    myParticipations = (dataBasic || []).map(p => ({ ...p, status: 'accepted' }))
+    myParticipations = (dataBasic || []).map(p => ({ ...p, status: 'accepted', unread_count: 0 }))
   } else {
     myParticipations = dataWithStatus || []
   }
@@ -42,6 +86,7 @@ export async function getConversations() {
   }
 
   const conversationMap = new Map(myParticipations.map(p => [p.conversation_id, p.status]))
+  const unreadMap = new Map(myParticipations.map(p => [p.conversation_id, Number(p.unread_count || 0)]))
   const conversationIds = myParticipations.map(p => p.conversation_id)
 
   // Step 2: Get conversations
@@ -56,13 +101,58 @@ export async function getConversations() {
     return []
   }
 
-  // Filter out conversations with no messages or placeholder text
-  // The user reported "Started a conversation..." appearing, which suggests it might be saved in DB
-  const validConversations = (conversations || []).filter(c => {
-     if (!c.last_message) return false
-     if (c.last_message.trim() === '') return false
-     if (c.last_message.startsWith('Started a conversation')) return false // Filter out auto-generated start messages
-     return true
+  // Some older conversations may have messages but `conversations.last_message` is null/empty.
+  // In that case, fall back to the latest `direct_messages` row for preview.
+  const baseConversations = conversations || []
+  const needsPreview = baseConversations
+    .filter(c => !c.last_message || String(c.last_message).trim() === '')
+    .map(c => c.id)
+
+  let previewByConversationId = new Map<string, { content: string | null; message_type?: string | null; created_at?: string | null }>()
+  if (needsPreview.length > 0) {
+    const { data: previews, error: previewErr } = await supabase
+      .from('direct_messages')
+      .select('conversation_id, content, message_type, created_at')
+      .in('conversation_id', needsPreview)
+      .order('created_at', { ascending: false })
+
+    if (previewErr) {
+      console.error('[Action: getConversations] Error fetching previews:', previewErr)
+    } else if (previews && previews.length > 0) {
+      // Because we ordered desc, first row we see per conversation is the latest.
+      for (const row of previews as any[]) {
+        if (!previewByConversationId.has(row.conversation_id)) {
+          previewByConversationId.set(row.conversation_id, row)
+        }
+      }
+    }
+  }
+
+  const withPreview = baseConversations.map(c => {
+    const preview = previewByConversationId.get(c.id)
+    if (!preview) return c
+    const last =
+      preview.message_type === 'text'
+        ? preview.content
+        : preview.message_type === 'book_share'
+          ? 'Shared a book'
+          : preview.message_type === 'post_share'
+            ? 'Shared a post'
+            : preview.content
+    return {
+      ...c,
+      last_message: last ?? c.last_message,
+      // Use last message time to ensure ordering feels right in UI.
+      updated_at: preview.created_at ?? c.updated_at,
+    }
+  })
+
+  // Filter out truly empty conversations or placeholders
+  const validConversations = withPreview.filter(c => {
+    const lm = c.last_message != null ? String(c.last_message).trim() : ''
+    if (!lm) return false
+    if (lm.startsWith('Started a conversation')) return false
+    return true
   })
 
   // Step 3: Get other participants for these VALID conversations
@@ -118,10 +208,17 @@ export async function getConversations() {
   const result = validConversations.map(convo => {
     const otherUserId = otherUserMap.get(convo.id)
     const otherUserProfile = otherUserId ? profileMap.get(otherUserId) : null
+    const rawStatus = conversationMap.get(convo.id)
+    const hasRealPreview = convo.last_message != null && String(convo.last_message).trim() !== ''
+    // If a conversation has real messages, treat it as accepted for inbox rendering,
+    // even if participant status is stale/pending (mobile has historically shown these).
+    const normalizedStatus = hasRealPreview ? 'accepted' : (rawStatus || 'accepted')
 
     return {
       ...convo,
-      status: conversationMap.get(convo.id) || 'accepted',
+      status: normalizedStatus,
+      unread_count: unreadMap.get(convo.id) || 0,
+      has_unread: (unreadMap.get(convo.id) || 0) > 0,
       otherUser: otherUserProfile || null
     }
   })
@@ -179,6 +276,76 @@ export async function sendMessage(conversationId: string, content: string | null
       last_message: lastMessagePreview
     })
     .eq('id', conversationId)
+
+  // Best-effort push delivery (mobile Expo + web push).
+  try {
+    const { data: participants } = await supabase
+      .from('conversation_participants')
+      .select('user_id')
+      .eq('conversation_id', conversationId)
+      .neq('user_id', user.id)
+      .limit(1)
+
+    const recipientId = participants?.[0]?.user_id
+    if (recipientId) {
+      const body = lastMessagePreview || 'Yeni mesaj'
+
+      const { data: mobileTokens } = await supabase
+        .from('mobile_push_tokens')
+        .select('token')
+        .eq('user_id', recipientId)
+        .eq('active', true)
+
+      if (mobileTokens?.length) {
+        await fetch('https://exp.host/--/api/v2/push/send', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(
+            mobileTokens.map((row: any) => ({
+              to: row.token,
+              title: 'Bitig',
+              body,
+              data: { conversationId, type: 'dm' },
+              sound: 'default',
+            })),
+          ),
+        })
+      }
+
+      const { data: webSubs } = await supabase
+        .from('web_push_subscriptions')
+        .select('endpoint, p256dh, auth')
+        .eq('user_id', recipientId)
+        .eq('active', true)
+
+      if (webSubs?.length && configureWebPush()) {
+        await Promise.all(
+          webSubs.map(async (sub: any) => {
+            const subscription = {
+              endpoint: sub.endpoint,
+              keys: { p256dh: sub.p256dh, auth: sub.auth },
+            }
+            try {
+              await webpush.sendNotification(
+                subscription as any,
+                JSON.stringify({
+                  title: 'Bitig',
+                  body,
+                  url: `/az/messages?id=${conversationId}`,
+                }),
+              )
+            } catch {
+              // ignore stale subscription errors for now
+            }
+          }),
+        )
+      }
+    }
+  } catch {
+    // push must not block message sending
+  }
 
   revalidatePath('/messages')
   return { success: true }
@@ -244,6 +411,14 @@ export async function getConversationByUserId(otherUserId: string) {
 
   if (!convo) return null
 
+  // Get my participant row for status/unread
+  const { data: myParticipant } = await supabase
+    .from('conversation_participants')
+    .select('status, unread_count')
+    .eq('conversation_id', conversationId)
+    .eq('user_id', user.id)
+    .single()
+
   // Get other user details
   let otherUserData = null
   if (otherUserId) {
@@ -260,7 +435,11 @@ export async function getConversationByUserId(otherUserId: string) {
   return {
     ...convo,
     id: conversationId,
-    otherUser: otherUserData
+    otherUser: otherUserData,
+    // Ensure inbox list renders it immediately (ConversationList filters by accepted status)
+    status: myParticipant?.status || 'accepted',
+    unread_count: Number(myParticipant?.unread_count || 0),
+    has_unread: Number(myParticipant?.unread_count || 0) > 0,
   }
 }
 
@@ -337,11 +516,34 @@ export async function getConversationById(conversationId: string) {
      }
   }
 
+  const { data: myParticipant } = await supabase
+    .from('conversation_participants')
+    .select('status, unread_count')
+    .eq('conversation_id', conversationId)
+    .eq('user_id', user.id)
+    .single()
+
   return {
     ...convo,
     otherUser: otherUser || null,
-    status: 'accepted' // Default for specific fetch
+    status: myParticipant?.status || 'accepted',
+    unread_count: Number(myParticipant?.unread_count || 0),
+    has_unread: Number(myParticipant?.unread_count || 0) > 0,
   }
+}
+
+export async function markConversationRead(conversationId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  const { error } = await supabase.rpc('mark_conversation_read', {
+    p_conversation_id: conversationId,
+  })
+  if (error) return { error: error.message }
+
+  revalidatePath('/messages')
+  return { success: true }
 }
 
 export async function deleteConversation(conversationId: string) {

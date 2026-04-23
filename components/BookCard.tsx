@@ -12,7 +12,7 @@ import { useMemo, useCallback } from 'react'
 
 export function BookCard({ book, locale, disabled }: { book: any; locale: string; disabled?: boolean }) {
   return (
-    <div className={`group relative flex flex-col gap-2 ${disabled ? 'opacity-75' : ''}`}>
+    <div className={`group relative flex flex-col gap-1 ${disabled ? 'opacity-75' : ''}`}>
       <div className="aspect-[2/3] w-full overflow-hidden rounded-md bg-neutral-100 dark:bg-neutral-800 relative">
         <Link href={`/${locale}/audiobooks/${book.id}` as any} className="block h-full w-full relative">
           <Image
@@ -32,23 +32,23 @@ export function BookCard({ book, locale, disabled }: { book: any; locale: string
           </div>
         )}
       </div>
-      <div className="p-3 sm:p-4">
-        <h3 className="font-semibold text-sm sm:text-base line-clamp-1 text-neutral-900 dark:text-white mb-1">{book.title}</h3>
-        <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 mb-2 line-clamp-1">{book.author}</p>
+      <div className="p-2 sm:p-3">
+        <h3 className="font-semibold text-xs sm:text-sm line-clamp-1 text-neutral-900 dark:text-white mb-1">{book.title}</h3>
+        <p className="text-[11px] sm:text-xs text-neutral-600 dark:text-neutral-400 mb-2 line-clamp-1">{book.author}</p>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             {book.price === 0 ? (
-              <span className="text-xs sm:text-sm font-bold text-green-600 dark:text-green-500">{t(locale, 'free')}</span>
+              <span className="text-[11px] sm:text-sm font-bold text-green-600 dark:text-green-500">{t(locale, 'free')}</span>
             ) : (
               <>
                 {book.original_price && book.original_price > book.price && (
                   <div className="flex flex-col">
                     <span className="text-[10px] text-neutral-500 dark:text-neutral-400 line-through">{book.original_price} ₼</span>
-                    <span className="text-xs sm:text-sm font-bold text-brand">{book.price} ₼</span>
+                    <span className="text-[11px] sm:text-sm font-bold text-brand">{book.price} ₼</span>
                   </div>
                 )}
                 {(!book.original_price || book.original_price <= book.price) && (
-                  <span className="text-xs sm:text-sm font-bold text-brand">{book.price} ₼</span>
+                  <span className="text-[11px] sm:text-sm font-bold text-brand">{book.price} ₼</span>
                 )}
               </>
             )}
@@ -64,9 +64,9 @@ export function BookCard({ book, locale, disabled }: { book: any; locale: string
           </div>
         </div>
         
-        <div className="flex flex-wrap items-center gap-2 mt-2 mb-3">
+        <div className="flex flex-wrap items-center gap-2 mt-1 mb-2">
           {book.voice_type && (
-            <span className="flex items-center gap-1.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 px-2 py-1 rounded text-[10px] sm:text-xs font-medium">
+            <span className="flex items-center gap-1.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 px-2 py-0.5 rounded text-[10px] sm:text-xs font-medium">
               {book.voice_type === 'single' && <FiMic size={12} />}
               {book.voice_type === 'multiple' && <FiUsers size={12} />}
               {book.voice_type === 'radio_theater' && <FiRadio size={12} />}
@@ -74,12 +74,12 @@ export function BookCard({ book, locale, disabled }: { book: any; locale: string
             </span>
           )}
           {book.has_ambience && (
-            <span className="flex items-center gap-1.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 px-2 py-1 rounded text-[10px] sm:text-xs font-medium" title={t(locale, 'has_ambience')}>
+            <span className="flex items-center gap-1.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 px-2 py-0.5 rounded text-[10px] sm:text-xs font-medium" title={t(locale, 'has_ambience')}>
               <FiWind size={12} />
             </span>
           )}
           {book.has_sound_effects && (
-            <span className="flex items-center gap-1.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 px-2 py-1 rounded text-[10px] sm:text-xs font-medium" title={t(locale, 'has_sound_effects')}>
+            <span className="flex items-center gap-1.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 px-2 py-0.5 rounded text-[10px] sm:text-xs font-medium" title={t(locale, 'has_sound_effects')}>
               <FiMusic size={12} />
             </span>
           )}
@@ -108,7 +108,7 @@ function Add({ id }: { id: string }) {
   }, [supabase, router, locale, add, id])
 
   return (
-    <button onClick={handleAdd} className="btn btn-primary w-full mt-3 py-2 text-sm">
+    <button onClick={handleAdd} className="btn btn-primary w-full mt-2 py-1.5 text-xs sm:text-sm sm:py-2">
       {t(locale, 'add_to_cart')}
     </button>
   )

@@ -21,6 +21,7 @@ import { Typography } from '@/components/ui/Typography'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { AppHeader } from '@/components/AppHeader'
 import { useLocale } from '@/context/locale'
+import * as Notifications from 'expo-notifications'
 
 export default function MessagesScreen() {
   const [conversations, setConversations] = useState<Conversation[]>([])
@@ -44,6 +45,72 @@ export default function MessagesScreen() {
     else setLoading(false)
   }, [user?.id])
 
+  // Realtime: keep conversation list fresh (new messages, updated previews)
+  useEffect(() => {
+    if (!user?.id) return
+    if (loading) return
+    if (!conversations || conversations.length === 0) return
+
+    const convoIds = conversations.map((c) => c.id)
+    const channels = convoIds.map((conversationId) => {
+      return supabase
+        .channel(`inbox-${conversationId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'direct_messages',
+            filter: `conversation_id=eq.${conversationId}`,
+          },
+          async (payload) => {
+            const msg = payload.new as any
+
+            // Only notify on messages from the other person
+            if (msg?.sender_id && msg.sender_id !== user.id) {
+              const convo = conversations.find((c) => c.id === conversationId)
+              const title =
+                convo?.otherUser?.full_name ||
+                convo?.otherUser?.username ||
+                t('dm_title')
+              const body = msg?.content ? String(msg.content) : t('dm_start_chatting')
+
+              // Foreground-only local notification (push requires server)
+              try {
+                await Notifications.scheduleNotificationAsync({
+                  content: { title, body },
+                  trigger: null,
+                })
+              } catch {
+                // ignore
+              }
+            }
+
+            // Update list preview and bump to top
+            setConversations((prev) => {
+              const next = prev.map((c) => {
+                if (c.id !== conversationId) return c
+                return {
+                  ...c,
+                  last_message: msg?.content ?? c.last_message,
+                  updated_at: msg?.created_at ?? new Date().toISOString(),
+                }
+              })
+              next.sort((a: any, b: any) => Date.parse(String(b.updated_at)) - Date.parse(String(a.updated_at)))
+              return next
+            })
+          },
+        )
+        .subscribe()
+    })
+
+    return () => {
+      channels.forEach((ch) => supabase.removeChannel(ch))
+    }
+    // Important: re-subscribe when conversation IDs change (not on every render)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, loading, conversations.map((c) => c.id).join('|')])
+
   async function loadConversations() {
     if (!user?.id) return
 
@@ -54,7 +121,7 @@ export default function MessagesScreen() {
       try {
         const { data, error } = await supabase
           .from('conversation_participants')
-          .select('conversation_id, status')
+          .select('conversation_id, status, unread_count')
           .eq('user_id', user.id)
 
         if (error) throw error
@@ -66,7 +133,7 @@ export default function MessagesScreen() {
           .eq('user_id', user.id)
 
         if (error) throw error
-        participations = (data || []).map(p => ({ ...p, status: 'accepted' }))
+        participations = (data || []).map(p => ({ ...p, status: 'accepted', unread_count: 0 }))
       }
 
       if (!participations || participations.length === 0) {
@@ -76,6 +143,7 @@ export default function MessagesScreen() {
 
       const convIds = participations.map(p => p.conversation_id)
       const statusByConvoId = new Map(participations.map(p => [p.conversation_id, p.status]))
+      const unreadByConvoId = new Map(participations.map(p => [p.conversation_id, Number(p.unread_count || 0)]))
 
       const { data: convos } = await supabase
         .from('conversations')
@@ -108,7 +176,7 @@ export default function MessagesScreen() {
           }
 
           const status = statusByConvoId.get(convo.id) || 'accepted'
-          return { ...convo, otherUser, status }
+          return { ...convo, otherUser, status, unread_count: unreadByConvoId.get(convo.id) || 0 }
         })
       )
 
@@ -150,7 +218,7 @@ export default function MessagesScreen() {
     })
   }, [conversations, tab, search])
 
-  async function startConversation(targetUserId: string) {
+  async function startConversation(targetUserId: string, targetUsername?: string | null) {
     if (!user?.id) return
     const { data, error } = await supabase.rpc('start_direct_conversation', {
       other_user_id: targetUserId,
@@ -164,7 +232,7 @@ export default function MessagesScreen() {
     setIsNewChatOpen(false)
     setTab('inbox')
     await loadConversations()
-    router.push(`/chat/${conversationId}` as any)
+    router.push(targetUsername ? (`/chat/${targetUsername}` as any) : (`/chat/${conversationId}` as any))
   }
 
   async function searchUsersInModal(q: string) {
@@ -285,7 +353,13 @@ export default function MessagesScreen() {
               return (
                 <Pressable
                   style={[styles.convoRow, { borderBottomColor: colors.border }]}
-                  onPress={() => router.push(`/chat/${item.id}` as any)}
+                  onPress={async () => {
+                    // Clear unread state as soon as chat is opened.
+                    await supabase.rpc('mark_conversation_read', { p_conversation_id: item.id })
+                    setConversations(prev => prev.map(c => c.id === item.id ? { ...c, unread_count: 0 } : c))
+                    const uname = item.otherUser?.username
+                    router.push(uname ? (`/chat/${uname}` as any) : (`/chat/${item.id}` as any))
+                  }}
                 >
                   <UserAvatar
                     avatarUrl={item.otherUser?.avatar_url}
@@ -311,6 +385,13 @@ export default function MessagesScreen() {
                   <Typography style={[styles.convoTime, { color: colors.textTertiary }]}>
                     {formatDistanceToNow(item.updated_at)}
                   </Typography>
+                  {(item.unread_count || 0) > 0 && tab === 'inbox' ? (
+                    <View style={styles.unreadBadge}>
+                      <Typography weight="bold" style={styles.unreadBadgeText}>
+                        {item.unread_count}
+                      </Typography>
+                    </View>
+                  ) : null}
                 </Pressable>
               )
             }}
@@ -367,7 +448,7 @@ export default function MessagesScreen() {
                     renderItem={({ item: u }) => {
                       return (
                         <Pressable
-                          onPress={() => startConversation(u.id)}
+                          onPress={() => startConversation(u.id, u.username)}
                           style={({ pressed }) => [
                             styles.userRow,
                             { backgroundColor: pressed ? colors.surfaceHover : 'transparent' },
@@ -482,6 +563,20 @@ const styles = StyleSheet.create({
   convoName: { fontSize: FontSize.md },
   convoMessage: { fontSize: FontSize.sm, marginTop: 2 },
   convoTime: { fontSize: FontSize.xs, maxWidth: 90, textAlign: 'right' },
+  unreadBadge: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    paddingHorizontal: 5,
+    backgroundColor: Colors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: Spacing.sm,
+  },
+  unreadBadgeText: {
+    color: '#06140A',
+    fontSize: 11,
+  },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center' },
   modalCard: { width: '86%', borderRadius: BorderRadius.xl, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
   modalHeader: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1 },
