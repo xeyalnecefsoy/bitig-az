@@ -6,6 +6,9 @@ export type LinkPreviewData = {
   description?: string
   imageUrl?: string
   siteName?: string
+  creatorName?: string
+  creatorUrl?: string
+  publishedAt?: string
   type?: LinkPreviewType
 }
 
@@ -17,7 +20,9 @@ const ALLOWLIST = [
   'wikipedia.org',
   'bitig.az',
   'www.bitig.az',
+  // Sister platform: allow all danyeri.az pages and subdomains.
   'danyeri.az',
+  'www.danyeri.az',
   'techturk.az',
 ] as const
 
@@ -105,6 +110,14 @@ function getMetaTag(html: string, attrName: 'property' | 'name', attrValue: stri
   return match?.[1] ? decodeHtml(match[1]).trim() : null
 }
 
+function getMetaAny(html: string, entries: Array<{ attrName: 'property' | 'name'; attrValue: string }>): string | null {
+  for (const entry of entries) {
+    const value = getMetaTag(html, entry.attrName, entry.attrValue)
+    if (value) return value
+  }
+  return null
+}
+
 function getTitle(html: string): string | null {
   const match = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)
   if (!match?.[1]) return null
@@ -133,6 +146,36 @@ async function fetchText(url: string): Promise<string> {
   }
 }
 
+async function fetchJson<T>(url: string): Promise<T | null> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 4500)
+  try {
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: { 'user-agent': 'BitigLinkPreviewBot/1.0 (+https://bitig.az)' },
+      signal: controller.signal,
+      cache: 'no-store',
+    })
+    if (!res.ok) return null
+    return (await res.json()) as T
+  } catch {
+    return null
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
+function resolveMaybeRelative(baseUrl: string, value?: string | null): string | undefined {
+  if (!value) return undefined
+  const trimmed = value.trim()
+  if (!trimmed) return undefined
+  try {
+    return new URL(trimmed, baseUrl).href
+  } catch {
+    return undefined
+  }
+}
+
 function getYoutubeId(url: URL): string | null {
   if (url.hostname.includes('youtu.be')) {
     return url.pathname.split('/').filter(Boolean)[0] || null
@@ -154,22 +197,67 @@ export async function buildLinkPreview(url: string): Promise<LinkPreviewData | n
   if (parsed.hostname.includes('youtube.com') || parsed.hostname.includes('youtu.be')) {
     const id = getYoutubeId(parsed)
     if (id) {
+      const oembed = await fetchJson<{
+        title?: string
+        author_name?: string
+        author_url?: string
+        thumbnail_url?: string
+      }>(`https://www.youtube.com/oembed?url=${encodeURIComponent(normalized)}&format=json`)
+
+      let description: string | undefined
+      try {
+        const html = await fetchText(normalized)
+        description = getMetaAny(html, [
+          { attrName: 'property', attrValue: 'og:description' },
+          { attrName: 'name', attrValue: 'description' },
+          { attrName: 'name', attrValue: 'twitter:description' },
+        ]) || undefined
+      } catch {
+        description = undefined
+      }
+
       return {
         url: normalized,
-        title: 'YouTube video',
-        imageUrl: `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
+        title: truncate(oembed?.title || 'YouTube video', 120),
+        description: description ? truncate(description, 220) : undefined,
+        imageUrl: resolveMaybeRelative(normalized, oembed?.thumbnail_url) || `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
         siteName: 'YouTube',
+        creatorName: oembed?.author_name ? truncate(oembed.author_name, 80) : undefined,
+        creatorUrl: oembed?.author_url,
         type: 'video',
       }
     }
   }
 
   const html = await fetchText(normalized)
-  const ogTitle = getMetaTag(html, 'property', 'og:title')
-  const ogDescription = getMetaTag(html, 'property', 'og:description')
-  const ogImage = getMetaTag(html, 'property', 'og:image')
-  const ogSite = getMetaTag(html, 'property', 'og:site_name')
+  const ogTitle = getMetaAny(html, [
+    { attrName: 'property', attrValue: 'og:title' },
+    { attrName: 'name', attrValue: 'twitter:title' },
+  ])
+  const ogDescription = getMetaAny(html, [
+    { attrName: 'property', attrValue: 'og:description' },
+    { attrName: 'name', attrValue: 'twitter:description' },
+    { attrName: 'name', attrValue: 'description' },
+  ])
+  const ogImage = getMetaAny(html, [
+    { attrName: 'property', attrValue: 'og:image' },
+    { attrName: 'name', attrValue: 'twitter:image' },
+  ])
+  const ogSite = getMetaAny(html, [
+    { attrName: 'property', attrValue: 'og:site_name' },
+    { attrName: 'name', attrValue: 'application-name' },
+  ])
   const ogType = getMetaTag(html, 'property', 'og:type')
+  const creatorName = getMetaAny(html, [
+    { attrName: 'name', attrValue: 'author' },
+    { attrName: 'property', attrValue: 'article:author' },
+  ])
+  const creatorUrl = getMetaTag(html, 'property', 'article:author')
+  const publishedAt = getMetaAny(html, [
+    { attrName: 'property', attrValue: 'article:published_time' },
+    { attrName: 'name', attrValue: 'publish-date' },
+    { attrName: 'name', attrValue: 'date' },
+  ])
   const title = ogTitle || getTitle(html)
 
   if (!title) return null
@@ -181,8 +269,11 @@ export async function buildLinkPreview(url: string): Promise<LinkPreviewData | n
     url: normalized,
     title: truncate(title, 120),
     description: ogDescription ? truncate(ogDescription, 220) : undefined,
-    imageUrl: ogImage ? normalizeUrl(ogImage) ?? ogImage : undefined,
+    imageUrl: resolveMaybeRelative(normalized, ogImage),
     siteName: ogSite || parsed.hostname.replace(/^www\./, ''),
+    creatorName: creatorName ? truncate(creatorName, 80) : undefined,
+    creatorUrl: resolveMaybeRelative(normalized, creatorUrl),
+    publishedAt: publishedAt ? truncate(publishedAt, 80) : undefined,
     type: previewType,
   }
 }

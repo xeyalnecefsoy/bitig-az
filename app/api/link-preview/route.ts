@@ -8,6 +8,7 @@ export const dynamic = 'force-dynamic'
 type CacheEntry = { expiresAt: number; data: unknown }
 const cache = new Map<string, CacheEntry>()
 const TTL_MS = 5 * 60_000
+const CACHE_VERSION = 'v2'
 
 export async function GET(request: NextRequest) {
   try {
@@ -28,8 +29,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Domain not allowed' }, { status: 400 })
     }
 
+    const cacheKey = `${CACHE_VERSION}:${url}`
     const now = Date.now()
-    const cached = cache.get(url)
+    const cached = cache.get(cacheKey)
     if (cached && cached.expiresAt > now) {
       return NextResponse.json(
         { preview: cached.data, cached: true },
@@ -42,7 +44,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'No preview available' }, { status: 404 })
     }
 
-    cache.set(url, { data: preview, expiresAt: now + TTL_MS })
+    cache.set(cacheKey, { data: preview, expiresAt: now + TTL_MS })
     if (cache.size > 500) {
       // Tiny cap to avoid unbounded growth in long-lived instances.
       const firstKey = cache.keys().next().value

@@ -14,28 +14,22 @@ export async function updateSession(request: NextRequest) {
     return supabaseResponse
   }
 
-  const supabase = createServerClient(
-    url,
-    key,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            request.cookies.set(name, value)
-          )
-          supabaseResponse = NextResponse.next({
-            request,
-          })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          )
-        },
+  const supabase = createServerClient(url, key, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll()
       },
-    }
-  )
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+        supabaseResponse = NextResponse.next({
+          request,
+        })
+        cookiesToSet.forEach(({ name, value, options }) =>
+          supabaseResponse.cookies.set(name, value, options)
+        )
+      },
+    },
+  })
 
   // IMPORTANT: Avoid writing any logic between createServerClient and
   // supabase.auth.getUser(). A simple mistake could make it very hard to debug
@@ -67,13 +61,20 @@ export async function updateSession(request: NextRequest) {
     }
 
     // Check role from database
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
+    let profile: { role?: string } | null = null
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+      profile = data
+    } catch {
+      profile = null
+    }
 
-    if (!profile || !['admin', 'coadmin'].includes(profile.role)) {
+    const role = profile?.role ?? ''
+    if (!['admin', 'coadmin'].includes(role)) {
       // Not admin → redirect to homepage
       const locale = pathname.split('/')[1] || 'az'
       const homeUrl = request.nextUrl.clone()

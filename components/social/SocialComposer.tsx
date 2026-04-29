@@ -909,7 +909,10 @@ export function SocialComposer({
         if (newPostId) {
           previousPostId = newPostId
         } else {
-          throw new Error('Post creation returned no ID')
+          // `createPost` already shows a user-facing toast on known failures.
+          // Avoid double-toasting by returning early instead of throwing here.
+          if (!currentUser) toast.error('Xəta baş verdi. Zəhmət olmasa yenidən cəhd edin.')
+          return
         }
         draftIndex += 1
       }

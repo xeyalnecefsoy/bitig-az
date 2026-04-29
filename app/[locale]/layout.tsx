@@ -7,6 +7,7 @@ import { GuestPopup } from '@/components/GuestPopup'
 import { FloatingPlayer } from '@/components/FloatingPlayer'
 import { WebPushRegistrar } from '@/components/WebPushRegistrar'
 import type { Metadata } from 'next'
+import { WidgetErrorBoundary } from '@/components/system/WidgetErrorBoundary'
 
 // Localized metadata content
 const localeMetadata = {
@@ -41,16 +42,30 @@ export default async function LocaleLayout({ children, params }: { children: Rea
   const lang = locale as Locale
   return (
     <LocaleProvider locale={lang}>
-      <Navbar />
-      <MobileHeader />
+      <WidgetErrorBoundary widgetName="navbar">
+        <Navbar />
+      </WidgetErrorBoundary>
+      <WidgetErrorBoundary widgetName="mobile-header">
+        <MobileHeader />
+      </WidgetErrorBoundary>
       <main className="min-h-screen pb-20 lg:pb-0">
         {children}
       </main>
-      <Footer locale={lang} />
-      <FloatingPlayer />
-      <WebPushRegistrar />
-      <MobileNav />
-      <GuestPopup />
+      <WidgetErrorBoundary widgetName="footer">
+        <Footer locale={lang} />
+      </WidgetErrorBoundary>
+      <WidgetErrorBoundary widgetName="floating-player">
+        <FloatingPlayer />
+      </WidgetErrorBoundary>
+      <WidgetErrorBoundary widgetName="web-push">
+        <WebPushRegistrar />
+      </WidgetErrorBoundary>
+      <WidgetErrorBoundary widgetName="mobile-nav">
+        <MobileNav />
+      </WidgetErrorBoundary>
+      <WidgetErrorBoundary widgetName="guest-popup">
+        <GuestPopup />
+      </WidgetErrorBoundary>
     </LocaleProvider>
   )
 }

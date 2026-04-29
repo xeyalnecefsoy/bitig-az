@@ -1238,3 +1238,7 @@ export function useSocial() {
   if (!ctx) throw new Error('useSocial must be used within SocialProvider')
   return ctx
 }
+
+export function useSocialOptional() {
+  return useContext(SocialCtx)
+}

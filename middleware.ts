@@ -17,7 +17,11 @@ export async function middleware(request: NextRequest) {
 
   // Handle /auth routes: update session but DON'T redirect to locale
   if (pathname.startsWith('/auth')) {
-    return await updateSession(request)
+    try {
+      return await updateSession(request)
+    } catch {
+      return NextResponse.next()
+    }
   }
 
   const segments = pathname.split('/').filter(Boolean)
@@ -39,7 +43,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  return await updateSession(request)
+  try {
+    return await updateSession(request)
+  } catch {
+    // Fail-open for non-static pages if auth/session backend is transiently unavailable.
+    return NextResponse.next()
+  }
 }
 
 export const config = {

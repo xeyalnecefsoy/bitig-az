@@ -6,7 +6,6 @@ import { CartProvider } from '@/context/cart'
 import { LocaleProvider } from '@/context/locale'
 import { ThemeProvider } from '@/context/theme'
 import { AudioProvider } from '@/context/audio'
-import { SocialProvider } from '@/context/social'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 import { Suspense } from 'react'
 import SystemAlertBanner from '@/components/system/SystemAlertBanner'
@@ -170,11 +169,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <ThemeProvider>
             <AudioProvider>
               <CartProvider>
-                <SocialProvider>
-                  <LocaleProvider locale="az">
-                    {children}
-                  </LocaleProvider>
-                </SocialProvider>
+                <LocaleProvider locale="az">
+                  {children}
+                </LocaleProvider>
               </CartProvider>
             </AudioProvider>
           </ThemeProvider>

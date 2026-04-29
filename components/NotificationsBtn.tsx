@@ -6,7 +6,7 @@ import Link from 'next/link'
 import type { Route } from 'next'
 import { useLocale } from '@/context/locale'
 import { t, type Locale } from '@/lib/i18n'
-import { useSocial } from '@/context/social'
+import { useSocialOptional } from '@/context/social'
 
 type Notification = {
   id: string
@@ -22,10 +22,12 @@ type Notification = {
 }
 
 export function NotificationsBtn() {
-  const { notifications, unreadCount, markNotificationsAsRead } = useSocial()
+  const social = useSocialOptional()
   const [isOpen, setIsOpen] = useState(false)
   const locale = useLocale()
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const notifications = social?.notifications ?? []
+  const unreadCount = social?.unreadCount ?? 0
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -38,10 +40,14 @@ export function NotificationsBtn() {
   }, [])
 
   const toggleOpen = () => {
-    if (!isOpen) {
-      markNotificationsAsRead()
+    if (!isOpen && social) {
+      social.markNotificationsAsRead()
     }
     setIsOpen(!isOpen)
+  }
+
+  if (!social) {
+    return null
   }
 
   function getNotificationText(type: string) {

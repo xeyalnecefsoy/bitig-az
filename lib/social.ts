@@ -82,6 +82,9 @@ export type LinkPreview = {
   description?: string
   imageUrl?: string
   siteName?: string
+  creatorName?: string
+  creatorUrl?: string
+  publishedAt?: string
   type?: 'video' | 'article' | 'website'
 }
 
